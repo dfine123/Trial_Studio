@@ -146,11 +146,20 @@ def _parse_json(text: str) -> dict:
     return {"summary": text[:1000], "moments": []}
 
 
-def analyze_clip(c: TwelveLabs, video_id: str, max_tokens: int = 1400) -> dict:
+def analyze_clip(
+    c: TwelveLabs, video_id: str, max_tokens: int = 1400, real_duration: float | None = None
+) -> dict:
+    prompt = _PEGASUS_PROMPT
+    if real_duration:
+        prompt += (
+            f"\n\nIMPORTANT: only the first {real_duration:.1f} seconds contain real footage; "
+            f"the remainder is a frozen hold of the last frame. Describe ONLY the first "
+            f"{real_duration:.1f}s and keep every moment timestamp within it."
+        )
     res = c.analyze(
         video_id=video_id,
         model_name=settings.tl_pegasus_model,
-        prompt=_PEGASUS_PROMPT,
+        prompt=prompt,
         temperature=0.2,
         max_tokens=max_tokens,
     )

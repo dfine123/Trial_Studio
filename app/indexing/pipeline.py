@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import statistics
+import subprocess
 import uuid
 from datetime import datetime, timezone
 
@@ -110,6 +111,29 @@ def _resolve_source(clip: Clip, source_path: str | None) -> tuple[str, bool]:
     return local, True
 
 
+def _pad_short_for_tl(src: str, real_duration: float, work_dir: str, target: float) -> str:
+    """Freeze-pad a sub-minimum clip up to `target`s so Twelve Labs accepts it.
+
+    Real frames keep their real speed and timestamps; only a frozen hold of the last frame
+    is appended (and later ignored, since it falls outside the original clip's segments).
+    Returns the temp path of the padded copy (caller deletes it).
+    """
+    os.makedirs(work_dir, exist_ok=True)
+    out = os.path.join(work_dir, f"tlpad_{uuid.uuid4().hex}.mp4")
+    pad = max(0.1, target - (real_duration or 0.0))
+    base = [
+        "ffmpeg", "-y", "-i", src,
+        "-vf", f"tpad=stop_mode=clone:stop_duration={pad:.2f}",
+        "-t", f"{target:.2f}",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
+    ]
+    try:
+        subprocess.run(base + ["-af", "apad", "-c:a", "aac", out], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        subprocess.run(base + ["-an", out], check=True, capture_output=True)  # no audio stream
+    return out
+
+
 def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
     """Index one clip. Returns the final status. Marks rejected (with reason) on any failure."""
     if isinstance(clip_id, str):
@@ -140,20 +164,33 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
         # Segmentation (+ long-take windowing)
         windows = segmentation.segment_video(path, total_duration=p.duration)
 
-        # Twelve Labs (index -> poll -> Pegasus -> Marengo)
+        # Twelve Labs (index -> poll -> Pegasus -> Marengo).
+        # Sub-4s clips: index a freeze-padded copy (TL's minimum) but keep the original as the
+        # real asset; the analysis is attributed to the original.
         c = twelvelabs.client()
         index_id = twelvelabs.ensure_index(c)
-        task = twelvelabs.index_video(c, index_id, video_file=path)
-        clip.twelvelabs_video_id = task.video_id
-        session.commit()
+        tl_source, tl_padded, real_dur = path, False, None
+        if p.duration and p.duration < settings.tl_min_duration:
+            tl_source = _pad_short_for_tl(path, p.duration, settings.work_dir, settings.tl_pad_target)
+            tl_padded, real_dur = True, p.duration
+        try:
+            task = twelvelabs.index_video(c, index_id, video_file=tl_source)
+            clip.twelvelabs_video_id = task.video_id
+            session.commit()
 
-        analysis = twelvelabs.analyze_clip(c, task.video_id)
-        embedding = None
-        if settings.enable_marengo_embedding:
-            try:
-                embedding = twelvelabs.embed_video(c, video_file=path)
-            except Exception:  # noqa: BLE001 — embedding is best-effort (V1)
-                embedding = None
+            analysis = twelvelabs.analyze_clip(c, task.video_id, real_duration=real_dur)
+            embedding = None
+            if settings.enable_marengo_embedding:
+                try:
+                    embedding = twelvelabs.embed_video(c, video_file=tl_source)
+                except Exception:  # noqa: BLE001 — embedding is best-effort (V1)
+                    embedding = None
+        finally:
+            if tl_padded and os.path.exists(tl_source):
+                try:
+                    os.remove(tl_source)
+                except OSError:
+                    pass
 
         # OpenCV per-segment metrics
         visuals = [visual.analyze_segment(path, w.start_ts, w.end_ts) for w in windows]

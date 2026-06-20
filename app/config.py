@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     tl_marengo_model: str = "marengo3.0"          # index embedding model (2.7 retired)
     tl_pegasus_model: str = "pegasus1.2"          # generative model for summary/tags
     enable_marengo_embedding: bool = True         # store the per-clip Marengo vector (extra cost)
+    tl_min_duration: float = 4.0                  # TL's hard minimum; freeze-pad shorter clips
+    tl_pad_target: float = 4.5                    # pad sub-minimum clips up to this length
     work_dir: str = "/tmp/trial-studio"          # transient per-clip working space
     min_resolution: int = 1080                   # QC: reject if min(w,h) < this
     min_fps: float = 29.9                         # QC: reject if fps < this

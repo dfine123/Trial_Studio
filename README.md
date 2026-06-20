@@ -12,6 +12,9 @@ upload a clip → store in R2 → quality-gate → segment → analyze (Twelve L
 - Indexing worker — QC gate (reject < 1080p / < 30fps) → PySceneDetect + long-take
   windowing → Twelve Labs (Pegasus summary/tags + Marengo embedding) → OpenCV per-segment
   metrics + usability → persist `Clip` + `Segment` rows, `status=indexed`.
+  - Clips under Twelve Labs' 4s minimum are freeze-padded to ~4.5s **only for the TL index
+    call** (real frames stay real-speed so moment timestamps map 1:1); the stored clip,
+    segments, and OpenCV metrics all use the untouched original.
 - `GET /clips`, `GET /clips/{id}` — read the index record (clip + its segments).
 - `seed/seed_audio.py` — load test audios with a librosa `beat_map`, manual `beat_drop_ts`,
   and `structure`.
