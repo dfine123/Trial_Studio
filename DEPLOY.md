@@ -7,7 +7,7 @@ acceptance passes.
 ## What you'll create
 Two services from the **same repo/image**:
 - **web** — the API (`uvicorn`), runs DB migrations on start.
-- **worker** — the indexer (`rq worker indexing`).
+- **worker** — the indexer (`python -m app.workers.run`).
 Plus the **Postgres** and **Redis** plugins (they inject `DATABASE_URL` / `REDIS_URL`).
 
 ## Steps
@@ -24,7 +24,7 @@ Plus the **Postgres** and **Redis** plugins (they inject `DATABASE_URL` / `REDIS
 4. **Create the `worker` service** → New service from the **same** repo. Set its **start
    command** to:
    ```
-   rq worker indexing
+   python -m app.workers.run
    ```
 
 5. **Set environment variables on BOTH services** (Variables tab). Reference the plugins for

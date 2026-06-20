@@ -34,7 +34,7 @@ cd /mnt/c/Users/Streaming/trial-studio
 source .venv/bin/activate
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000      # API
-rq worker indexing                              # worker (separate shell)
+python -m app.workers.run                       # worker (separate shell)
 python -m app.seed.seed_audio                   # seed audios
 ```
 
