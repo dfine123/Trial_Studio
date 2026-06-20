@@ -1,0 +1,40 @@
+# ---- Secrets / environment ----
+.env
+.env.*
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.mypy_cache/
+
+# ---- Media / scratch (never commit user footage or large binaries) ----
+samples/
+uploads/
+tmp/
+scratch/
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+# (fonts/*.ttf are intentionally NOT ignored — the brand kit is committed)
+
+# ---- Logs ----
+*.log
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
