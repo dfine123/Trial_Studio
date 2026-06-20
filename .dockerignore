@@ -1,0 +1,19 @@
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# secrets — never bake into the image (Railway injects env vars)
+.env
+.env.*
+!.env.example
+
+# local-only media + scratch
+samples/
+uploads/
+tmp/
+scratch/
+*.log
