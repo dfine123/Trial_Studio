@@ -14,7 +14,7 @@ from anthropic import Anthropic
 
 from app.config import settings
 from app.corpus.genlog import log_generated, recent_generated
-from app.corpus.grades import kept_captions, killed_captions
+from app.corpus.grades import best_captions, kept_captions, killed_captions
 from app.corpus.store import load_refs, retrieve
 
 # Soft affinity: an audio's PURPOSE -> the persona modes that tend to fit it. Used to bias
@@ -30,12 +30,12 @@ _AUDIO_MODE_AFFINITY = {
 }
 
 _FOCUS = [
-    "lean into the absurd / villain / shameless side",
-    "lean into sincere mentor-motivation (proverbs, reps, grind-dread)",
-    "lean anti-simp / relationship-contrarian",
-    "lean self-aware hustler / grindset",
-    "lean crude / wordplay / IYKYK",
-    "mix modes widely — no two alike",
+    "lean a bit heavier on absurd / villain / shameless humor",
+    "lean a bit heavier on crude / wordplay / IYKYK humor",
+    "lean a bit heavier on anti-simp + relationship humor",
+    "lean a bit heavier on degenerate / gambling / broke-flex humor",
+    "balanced funny across modes, plus a couple sincere-motivational",
+    "heavier on motivational — but razor-sharp metaphors only",
 ]
 
 _SYS = """You write short-form captions in ONE specific creator's voice. The caption IS the post — the words carry it; a clip plays behind. Goal: something a very-online person screenshots and SENDS to a friend (shareability is the dominant lever in this creator's corpus).
@@ -43,7 +43,10 @@ _SYS = """You write short-form captions in ONE specific creator's voice. The cap
 You are given REAL reference captions from THIS creator's corpus, each with WHY it works. Study the voice, the persona modes, and the mechanics — then write NEW captions with the same energy. Do NOT copy or lightly reword them; bring fresh topics and angles.
 
 Rules learned the hard way:
-- FUNNY or genuinely insightful first. Decode the real mechanism — never write something that merely sounds edgy or deep.
+- BASE PERSONA: the narrator is a rich, winning, flex entrepreneur — the guy with the money, the landlord collecting rent, the one who already made it. Even the jokes come from that POV (villain landlord, the guy who charges his own therapist, the winner looking down). Flex/status is the bedrock under every caption; humor and motivation sit ON TOP of it.
+- LEAD WITH FUNNY. The creator wants genuinely funny captions MORE than motivational ones — but funny only counts if the payoff lands.
+- THE PAYOFF IS EVERYTHING. The #1 failure mode is a strong setup with a limp, confusing, or illogical payoff. The punchline must hit hard, be specific, and be logically airtight — the premise has to actually hold (no logic holes like "a funeral is invite-only anyway", no weak analogies, nothing corny or try-hard). A great setup with a weak payoff is a FAILURE — rebuild the landing or throw the whole line out.
+- Decode the real mechanism — never write something that merely sounds edgy or deep.
 - The voice is DUAL: shameless-funny (villain / anti-simp / absurd / crude / ego-wordplay) AND sincere-mentor motivation (proverbs, reps-make-mastery, grind-dread). Match what the audio calls for.
 - Most lines are UNIVERSAL (core persona) — do NOT force a niche/theme. lowercase-leaning, deadpan, very-online slang; emojis are fine (😭🙏🥷); a little mean is good.
 - Commit each caption to ONE move + the 1-2 levers it nails. Don't cram every variable in (it comes out lame).
@@ -85,6 +88,7 @@ def generate(
     random.shuffle(pool)
     chosen = pool[:12]
 
+    best = best_captions()[-8:]
     kept = kept_captions()[-12:]
     avoid = (killed_captions() + recent_generated(45))[-60:]
 
@@ -93,6 +97,7 @@ def generate(
         for r in chosen
     ]
     ref_block = "\n".join(ref_lines) or "(corpus empty)"
+    best_block = "\n".join("- " + c.replace("\n", " / ") for c in best) or "(none yet)"
     good_block = "\n".join("- " + c.replace("\n", " / ") for c in kept) or "(none graded yet)"
     avoid_block = "\n".join("- " + c.replace("\n", " / ") for c in avoid) or "(none yet)"
 
@@ -112,11 +117,14 @@ def generate(
         f"AUDIO — vibe: {audio_vibe}; purpose: {audio_purpose}; energy: {audio_energy}.\n"
         f"Creator notes/topic (optional): {notes or 'none — lean core persona, any topic'}.\n\n"
         f"REFERENCE CORPUS (match the voice, do NOT copy):\n{ref_block}\n\n"
+        f"CROWNED BEST — the creator's all-time favorites; THIS is the bar every caption must clear:\n{best_block}\n\n"
         f"GOOD — these LANDED with the creator (match this caliber and spirit, never copy):\n{good_block}\n\n"
         f"AVOID — already shown or rejected. NEVER repeat, reword, or reuse the structure/template of any:\n{avoid_block}\n\n"
-        f"This batch: {focus}. Write {n} captions, each genuinely DISTINCT (different structure, topic, and "
-        f"opening — no two share a template, none echo the AVOID list). Each must be strong enough you'd stake "
-        f"your name on it; if an idea is weak or familiar, throw it out and write a better one. Funny/insightful first, built to be SENT."
+        f"This batch: {focus}. Write {n} captions. MOST must be genuinely FUNNY (lead with humor); a couple may "
+        f"be sincere-motivational. Every one must be a DIFFERENT structure and opening — NO two in this batch share "
+        f"a template or mold, none echo the AVOID list. Each must land a hard, coherent payoff (logic must hold; no "
+        f"weak analogies, nothing corny) and be strong enough you'd stake your name on it; if the landing is weak, "
+        f"confusing, or familiar, throw it out and rebuild. Built to be SENT."
     )
 
     msg = _client().messages.create(

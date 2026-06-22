@@ -84,6 +84,10 @@ def killed_captions() -> list[str]:
     return [r["caption"] for r in _load_raw() if r.get("type") == "verdict" and r.get("verdict") == "kill"]
 
 
+def best_captions() -> list[str]:
+    return [r["winner"] for r in _load_raw() if r.get("type") == "best" and r.get("winner")]
+
+
 def dedupe() -> list[dict]:
     """One-time cleanup of an existing file: one verdict per caption (last wins) + unique pairs."""
     out: list[dict] = []
