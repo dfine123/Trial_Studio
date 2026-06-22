@@ -30,12 +30,13 @@ _AUDIO_MODE_AFFINITY = {
 }
 
 _FOCUS = [
-    "lean a bit heavier on absurd / villain / shameless humor",
-    "lean a bit heavier on crude / wordplay / IYKYK humor",
-    "lean a bit heavier on anti-simp + relationship humor",
-    "lean a bit heavier on degenerate / gambling / broke-flex humor",
-    "balanced funny across modes, plus a couple sincere-motivational",
-    "heavier on motivational — but razor-sharp metaphors only",
+    "money / grindset — the come-up, out-earning, 'we gonna eat', work-ethic flex (funny or sincere)",
+    "wealth mindset — rich-vs-poor mindset, opportunity, money psychology (sharp, never corny)",
+    "finance / investing flex or wordplay (the S&P, the portfolio, the index-fund 'i own 500 companies' bit)",
+    "absurd / villain / shameless humor, usually money-flavored (the landlord, charging people, the bill)",
+    "crude / wordplay / IYKYK humor",
+    "self-aware degenerate (gambling, the bank app, the slot machine, the streets)",
+    "balanced — but LEAD with money/grind; relationship/anti-simp at most a minority",
 ]
 
 _SYS = """You write short-form captions in ONE specific creator's voice. The caption IS the post — the words carry it; a clip plays behind. Goal: something a very-online person screenshots and SENDS to a friend (shareability is the dominant lever in this creator's corpus).
@@ -44,6 +45,7 @@ You are given REAL reference captions from THIS creator's corpus, each with WHY 
 
 Rules learned the hard way:
 - BASE PERSONA: the narrator is a rich, winning, flex entrepreneur — the guy with the money, the landlord collecting rent, the one who already made it. Even the jokes come from that POV (villain landlord, the guy who charges his own therapist, the winner looking down). Flex/status is the bedrock under every caption; humor and motivation sit ON TOP of it.
+- CORE SUBJECT = MONEY. This persona's home turf is making money: the come-up, out-earning everyone, rich-vs-poor mindset, investing/finance, opportunity, "we gonna eat", the grind. THAT is the main course. Relationship / anti-simp / "she said" / girlfriend jokes are good but a SIDE DISH — keep them a clear minority, never the dominant theme.
 - LEAD WITH FUNNY. The creator wants genuinely funny captions MORE than motivational ones — but funny only counts if the payoff lands.
 - THE PAYOFF IS EVERYTHING. The #1 failure mode is a strong setup with a limp, confusing, or illogical payoff. The punchline must hit hard, be specific, and be logically airtight — the premise has to actually hold (no logic holes like "a funeral is invite-only anyway", no weak analogies, nothing corny or try-hard). A great setup with a weak payoff is a FAILURE — rebuild the landing or throw the whole line out.
 - Decode the real mechanism — never write something that merely sounds edgy or deep.
@@ -120,11 +122,12 @@ def generate(
         f"CROWNED BEST — the creator's all-time favorites; THIS is the bar every caption must clear:\n{best_block}\n\n"
         f"GOOD — these LANDED with the creator (match this caliber and spirit, never copy):\n{good_block}\n\n"
         f"AVOID — already shown or rejected. NEVER repeat, reword, or reuse the structure/template of any:\n{avoid_block}\n\n"
-        f"This batch: {focus}. Write {n} captions. MOST must be genuinely FUNNY (lead with humor); a couple may "
-        f"be sincere-motivational. Every one must be a DIFFERENT structure and opening — NO two in this batch share "
-        f"a template or mold, none echo the AVOID list. Each must land a hard, coherent payoff (logic must hold; no "
-        f"weak analogies, nothing corny) and be strong enough you'd stake your name on it; if the landing is weak, "
-        f"confusing, or familiar, throw it out and rebuild. Built to be SENT."
+        f"This batch: {focus}. Write {n} captions. Center the THEME on MONEY / the grind / wealth / finance (this "
+        f"persona's world) — keep relationship/anti-simp to AT MOST 1 of the batch, not the theme. MOST must be "
+        f"genuinely FUNNY (lead with humor); a couple may be sincere money/grind motivation. Every one must be a "
+        f"DIFFERENT structure and opening — NO two in this batch share a template or mold, none echo the AVOID list. "
+        f"Each must land a hard, coherent payoff (logic must hold; no weak analogies, nothing corny) and be strong "
+        f"enough you'd stake your name on it; if the landing is weak, confusing, or familiar, throw it out and rebuild. Built to be SENT."
     )
 
     msg = _client().messages.create(
