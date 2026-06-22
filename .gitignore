@@ -22,7 +22,7 @@ uploads/
 tmp/
 var/
 scratch/
-corpus/
+/corpus/
 *.mp4
 *.mov
 *.mkv
