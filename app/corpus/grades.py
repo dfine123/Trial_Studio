@@ -12,24 +12,65 @@ import time
 GRADES_PATH = os.path.join("corpus", "grades.jsonl")
 
 
-def _append(rec: dict) -> None:
-    rec["ts"] = time.time()
-    os.makedirs(os.path.dirname(GRADES_PATH), exist_ok=True)
-    with open(GRADES_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-
-def record_verdict(caption: str, verdict: str, context: dict | None = None, note: str | None = None) -> None:
-    """verdict: 'keep' | 'kill'. note: optional free-text reason (esp. for specific misses)."""
-    _append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note, "context": context or {}})
-
-
-def record_pairwise(winner: str, loser: str, context: dict | None = None) -> None:
-    _append({"type": "pairwise", "winner": winner, "loser": loser, "context": context or {}})
-
-
-def load_grades() -> list[dict]:
+def _load_raw() -> list[dict]:
     if not os.path.exists(GRADES_PATH):
         return []
     with open(GRADES_PATH, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def _rewrite(records: list[dict]) -> None:
+    os.makedirs(os.path.dirname(GRADES_PATH), exist_ok=True)
+    with open(GRADES_PATH, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def record_verdict(caption: str, verdict: str, context: dict | None = None, note: str | None = None) -> None:
+    """Upsert one verdict per caption (last wins) so double-clicks/re-clicks never duplicate.
+
+    verdict: 'keep' | 'kill'. note: optional free-text reason (esp. for specific misses).
+    """
+    recs = [r for r in _load_raw() if not (r.get("type") == "verdict" and r.get("caption") == caption)]
+    recs.append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note,
+                 "context": context or {}, "ts": time.time()})
+    _rewrite(recs)
+
+
+def record_pairwise(winner: str, loser: str, context: dict | None = None) -> None:
+    """Dedup identical (winner, loser) pairs."""
+    recs = _load_raw()
+    if any(r.get("type") == "pairwise" and r.get("winner") == winner and r.get("loser") == loser for r in recs):
+        return
+    recs.append({"type": "pairwise", "winner": winner, "loser": loser, "context": context or {}, "ts": time.time()})
+    _rewrite(recs)
+
+
+def load_grades() -> list[dict]:
+    return _load_raw()
+
+
+def dedupe() -> list[dict]:
+    """One-time cleanup of an existing file: one verdict per caption (last wins) + unique pairs."""
+    out: list[dict] = []
+    vidx: dict[str, int] = {}
+    pairs: set = set()
+    for r in _load_raw():
+        t = r.get("type")
+        if t == "verdict":
+            cap = r.get("caption")
+            if cap in vidx:
+                out[vidx[cap]] = r
+            else:
+                vidx[cap] = len(out)
+                out.append(r)
+        elif t == "pairwise":
+            key = (r.get("winner"), r.get("loser"))
+            if key in pairs:
+                continue
+            pairs.add(key)
+            out.append(r)
+        else:
+            out.append(r)
+    _rewrite(out)
+    return out
