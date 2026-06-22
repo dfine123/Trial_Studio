@@ -50,6 +50,12 @@ class PairRequest(BaseModel):
     context: dict | None = None
 
 
+class BestRequest(BaseModel):
+    winner: str
+    batch: list[str]
+    context: dict | None = None
+
+
 def ensure_default_user() -> uuid.UUID:
     """Seed one default user (no auth in V1; everything keys off user_id)."""
     with SessionLocal() as s:
@@ -216,6 +222,12 @@ def api_captions_pairwise(req: PairRequest):
     return {"ok": True}
 
 
+@app.post("/api/captions/best")
+def api_captions_best(req: BestRequest):
+    grade_store.record_best(req.winner, req.batch, req.context)
+    return {"ok": True}
+
+
 @app.get("/api/captions/stats")
 def api_captions_stats():
     g = grade_store.load_grades()
@@ -224,5 +236,5 @@ def api_captions_stats():
         "total": len(g),
         "keeps": sum(1 for x in verdicts if x.get("verdict") == "keep"),
         "kills": sum(1 for x in verdicts if x.get("verdict") == "kill"),
-        "pairs": sum(1 for x in g if x.get("type") == "pairwise"),
+        "best": sum(1 for x in g if x.get("type") == "best"),
     }

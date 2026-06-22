@@ -38,11 +38,23 @@ def record_verdict(caption: str, verdict: str, context: dict | None = None, note
 
 
 def record_pairwise(winner: str, loser: str, context: dict | None = None) -> None:
-    """Dedup identical (winner, loser) pairs."""
+    """Dedup identical (winner, loser) pairs. (Legacy; ⭐ best now uses record_best.)"""
     recs = _load_raw()
     if any(r.get("type") == "pairwise" and r.get("winner") == winner and r.get("loser") == loser for r in recs):
         return
     recs.append({"type": "pairwise", "winner": winner, "loser": loser, "context": context or {}, "ts": time.time()})
+    _rewrite(recs)
+
+
+def record_best(winner: str, batch: list[str], context: dict | None = None) -> None:
+    """One compact 'best of batch' record: `winner` beat the rest of `batch`. Expands to pairwise
+    (winner > each other in batch) at training time. Dedups identical winner+batch."""
+    recs = _load_raw()
+    key_batch = sorted(batch or [])
+    for r in recs:
+        if r.get("type") == "best" and r.get("winner") == winner and sorted(r.get("batch") or []) == key_batch:
+            return
+    recs.append({"type": "best", "winner": winner, "batch": list(batch or []), "context": context or {}, "ts": time.time()})
     _rewrite(recs)
 
 

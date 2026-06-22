@@ -39,7 +39,7 @@
   <p class="sub">Generate a batch, react to each, then hit Next batch.</p>
   <p class="legend">
     <b>keep</b> = you'd post it &nbsp;·&nbsp; <b>kill</b> = it missed (drop a note on <i>why</i> — that's the most useful part) &nbsp;·&nbsp;
-    <b>⭐ best</b> = the single standout of the 8; it teaches the engine that one beats the other seven (the "pairwise" signal). One ⭐ per batch.
+    <b>⭐ best</b> = the single standout of the 8 — one tap, one record (the engine learns it beat the rest). Optional, one per batch.
   </p>
   <div class="bar">
     <input id="notes" placeholder="optional topic/nudge — e.g. gym, dating, money…" />
@@ -61,7 +61,7 @@ async function refreshStats() {
   try {
     const s = await (await fetch('/api/captions/stats')).json();
     document.getElementById('stats').textContent =
-      `${s.total} grades · ${s.keeps} keep / ${s.kills} kill / ${s.pairs} best-picks`;
+      `${s.total} grades · ${s.keeps} keep / ${s.kills} kill / ${s.best} best`;
   } catch (e) {}
 }
 function ctx(c) { return { mode:c.mode, lever:c.primary_lever, notes: document.getElementById('notes').value || null }; }
@@ -116,7 +116,7 @@ async function setVerdict(i, verdict, card, noteEl, keepB, killB) {
 async function setBest(i, card, bestB) {
   if (bestIdx !== -1 || bestBusy) return;                  // one ⭐ per batch, locked after first
   bestBusy = true;
-  try { for (let j = 0; j < batch.length; j++) if (j !== i) await post('/api/captions/pairwise', { winner: batch[i].text, loser: batch[j].text, context: ctx(batch[i]) }); }
+  try { await post('/api/captions/best', { winner: batch[i].text, batch: batch.map(c => c.text), context: ctx(batch[i]) }); }
   finally { bestBusy = false; }
   bestIdx = i; bestB.classList.add('on'); card.classList.add('bestmark');
   document.querySelectorAll('.best').forEach(b => { if (b !== bestB) b.disabled = true; });
