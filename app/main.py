@@ -18,8 +18,9 @@ from app.storage import r2
 from app.workers.tasks import enqueue_index
 
 _DEFAULT_NICHE = (
-    "luxury-lifestyle flex humor — deadpan, ironic, gen-z internet voice; "
-    "finance / hustle / crypto-adjacent; status played as a joke or a complaint"
+    "very-online absurdist humor — deadpan superiority + relatable jokes, a little mean; "
+    "luxury / status is the visual backdrop, not the topic. range across everyday life: "
+    "people, habits, social circles, dating, self-improvement clichés. money only as spice."
 )
 _REELS_DIR = "var/reels"
 _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
