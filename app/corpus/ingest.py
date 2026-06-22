@@ -11,6 +11,7 @@ import base64
 import glob
 import json
 import os
+import shutil
 import sys
 
 from anthropic import Anthropic
@@ -32,6 +33,8 @@ Return ONLY JSON, no prose:
 {"caption":"verbatim incl. emojis","why_it_works":"decoded, specific","primary_lever":"...","secondary_levers":["..."],"persona":"core_persona|theme_specific","persona_trait":"...","format":"single","clip_dependency":"none|soft|intrinsic","clip_note":"only if soft/intrinsic","metrics":null,"notes":"..."}"""
 
 _MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+
+ARCHIVE_DIR = os.path.join("corpus", "ingested")  # processed images moved here; skipped on re-runs
 
 
 def _b64(path: str) -> str:
@@ -57,36 +60,44 @@ def label_image(path: str) -> dict:
     return json.loads(text[start : end + 1])
 
 
-def ingest_folder(folder: str, append: bool = True) -> list[dict]:
+def ingest_folder(folder: str, append: bool = True, archive: bool = True) -> list[dict]:
     paths = sorted(p for ext in _MEDIA for p in glob.glob(os.path.join(folder, f"*{ext}")))
     if not paths:
         print(f"no images in {folder}")
         return []
 
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    done = set(os.listdir(ARCHIVE_DIR))  # already-processed filenames -> skip without a vision call
     existing = {r.get("caption") for r in load_refs()}
     next_id = len(load_refs()) + 1
     new: list[dict] = []
+    processed = 0
     for p in paths:
+        base = os.path.basename(p)
+        if base in done:
+            continue
+        processed += 1
         try:
             rec = label_image(p)
-        except Exception as exc:  # noqa: BLE001
-            print(f"  FAIL {os.path.basename(p)}: {exc}")
+        except Exception as exc:  # noqa: BLE001 — leave the file in the inbox to retry next run
+            print(f"  FAIL {base}: {exc}")
             continue
-        if rec.get("caption") in existing:
-            print(f"  skip dup: {(rec.get('caption') or '')[:45]}")
-            continue
-        rec["ref_id"] = f"r{next_id:03d}"
-        rec.setdefault("source", "screenshot_auto")
-        existing.add(rec.get("caption"))
-        new.append(rec)
-        next_id += 1
-        print(f"  + {rec['ref_id']} [{rec.get('persona_trait')}] {(rec.get('caption') or '')[:50]}")
-
-    if append and new:
-        with open(CORPUS_PATH, "a", encoding="utf-8") as f:
-            for r in new:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    print(f"\ningested {len(new)} new ({len(paths)} images seen)")
+        caption = rec.get("caption")
+        if caption in existing:
+            print(f"  skip dup: {(caption or '')[:45]}")
+        else:
+            rec["ref_id"] = f"r{next_id:03d}"
+            rec.setdefault("source", "screenshot_auto")
+            existing.add(caption)
+            if append:
+                with open(CORPUS_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            new.append(rec)
+            next_id += 1
+            print(f"  + {rec['ref_id']} [{rec.get('persona_trait')}] {(caption or '')[:50]}")
+        if archive:
+            shutil.move(p, os.path.join(ARCHIVE_DIR, base))
+    print(f"\ningested {len(new)} new ({processed} processed, {len(paths)} in folder)")
     return new
 
 
