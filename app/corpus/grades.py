@@ -62,6 +62,14 @@ def load_grades() -> list[dict]:
     return _load_raw()
 
 
+def kept_captions() -> list[str]:
+    return [r["caption"] for r in _load_raw() if r.get("type") == "verdict" and r.get("verdict") == "keep"]
+
+
+def killed_captions() -> list[str]:
+    return [r["caption"] for r in _load_raw() if r.get("type") == "verdict" and r.get("verdict") == "kill"]
+
+
 def dedupe() -> list[dict]:
     """One-time cleanup of an existing file: one verdict per caption (last wins) + unique pairs."""
     out: list[dict] = []
