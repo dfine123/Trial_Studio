@@ -16,6 +16,7 @@ from app.db import SessionLocal, engine
 from app.models import Audio, Clip, User
 from app.storage import r2
 from app.workers.tasks import enqueue_index
+from app.corpus import grades as grade_store
 
 _DEFAULT_NICHE = (
     "very-online absurdist humor — deadpan superiority + relatable jokes, a little mean; "
@@ -29,6 +30,23 @@ _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
 class GenerateRequest(BaseModel):
     audio_id: uuid.UUID | None = None
     notes: str | None = None
+
+
+class CapGenRequest(BaseModel):
+    notes: str | None = None
+    n: int = 8
+
+
+class GradeRequest(BaseModel):
+    caption: str
+    verdict: str  # "keep" | "kill"
+    context: dict | None = None
+
+
+class PairRequest(BaseModel):
+    winner: str
+    loser: str
+    context: dict | None = None
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -166,3 +184,44 @@ def get_reel(name: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="reel not found")
     return FileResponse(path, media_type="video/mp4")
+
+
+# ── Caption grading (reward-model data capture) ───────────────
+@app.get("/grade")
+def grade_page():
+    return FileResponse(os.path.join(_WEB_DIR, "grade.html"))
+
+
+@app.post("/api/captions/generate")
+def api_captions_generate(req: CapGenRequest):
+    from app.caption.engine import generate  # lazy import (pulls anthropic + corpus)
+
+    try:
+        cands = generate(notes=req.notes, n=req.n)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
+    return {"candidates": cands}
+
+
+@app.post("/api/captions/grade")
+def api_captions_grade(req: GradeRequest):
+    grade_store.record_verdict(req.caption, req.verdict, req.context)
+    return {"ok": True}
+
+
+@app.post("/api/captions/pairwise")
+def api_captions_pairwise(req: PairRequest):
+    grade_store.record_pairwise(req.winner, req.loser, req.context)
+    return {"ok": True}
+
+
+@app.get("/api/captions/stats")
+def api_captions_stats():
+    g = grade_store.load_grades()
+    verdicts = [x for x in g if x.get("type") == "verdict"]
+    return {
+        "total": len(g),
+        "keeps": sum(1 for x in verdicts if x.get("verdict") == "keep"),
+        "kills": sum(1 for x in verdicts if x.get("verdict") == "kill"),
+        "pairs": sum(1 for x in g if x.get("type") == "pairwise"),
+    }
