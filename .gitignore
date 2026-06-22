@@ -20,6 +20,7 @@ venv/
 samples/
 uploads/
 tmp/
+var/
 scratch/
 *.mp4
 *.mov

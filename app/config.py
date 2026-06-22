@@ -39,6 +39,17 @@ class Settings(BaseSettings):
     enable_marengo_embedding: bool = True         # store the per-clip Marengo vector (extra cost)
     tl_min_duration: float = 4.0                  # TL's hard minimum; freeze-pad shorter clips
     tl_pad_target: float = 4.5                    # pad sub-minimum clips up to this length
+
+    # ── Captions (Phase 1) ────────────────────────────────────
+    caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
+
+    # ── Reel assembly (Phase 1) ───────────────────────────────
+    reel_target_shot: float = 2.0    # ~seconds per shot; each cut snaps to the nearest beat
+    reel_min_shot: float = 1.0        # don't leave a final shard shorter than this
+    font_path: str = "fonts/TikTokSans-VariableFont.ttf"   # caption brand font
+    reel_width: int = 1080
+    reel_height: int = 1920
+    reel_fps: int = 30
     work_dir: str = "/tmp/trial-studio"          # transient per-clip working space
     min_resolution: int = 1080                   # QC: reject if min(w,h) < this
     min_fps: float = 29.9                         # QC: reject if fps < this

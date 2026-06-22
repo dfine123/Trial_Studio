@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trial Studio</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:#0d0d11; color:#ececf0; display:flex; justify-content:center; }
+  .wrap { width:100%; max-width:780px; padding:34px 20px 60px; }
+  h1 { font-weight:600; margin:0 0 6px; }
+  .sub { color:#9a9aa6; margin:0 0 22px; font-size:15px; }
+  .card { background:#15151b; border:1px solid #262630; border-radius:14px; padding:20px; margin-bottom:20px; }
+  label { display:block; font-size:13px; color:#9a9aa6; margin:14px 0 6px; }
+  label:first-child { margin-top:0; }
+  select, input { width:100%; background:#0d0d11; color:#ececf0; border:1px solid #2f2f3a; border-radius:9px; padding:11px; font-size:14px; }
+  button { margin-top:20px; width:100%; padding:14px; font-size:16px; font-weight:600; border:0; border-radius:11px; background:#5b6cff; color:#fff; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:default; }
+  .status { margin-top:14px; color:#9aa3c8; font-size:14px; min-height:20px; }
+  .reelbox { display:flex; gap:20px; flex-wrap:wrap; }
+  video { width:300px; max-width:100%; border-radius:12px; background:#000; }
+  .meta { flex:1; min-width:220px; }
+  .cap { white-space:pre-wrap; background:#0d0d11; border:1px solid #262630; border-radius:9px; padding:13px; margin-top:6px; font-size:14px; line-height:1.5; }
+  a.dl { display:inline-block; margin-top:12px; color:#9ab0ff; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Trial Studio</h1>
+  <p class="sub">Pick an audio and hit Generate — it writes a caption in your voice, cuts your clips to the beat, and bakes the audio in.</p>
+  <div class="card">
+    <label>Audio</label>
+    <select id="audio"></select>
+    <label>Notes (optional — nudge the caption topic/vibe)</label>
+    <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
+    <button id="gen">Generate reel</button>
+    <div class="status" id="status"></div>
+  </div>
+  <div id="result"></div>
+</div>
+<script>
+async function loadAudios() {
+  const a = await (await fetch('/api/audios')).json();
+  document.getElementById('audio').innerHTML = a.map(
+    x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`
+  ).join('');
+}
+document.getElementById('gen').onclick = async () => {
+  const btn = document.getElementById('gen'), st = document.getElementById('status');
+  btn.disabled = true;
+  st.textContent = 'Generating… writing caption, cutting to the beat, rendering (~30–60s)';
+  try {
+    const body = { audio_id: document.getElementById('audio').value, notes: document.getElementById('notes').value || null };
+    const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 300));
+    const d = await r.json();
+    st.textContent = `Done — ${d.shots} shots · ${d.duration}s`;
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div class="reelbox">
+      <video controls autoplay loop src="${d.reel_url}"></video>
+      <div class="meta"><div style="color:#9a9aa6;font-size:13px">caption</div>
+        <div class="cap"></div>
+        <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+    </div>`;
+    div.querySelector('.cap').textContent = d.caption;
+    document.getElementById('result').prepend(div);
+  } catch (e) {
+    st.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+};
+loadAudios();
+</script>
+</body>
+</html>

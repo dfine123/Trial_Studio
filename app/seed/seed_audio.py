@@ -1,43 +1,57 @@
-"""Seed the curated audio library with test audios.
+"""Seed the curated audio library (the tracks the generator picks from).
 
-V1 = manual curation: librosa generates the beat map (you confirm); description, the
-before->after transition (`beat_drop_ts`), and `structure` are set by hand below.
+V1 = manual curation: librosa generates the beat map; description/structure/tags are set by
+hand below. The matching example captions are baked into the Caption Assistant's few-shot.
 
 Run:  python -m app.seed.seed_audio
-
-Drop real audio files into samples/audio/ and edit SEED_AUDIOS to curate the real library.
-(R2 upload is best-effort: rows + beat maps are written even if R2 isn't configured yet;
-re-run after R2 credentials are fixed to upload the audio bytes.)
 """
 from __future__ import annotations
 
 import os
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.audio import profile
 from app.db import SessionLocal
 from app.models import Audio
 from app.storage import r2
 
+# The 5 curated audios the creator supplied, each with its IG audio link (used in V2).
 SEED_AUDIOS = [
     {
-        "file": "samples/audio/a1_beforeafter_120.wav",
-        "description": "Before/after flip — calm setup, hard switch at the drop into the flex payoff.",
-        "beat_drop_ts": 6.0,
-        "has_core_beat_drop": True,
-        "structure": "before_after",
-        "thematic_tags": ["flex", "transformation", "reveal"],
-        "energy_arc": "low_then_high",
+        "file": "samples/audio/ethereal_slowed_trap.mp3",
+        "description": "Ethereal slowed trap — atmospheric, reflective, late-night flex.",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["slowed", "ethereal", "reflective", "late-night"],
+        "ig_audio_url": "https://www.instagram.com/reels/audio/1262070545810368/",
     },
     {
-        "file": "samples/audio/a2_steady_100.wav",
-        "description": "Steady builder — consistent energy, montage feel, no single pivot.",
-        "beat_drop_ts": None,
-        "has_core_beat_drop": False,
-        "structure": "steady",
-        "thematic_tags": ["lifestyle", "montage"],
-        "energy_arc": "steady",
+        "file": "samples/audio/rap_intro_caption.mp3",
+        "description": "Rap intro — punchy, confident spoken-word opener.",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["rap", "intro", "punchy", "contrarian"],
+        "ig_audio_url": "https://www.instagram.com/reels/audio/27775783222008048/",
+    },
+    {
+        "file": "samples/audio/bass_boosted_detroit.mp3",
+        "description": "Bass-boosted Detroit rap — gritty, aggressive, hard.",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["detroit", "aggressive", "gritty", "numbers-flex"],
+        "ig_audio_url": "https://www.instagram.com/reels/audio/36176137685366172/",
+    },
+    {
+        "file": "samples/audio/positive_chainsmokers_lifestyle.mp3",
+        "description": "Positive lifestyle — upbeat, bright, aspirational.",
+        "structure": "steady", "energy_arc": "rising",
+        "thematic_tags": ["upbeat", "lifestyle", "positive", "aspirational"],
+        "ig_audio_url": "https://www.instagram.com/reels/audio/1332621673543509/",
+    },
+    {
+        "file": "samples/audio/trap_upbeat_instrumental.mp3",
+        "description": "Trap upbeat instrumental — punchy, hype, celebratory.",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["trap", "upbeat", "hype"],
+        "ig_audio_url": "https://www.instagram.com/reels/audio/25730052399936515/",
     },
 ]
 
@@ -47,6 +61,7 @@ def _r2_key(name: str) -> str:
 
 
 def seed() -> None:
+    seeded_keys = set()
     with SessionLocal() as s:
         for cfg in SEED_AUDIOS:
             path = cfg["file"]
@@ -57,12 +72,11 @@ def seed() -> None:
             bp = profile.analyze(path)
             name = os.path.basename(path)
             key = _r2_key(name)
+            seeded_keys.add(key)
 
-            uploaded = False
             try:
                 with open(path, "rb") as fh:
-                    r2.upload_fileobj(key, fh, content_type="audio/wav")
-                uploaded = True
+                    r2.upload_fileobj(key, fh, content_type="audio/mpeg")
             except Exception as exc:  # noqa: BLE001 — best-effort; row still written
                 print(f"  WARN: R2 upload failed for {name}: {exc}")
 
@@ -73,20 +87,23 @@ def seed() -> None:
             audio.bpm = bp.bpm
             audio.duration = bp.duration
             audio.beat_map = bp.beat_map
-            audio.has_core_beat_drop = cfg["has_core_beat_drop"]
-            audio.beat_drop_ts = cfg["beat_drop_ts"]
+            audio.has_core_beat_drop = False
+            audio.beat_drop_ts = None
             audio.structure = cfg["structure"]
             audio.thematic_tags = cfg["thematic_tags"]
             audio.energy_arc = cfg["energy_arc"]
+            audio.ig_audio_url = cfg["ig_audio_url"]
             if audio.id is None:
                 s.add(audio)
             s.commit()
+            print(f"SEEDED {name}: bpm={bp.bpm} dur={bp.duration}s beats={len(bp.beat_map)} structure={cfg['structure']}")
 
-            print(
-                f"SEEDED {name}: bpm={bp.bpm} beats={len(bp.beat_map)} "
-                f"drop={cfg['beat_drop_ts']} structure={cfg['structure']} "
-                f"r2_uploaded={uploaded}"
-            )
+        # drop any stale audios not in the current curated set
+        stale = s.scalars(select(Audio).where(Audio.r2_key.notin_(seeded_keys))).all()
+        if stale:
+            s.execute(delete(Audio).where(Audio.r2_key.notin_(seeded_keys)))
+            s.commit()
+            print(f"removed {len(stale)} stale audio rows")
 
 
 if __name__ == "__main__":

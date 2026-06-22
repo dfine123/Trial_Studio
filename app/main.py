@@ -6,14 +6,28 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
 from app import schemas
 from app.db import SessionLocal, engine
-from app.models import Clip, User
+from app.models import Audio, Clip, User
 from app.storage import r2
 from app.workers.tasks import enqueue_index
+
+_DEFAULT_NICHE = (
+    "luxury-lifestyle flex humor — deadpan, ironic, gen-z internet voice; "
+    "finance / hustle / crypto-adjacent; status played as a joke or a complaint"
+)
+_REELS_DIR = "var/reels"
+_WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+class GenerateRequest(BaseModel):
+    audio_id: uuid.UUID | None = None
+    notes: str | None = None
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -90,3 +104,64 @@ def get_clip(clip_id: uuid.UUID):
         if clip is None:
             raise HTTPException(status_code=404, detail="clip not found")
         return schemas.ClipDetail.model_validate(clip)
+
+
+# ── Web app (Phase 2) ─────────────────────────────────────────
+@app.get("/")
+def home():
+    return FileResponse(os.path.join(_WEB_DIR, "index.html"))
+
+
+@app.get("/api/audios")
+def api_audios():
+    with SessionLocal() as s:
+        rows = s.scalars(select(Audio).order_by(Audio.created_at)).all()
+        return [
+            {
+                "id": str(a.id),
+                "description": a.description or os.path.basename(a.r2_key or "audio"),
+                "bpm": a.bpm or 0.0,
+                "duration": a.duration or 0.0,
+            }
+            for a in rows
+        ]
+
+
+@app.post("/api/generate")
+def api_generate(req: GenerateRequest):
+    """One-button reel generation: audio -> caption -> beat-cut selection -> render."""
+    with SessionLocal() as s:
+        audio = s.get(Audio, req.audio_id) if req.audio_id else s.scalar(select(Audio).limit(1))
+    if audio is None or not audio.r2_key:
+        raise HTTPException(status_code=404, detail="no audio in library — run the seed")
+
+    audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key))
+    if not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail=f"audio file missing locally: {audio_path}")
+
+    os.makedirs(_REELS_DIR, exist_ok=True)
+    name = f"{uuid.uuid4().hex}.mp4"
+    out = os.path.join(_REELS_DIR, name)
+    niche = _DEFAULT_NICHE + (f"; lean toward: {req.notes}" if req.notes else "")
+
+    from app.generate.generator import generate_reel  # lazy: keeps web import light
+
+    try:
+        res = generate_reel(audio_path=audio_path, niche=niche, out_path=out)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
+
+    return {
+        "reel_url": f"/reels/{name}",
+        "caption": res["caption"],
+        "duration": res["duration"],
+        "shots": res["shots"],
+    }
+
+
+@app.api_route("/reels/{name}", methods=["GET", "HEAD"])
+def get_reel(name: str):
+    path = os.path.join(_REELS_DIR, os.path.basename(name))
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="reel not found")
+    return FileResponse(path, media_type="video/mp4")
