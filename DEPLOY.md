@@ -5,10 +5,10 @@ is mostly clicking through the dashboard + pasting variables. Do this **after** 
 acceptance passes.
 
 ## What you'll create
-Two services from the **same repo/image**:
-- **web** — the API (`uvicorn`), runs DB migrations on start.
-- **worker** — the indexer (`python -m app.workers.run`).
-Plus the **Postgres** and **Redis** plugins (they inject `DATABASE_URL` / `REDIS_URL`).
+**One service** from the repo — the Dockerfile runs DB migrations, the background indexer,
+and the API together — plus the **Postgres** and **Redis** plugins.
+(For higher throughput later you can split the indexer into its own service with start
+command `python -m app.workers.run`; not needed for Phase 0.)
 
 ## Steps
 
@@ -21,11 +21,8 @@ Plus the **Postgres** and **Redis** plugins (they inject `DATABASE_URL` / `REDIS
    `Dockerfile` automatically. No start command needed (the Dockerfile runs
    `alembic upgrade head && uvicorn …`).
 
-4. **Create the `worker` service** → New service from the **same** repo. Set its **start
-   command** to:
-   ```
-   python -m app.workers.run
-   ```
+4. *(No separate worker service needed — the single service already runs the indexer in the
+   background. Leave the Start Command blank so it uses the Dockerfile's built-in command.)*
 
 5. **Set environment variables on BOTH services** (Variables tab). Reference the plugins for
    the first two; paste the rest from your local `.env`:

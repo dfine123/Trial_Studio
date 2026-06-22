@@ -22,5 +22,6 @@ COPY . .
 ENV PORT=8000
 EXPOSE 8000
 
-# Web service. (The worker service overrides this with:  rq worker indexing)
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Single service: run migrations, start the background indexer (worker), then serve the API.
+# The worker runs in the background; if it can't reach Redis it won't take the API down.
+CMD ["sh", "-c", "alembic upgrade head && { python -m app.workers.run & } && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
