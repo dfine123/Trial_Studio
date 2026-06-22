@@ -12,6 +12,7 @@ import random
 
 from anthropic import Anthropic
 
+from app.caption.refine import refine
 from app.config import settings
 from app.corpus.genlog import log_generated, recent_generated
 from app.corpus.grades import best_captions, kept_captions, killed_captions
@@ -149,5 +150,6 @@ def generate(
         cands = json.loads(text[start : end + 1]).get("candidates", [])[:n]
     except json.JSONDecodeError:
         return []
+    cands = refine(cands)  # separate editor layer: trims over-extended / corny tails (only cuts)
     log_generated([c.get("text", "") for c in cands])
     return cands
