@@ -19,9 +19,9 @@ def _append(rec: dict) -> None:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
-def record_verdict(caption: str, verdict: str, context: dict | None = None) -> None:
-    """verdict: 'keep' | 'kill'."""
-    _append({"type": "verdict", "caption": caption, "verdict": verdict, "context": context or {}})
+def record_verdict(caption: str, verdict: str, context: dict | None = None, note: str | None = None) -> None:
+    """verdict: 'keep' | 'kill'. note: optional free-text reason (esp. for specific misses)."""
+    _append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note, "context": context or {}})
 
 
 def record_pairwise(winner: str, loser: str, context: dict | None = None) -> None:

@@ -21,7 +21,8 @@
   .card { background:#15151b; border:1px solid #262630; border-radius:12px; padding:16px 18px; margin-bottom:12px; transition:opacity .2s, border-color .2s; }
   .cap { white-space:pre-wrap; font-size:16px; line-height:1.45; }
   .meta { color:#7b7b88; font-size:12px; margin-top:8px; }
-  .btns { display:flex; gap:8px; margin-top:12px; }
+  .btns { display:flex; gap:8px; margin-top:10px; }
+  .note { width:100%; margin-top:10px; background:#0d0d11; color:#ececf0; border:1px solid #2f2f3a; border-radius:8px; padding:9px 10px; font-size:13px; }
   .keep { background:#1f7a4d; color:#fff; } .kill { background:#7a2330; color:#fff; } .best { background:#3a3320; color:#ffd76a; }
   .card.kept { border-color:#1f7a4d; opacity:.55; } .card.killed { border-color:#7a2330; opacity:.4; }
   .card.bestmark { border-color:#ffd76a; }
@@ -68,10 +69,12 @@ function render() {
   batch.forEach((c, i) => {
     const card = document.createElement('div'); card.className = 'card';
     card.innerHTML = `<div class="cap"></div><div class="meta">${(c.mode||'')} · ${(c.primary_lever||'')}</div>
+      <input class="note" placeholder="optional note — why it hit, or specifically what missed" />
       <div class="btns"><button class="keep">keep</button><button class="kill">kill</button><button class="best">⭐ best</button></div>`;
     card.querySelector('.cap').textContent = c.text;
-    card.querySelector('.keep').onclick = async () => { await post('/api/captions/grade', { caption:c.text, verdict:'keep', context:ctx(c) }); card.classList.remove('killed'); card.classList.add('kept'); refreshStats(); };
-    card.querySelector('.kill').onclick = async () => { await post('/api/captions/grade', { caption:c.text, verdict:'kill', context:ctx(c) }); card.classList.remove('kept'); card.classList.add('killed'); refreshStats(); };
+    const noteEl = card.querySelector('.note');
+    card.querySelector('.keep').onclick = async () => { await post('/api/captions/grade', { caption:c.text, verdict:'keep', note: noteEl.value || null, context:ctx(c) }); card.classList.remove('killed'); card.classList.add('kept'); refreshStats(); };
+    card.querySelector('.kill').onclick = async () => { await post('/api/captions/grade', { caption:c.text, verdict:'kill', note: noteEl.value || null, context:ctx(c) }); card.classList.remove('kept'); card.classList.add('killed'); refreshStats(); };
     card.querySelector('.best').onclick = async () => {
       for (let j=0;j<batch.length;j++) if (j!==i) await post('/api/captions/pairwise', { winner:c.text, loser:batch[j].text, context:ctx(c) });
       card.classList.add('bestmark'); refreshStats();

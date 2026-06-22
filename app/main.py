@@ -40,6 +40,7 @@ class CapGenRequest(BaseModel):
 class GradeRequest(BaseModel):
     caption: str
     verdict: str  # "keep" | "kill"
+    note: str | None = None
     context: dict | None = None
 
 
@@ -205,7 +206,7 @@ def api_captions_generate(req: CapGenRequest):
 
 @app.post("/api/captions/grade")
 def api_captions_grade(req: GradeRequest):
-    grade_store.record_verdict(req.caption, req.verdict, req.context)
+    grade_store.record_verdict(req.caption, req.verdict, req.context, req.note)
     return {"ok": True}
 
 
