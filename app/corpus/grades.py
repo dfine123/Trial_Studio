@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 import time
 
 GRADES_PATH = os.path.join("corpus", "grades.jsonl")
+_LOCK = threading.Lock()  # serialize read-modify-write so rapid grading can't lose/corrupt records
 
 
 def _load_raw() -> list[dict]:
@@ -20,10 +23,18 @@ def _load_raw() -> list[dict]:
 
 
 def _rewrite(records: list[dict]) -> None:
+    """Atomic rewrite: write a temp file then os.replace, so the grades file is never left partial."""
     os.makedirs(os.path.dirname(GRADES_PATH), exist_ok=True)
-    with open(GRADES_PATH, "w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(GRADES_PATH) or ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, GRADES_PATH)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 def record_verdict(caption: str, verdict: str, context: dict | None = None, note: str | None = None) -> None:
@@ -31,31 +42,34 @@ def record_verdict(caption: str, verdict: str, context: dict | None = None, note
 
     verdict: 'keep' | 'kill'. note: optional free-text reason (esp. for specific misses).
     """
-    recs = [r for r in _load_raw() if not (r.get("type") == "verdict" and r.get("caption") == caption)]
-    recs.append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note,
-                 "context": context or {}, "ts": time.time()})
-    _rewrite(recs)
+    with _LOCK:
+        recs = [r for r in _load_raw() if not (r.get("type") == "verdict" and r.get("caption") == caption)]
+        recs.append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note,
+                     "context": context or {}, "ts": time.time()})
+        _rewrite(recs)
 
 
 def record_pairwise(winner: str, loser: str, context: dict | None = None) -> None:
     """Dedup identical (winner, loser) pairs. (Legacy; ⭐ best now uses record_best.)"""
-    recs = _load_raw()
-    if any(r.get("type") == "pairwise" and r.get("winner") == winner and r.get("loser") == loser for r in recs):
-        return
-    recs.append({"type": "pairwise", "winner": winner, "loser": loser, "context": context or {}, "ts": time.time()})
-    _rewrite(recs)
+    with _LOCK:
+        recs = _load_raw()
+        if any(r.get("type") == "pairwise" and r.get("winner") == winner and r.get("loser") == loser for r in recs):
+            return
+        recs.append({"type": "pairwise", "winner": winner, "loser": loser, "context": context or {}, "ts": time.time()})
+        _rewrite(recs)
 
 
 def record_best(winner: str, batch: list[str], context: dict | None = None) -> None:
     """One compact 'best of batch' record: `winner` beat the rest of `batch`. Expands to pairwise
     (winner > each other in batch) at training time. Dedups identical winner+batch."""
-    recs = _load_raw()
-    key_batch = sorted(batch or [])
-    for r in recs:
-        if r.get("type") == "best" and r.get("winner") == winner and sorted(r.get("batch") or []) == key_batch:
-            return
-    recs.append({"type": "best", "winner": winner, "batch": list(batch or []), "context": context or {}, "ts": time.time()})
-    _rewrite(recs)
+    with _LOCK:
+        recs = _load_raw()
+        key_batch = sorted(batch or [])
+        for r in recs:
+            if r.get("type") == "best" and r.get("winner") == winner and sorted(r.get("batch") or []) == key_batch:
+                return
+        recs.append({"type": "best", "winner": winner, "batch": list(batch or []), "context": context or {}, "ts": time.time()})
+        _rewrite(recs)
 
 
 def load_grades() -> list[dict]:
