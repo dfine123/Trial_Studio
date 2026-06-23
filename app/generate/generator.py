@@ -1,21 +1,26 @@
 """Reel generator — the default (zero-input) spine.
 
-profile -> audio (beat map) -> Caption Assistant -> beat slot plan -> best-segment selection
--> caption PNG -> compositor -> 9:16 reel.
+CAPTION-FIRST (the caption is the post / the joke):
+  profile audio -> Caption Engine (voice / serious lanes) -> rank clips that REACT to the caption
+  -> beat slot plan -> fill slots with the caption-matched clips -> caption PNG -> compositor.
 
-`generate_reel` resolves clip source files. In production it downloads from R2 by the clip's
-r2_key; for local dev it can match indexed clips to the sample files by duration (resolve via
-the `sources` arg or `resolve_local_sources`).
+The caption leads; clips are chosen to play behind it (`_match_clips_to_caption`); the audio beat
+map drives the cut timing. The reverse direction (caption reacting to a fixed clip — the
+clip-aware lane + `_clip_context`) is wired but reserved for a later single-clip "reaction" mode.
+
+`generate_reel` resolves clip source files from an explicit `sources` map, or for local dev by
+matching indexed clips to sample files by duration (`resolve_local_sources`).
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 
 from sqlalchemy import select
 
 from app.audio import profile
-from app.caption.assistant import generate_captions
+from app.caption.llm import complete_json
 from app.db import SessionLocal
 from app.generate.sequencer import build_slot_plan, select_segments
 from app.models import Clip, Segment
@@ -68,44 +73,114 @@ def resolve_local_sources(
     return mapping
 
 
-def _load_segments():
+def _load_segments(clip_ids: list[str] | None = None):
+    """Return (segments, clip_durations, clip_meta) for indexed clips (optionally filtered)."""
     with SessionLocal() as s:
-        rows = s.execute(
-            select(Segment, Clip).join(Clip, Segment.clip_id == Clip.id).where(Clip.status == "indexed")
-        ).all()
-    segs, clip_dur = [], {}
+        q = (
+            select(Segment, Clip)
+            .join(Clip, Segment.clip_id == Clip.id)
+            .where(Clip.status == "indexed")
+        )
+        if clip_ids:
+            q = q.where(Clip.id.in_(clip_ids))
+        rows = s.execute(q).all()
+    segs, clip_dur, clip_meta = [], {}, {}
     for seg, clip in rows:
+        cid = str(clip.id)
         segs.append({
-            "id": str(seg.id), "clip_id": str(seg.clip_id),
+            "id": str(seg.id), "clip_id": cid,
             "start_ts": seg.start_ts, "end_ts": seg.end_ts, "duration": seg.duration,
             "usability_score": seg.usability_score, "energy": seg.energy,
             "is_hero": seg.is_hero, "vibe_tags": clip.vibe_tags or [],
         })
-        clip_dur[str(clip.id)] = clip.duration
-    return segs, clip_dur
+        clip_dur[cid] = clip.duration
+        clip_meta[cid] = {
+            "summary": clip.summary, "setting": clip.setting,
+            "vibe_tags": clip.vibe_tags or [], "time_of_day": clip.time_of_day,
+            "camera_movement": clip.camera_movement,
+        }
+    return segs, clip_dur, clip_meta
+
+
+def _pick_reel_caption(cands: list[dict]) -> dict | None:
+    """Pick one caption for the reel — the standalone joke (voice, then serious). The clip-aware
+    lane is a last resort here (it assumes a fixed clip, which doesn't exist in caption-first)."""
+    if not cands:
+        return None
+    for lane in ("voice", "serious", "clip"):
+        for c in cands:
+            if c.get("lane") == lane and (c.get("text") or "").strip():
+                return c
+    return cands[0]
+
+
+_MATCH_SYS = """You match flashy b-roll CLIPS to a CAPTION for a 9:16 reel. The caption is the post (the joke people read); the clips play BEHIND it as backdrop. Rank the clips by how well each FITS behind THIS caption — a clip fits if its scene / subject / energy reinforces or playfully plays off the caption. Generic flashy footage is a weak-but-acceptable fallback; an on-point scene is best.
+
+Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
+
+
+def _match_clips_to_caption(caption_text: str, clip_meta: dict, max_clips: int = 40) -> list[str]:
+    """Rank clip_ids by how well each fits behind the caption (clips react to the caption)."""
+    items = list(clip_meta.items())
+    if len(items) <= 1:
+        return [cid for cid, _ in items]
+    items = items[:max_clips]
+    lines = []
+    for i, (_cid, m) in enumerate(items):
+        summ = (m.get("summary") or "").strip().replace("\n", " ")[:160]
+        vibe = ", ".join((m.get("vibe_tags") or [])[:6])
+        lines.append(f"[{i}] {summ}  | vibe: {vibe}")
+    user = f"CAPTION:\n{caption_text}\n\nCLIPS:\n" + "\n".join(lines)
+    try:
+        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=600)
+        start, end = out.find("{"), out.rfind("}")
+        order = json.loads(out[start:end + 1]).get("ranked", []) if start != -1 else []
+        ranked = [items[i][0] for i in order if isinstance(i, int) and 0 <= i < len(items)]
+    except Exception:  # noqa: BLE001 — matching is best-effort; fall back to usability order
+        ranked = []
+    seen = set(ranked)
+    ranked += [cid for cid, _ in items if cid not in seen]
+    return ranked
 
 
 def generate_reel(
     audio_path: str,
     niche: str,
     out_path: str,
+    *,
+    audio_desc: str | None = None,
+    audio_bpm: float | None = None,
     caption_text: str | None = None,
     caption_vibe: list[str] | None = None,
     sources: dict[str, str] | None = None,
+    clip_ids: list[str] | None = None,
     work_png: str = "tmp/reel_caption.png",
 ) -> dict:
     bp = profile.analyze(audio_path)
-
-    if caption_text is None:
-        caps = generate_captions(f"audio: {os.path.basename(audio_path)}", niche, n=3)
-        caption_text = caps[0]["text"] if caps else "no caption"
-        caption_vibe = caps[0].get("vibe_tags") if caps else []
-
     slots = build_slot_plan(bp.beat_map, bp.duration)
     reel_dur = slots[-1].end
 
-    segs, clip_dur = _load_segments()
-    chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe)
+    segs, clip_dur, clip_meta = _load_segments(clip_ids=clip_ids)
+    if not segs:
+        raise RuntimeError("no indexed segments available to build a reel")
+
+    # CAPTION FIRST — the caption is the post (a standalone joke).
+    if caption_text is None:
+        from app.caption.engine import generate as gen_caps  # lazy: pulls anthropic + corpus
+
+        bpm = audio_bpm or bp.bpm
+        energy = "low" if bpm and bpm < 100 else ("high" if bpm and bpm > 132 else "mid")
+        note = (niche or "").strip()
+        if audio_desc:
+            note = (note + f"; audio vibe: {audio_desc}").strip("; ").strip()
+        cands = gen_caps(audio_energy=energy, notes=note or None, n=6) or []
+        pick = _pick_reel_caption(cands)
+        caption_text = (pick.get("text") if pick else None) or "no caption"
+
+    # Clips REACT to the caption — rank by fit, prefer the best behind this caption.
+    ranked = _match_clips_to_caption(caption_text, clip_meta)
+    preferred = set(ranked[: max(3, len(ranked) // 2)])
+    chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe, preferred_clip_ids=preferred)
 
     if sources is None:
         sources = resolve_local_sources({c["clip_id"]: clip_dur.get(c["clip_id"]) for c in chosen})
@@ -118,5 +193,5 @@ def generate_reel(
     render_caption_png(caption_text, work_png)
     compose_reel(shots, work_png, audio_path, out_path, reel_dur)
 
-    return {"output": out_path, "caption": caption_text, "duration": round(reel_dur, 2),
-            "shots": len(shots), "sequence": chosen}
+    return {"output": out_path, "caption": caption_text, "matched_clips": ranked[:3],
+            "duration": round(reel_dur, 2), "shots": len(shots), "sequence": chosen}

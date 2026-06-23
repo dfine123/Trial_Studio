@@ -173,7 +173,8 @@ def api_generate(req: GenerateRequest):
     from app.generate.generator import generate_reel  # lazy: keeps web import light
 
     try:
-        res = generate_reel(audio_path=audio_path, niche=niche, out_path=out)
+        res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
+                            audio_desc=audio.description, audio_bpm=audio.bpm)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 

@@ -19,6 +19,7 @@ venv/
 # ---- Media / scratch (never commit user footage or large binaries) ----
 samples/
 uploads/
+inbox/
 tmp/
 var/
 scratch/

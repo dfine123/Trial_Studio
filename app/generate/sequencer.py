@@ -67,11 +67,14 @@ def select_segments(
     slots: list[Slot],
     segments: list[dict],
     caption_vibe_tags: list[str] | None = None,
+    preferred_clip_ids: set[str] | None = None,
     min_seg: float = 0.8,
 ) -> list[dict]:
     """Assign a segment to each slot. segments: dicts with id, clip_id, start_ts, duration,
-    usability_score, energy, is_hero, vibe_tags. Returns the reel sequence."""
+    usability_score, energy, is_hero, vibe_tags. `preferred_clip_ids` are clips that best react
+    to the caption — they win ties first. Returns the reel sequence."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
+    pref = preferred_clip_ids or set()
 
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
@@ -88,6 +91,7 @@ def select_segments(
         ranked = sorted(
             [s for s in pool if s["id"] != prev] or pool,
             key=lambda s: (
+                1 if s["clip_id"] in pref else 0,      # caption-matched clips win first
                 vibe_score(s),
                 -used.get(s["id"], 0),                 # rotation: prefer less-used
                 1 if s.get("is_hero") else 0,
