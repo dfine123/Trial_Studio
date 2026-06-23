@@ -11,6 +11,8 @@ import tempfile
 import threading
 import time
 
+from app.config import settings
+
 GRADES_PATH = os.path.join("corpus", "grades.jsonl")
 _LOCK = threading.Lock()  # serialize read-modify-write so rapid grading can't lose/corrupt records
 
@@ -45,7 +47,7 @@ def record_verdict(caption: str, verdict: str, context: dict | None = None, note
     with _LOCK:
         recs = [r for r in _load_raw() if not (r.get("type") == "verdict" and r.get("caption") == caption)]
         recs.append({"type": "verdict", "caption": caption, "verdict": verdict, "note": note,
-                     "context": context or {}, "ts": time.time()})
+                     "provider": settings.caption_provider, "context": context or {}, "ts": time.time()})
         _rewrite(recs)
 
 
@@ -68,7 +70,8 @@ def record_best(winner: str, batch: list[str], context: dict | None = None) -> N
         for r in recs:
             if r.get("type") == "best" and r.get("winner") == winner and sorted(r.get("batch") or []) == key_batch:
                 return
-        recs.append({"type": "best", "winner": winner, "batch": list(batch or []), "context": context or {}, "ts": time.time()})
+        recs.append({"type": "best", "winner": winner, "batch": list(batch or []),
+                     "provider": settings.caption_provider, "context": context or {}, "ts": time.time()})
         _rewrite(recs)
 
 

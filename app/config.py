@@ -42,6 +42,9 @@ class Settings(BaseSettings):
 
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
+    caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
+    openai_api_key: str = ""
+    openai_caption_model: str = "gpt-4o"          # OpenAI model for the A/B (override via OPENAI_CAPTION_MODEL)
 
     # ── Reel assembly (Phase 1) ───────────────────────────────
     reel_target_shot: float = 2.0    # ~seconds per shot; each cut snaps to the nearest beat

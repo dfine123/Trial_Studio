@@ -9,9 +9,7 @@ from __future__ import annotations
 
 import json
 
-from anthropic import Anthropic
-
-from app.config import settings
+from app.caption.llm import complete_json
 
 _SYS = """You are a ruthless editor for ONE creator's blunt, cocky, money-alpha captions.
 
@@ -37,15 +35,7 @@ def refine(candidates: list[dict]) -> list[dict]:
         return candidates
     user = "Trim these (return the SAME count and order):\n" + json.dumps(texts, ensure_ascii=False)
     try:
-        msg = Anthropic(api_key=settings.anthropic_api_key, max_retries=4).messages.create(
-            model=settings.caption_model,
-            max_tokens=3000,
-            thinking={"type": "adaptive"},
-            output_config={"effort": "medium"},
-            system=_SYS,
-            messages=[{"role": "user", "content": user}],
-        )
-        out = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
+        out = complete_json(_SYS, user, effort="medium", max_tokens=3000)
         start, end = out.find("{"), out.rfind("}")
         edited = json.loads(out[start : end + 1]).get("edited", [])
     except Exception:  # noqa: BLE001 — editor must never break generation

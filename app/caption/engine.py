@@ -12,6 +12,7 @@ import random
 
 from anthropic import Anthropic
 
+from app.caption.llm import complete_json
 from app.caption.refine import refine
 from app.config import settings
 from app.corpus.genlog import log_generated, recent_generated
@@ -134,15 +135,7 @@ def generate(
         f"enough you'd stake your name on it; if the landing is weak, confusing, or familiar, throw it out and rebuild. Built to be SENT."
     )
 
-    msg = _client().messages.create(
-        model=settings.caption_model,
-        max_tokens=4000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
-        system=sys,
-        messages=[{"role": "user", "content": user}],
-    )
-    text = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
+    text = complete_json(sys, user, effort="high", max_tokens=4000)
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         return []
