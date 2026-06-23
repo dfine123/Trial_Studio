@@ -40,11 +40,19 @@ def ingest_folder(
     user_id = _default_user_id()
     out: list[dict] = []
     indexed = 0
+    # Skip files already indexed — makes the ingest resumable across runs / WSL reaps.
+    with SessionLocal() as s:
+        done = {c.r2_key for c in s.scalars(
+            select(Clip).where(Clip.status.in_(["indexed", "indexing", "rejected"]))).all() if c.r2_key}
     files = sorted(f for f in os.listdir(folder) if f.lower().endswith(_VID_EXT))
     if limit:
         files = files[:limit]
     for fname in files:
         path = os.path.abspath(os.path.join(folder, fname))
+        if path in done:
+            out.append({"file": fname, "clip_id": None, "status": "skipped",
+                        "segments": 0, "reason": "already indexed"})
+            continue
         clip_id = uuid.uuid4()
         with SessionLocal() as s:
             s.add(Clip(id=clip_id, user_id=user_id, r2_key=path, status="uploaded"))

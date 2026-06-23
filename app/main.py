@@ -168,7 +168,7 @@ def api_generate(req: GenerateRequest):
     os.makedirs(_REELS_DIR, exist_ok=True)
     name = f"{uuid.uuid4().hex}.mp4"
     out = os.path.join(_REELS_DIR, name)
-    niche = _DEFAULT_NICHE + (f"; lean toward: {req.notes}" if req.notes else "")
+    niche = (req.notes or "").strip()  # only the user's optional nudge; engine voice = the corpus
 
     from app.generate.generator import generate_reel  # lazy: keeps web import light
 

@@ -198,14 +198,10 @@ def generate_reel(
 
         bpm = audio_bpm or bp.bpm
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
-        parts = []
-        if niche and niche.strip():
-            parts.append(niche.strip())
-        if audio_desc:
-            parts.append(f"audio: {audio_desc}")
-        if audio_vibe:
-            parts.append("vibe lean: " + ", ".join(audio_vibe))
-        note = "; ".join(parts) or None
+        # Keep notes MINIMAL — piling niche/audio/vibe context into the prompt degrades the
+        # engine (the over-constraint trap). Audio steering is STRUCTURAL (the lane preference
+        # below), not prompt-stuffing. Only the user's optional nudge passes through.
+        note = (niche or "").strip() or None
         cands = gen_caps(audio_energy=energy, notes=note, n=6) or []
         prefer = "serious" if (energy == "low" or (audio_vibe and set(audio_vibe) & _SERIOUS_VIBES)) else "voice"
         pick = _pick_reel_caption(cands, prefer)
