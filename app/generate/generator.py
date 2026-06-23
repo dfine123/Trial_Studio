@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import uuid
 
 from sqlalchemy import select
 
@@ -73,6 +74,24 @@ def resolve_local_sources(
     return mapping
 
 
+def _resolve_sources(chosen: list[dict], clip_dur: dict[str, float]) -> dict[str, str]:
+    """Map each chosen clip_id to a local source file. Uses the clip's stored local path
+    (r2_key) when it's an existing file (local-ingest mode), else falls back to matching a
+    sample file by duration."""
+    out: dict[str, str] = {}
+    need: dict[str, float] = {}
+    with SessionLocal() as s:
+        for cid in {c["clip_id"] for c in chosen}:
+            clip = s.get(Clip, uuid.UUID(cid))
+            if clip and clip.r2_key and os.path.exists(clip.r2_key):
+                out[cid] = clip.r2_key
+            else:
+                need[cid] = clip_dur.get(cid)
+    if need:
+        out.update(resolve_local_sources(need))
+    return out
+
+
 def _load_segments(clip_ids: list[str] | None = None):
     """Return (segments, clip_durations, clip_meta) for indexed clips (optionally filtered)."""
     with SessionLocal() as s:
@@ -102,12 +121,19 @@ def _load_segments(clip_ids: list[str] | None = None):
     return segs, clip_dur, clip_meta
 
 
-def _pick_reel_caption(cands: list[dict]) -> dict | None:
-    """Pick one caption for the reel — the standalone joke (voice, then serious). The clip-aware
-    lane is a last resort here (it assumes a fixed clip, which doesn't exist in caption-first)."""
+# Audio vibes that call for a reflective / serious caption rather than the funny voice.
+_SERIOUS_VIBES = {"reflective", "wisdom", "hard-truth", "introspective",
+                  "business-realtalk", "building", "hindsight", "growth", "late-night"}
+
+
+def _pick_reel_caption(cands: list[dict], prefer: str = "voice") -> dict | None:
+    """Pick one caption for the reel. `prefer` ('voice'|'serious') sets which lane wins —
+    reflective/serious audios prefer the serious lane, everything else the funny voice. The
+    clip-aware lane is a last resort (it assumes a fixed clip, absent in caption-first)."""
     if not cands:
         return None
-    for lane in ("voice", "serious", "clip"):
+    order = ["serious", "voice", "clip"] if prefer == "serious" else ["voice", "serious", "clip"]
+    for lane in order:
         for c in cands:
             if c.get("lane") == lane and (c.get("text") or "").strip():
                 return c
@@ -150,6 +176,8 @@ def generate_reel(
     *,
     audio_desc: str | None = None,
     audio_bpm: float | None = None,
+    audio_energy: str | None = None,
+    audio_vibe: list[str] | None = None,
     caption_text: str | None = None,
     caption_vibe: list[str] | None = None,
     sources: dict[str, str] | None = None,
@@ -169,12 +197,18 @@ def generate_reel(
         from app.caption.engine import generate as gen_caps  # lazy: pulls anthropic + corpus
 
         bpm = audio_bpm or bp.bpm
-        energy = "low" if bpm and bpm < 100 else ("high" if bpm and bpm > 132 else "mid")
-        note = (niche or "").strip()
+        energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
+        parts = []
+        if niche and niche.strip():
+            parts.append(niche.strip())
         if audio_desc:
-            note = (note + f"; audio vibe: {audio_desc}").strip("; ").strip()
-        cands = gen_caps(audio_energy=energy, notes=note or None, n=6) or []
-        pick = _pick_reel_caption(cands)
+            parts.append(f"audio: {audio_desc}")
+        if audio_vibe:
+            parts.append("vibe lean: " + ", ".join(audio_vibe))
+        note = "; ".join(parts) or None
+        cands = gen_caps(audio_energy=energy, notes=note, n=6) or []
+        prefer = "serious" if (energy == "low" or (audio_vibe and set(audio_vibe) & _SERIOUS_VIBES)) else "voice"
+        pick = _pick_reel_caption(cands, prefer)
         caption_text = (pick.get("text") if pick else None) or "no caption"
 
     # Clips REACT to the caption — rank by fit, prefer the best behind this caption.
@@ -183,7 +217,7 @@ def generate_reel(
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe, preferred_clip_ids=preferred)
 
     if sources is None:
-        sources = resolve_local_sources({c["clip_id"]: clip_dur.get(c["clip_id"]) for c in chosen})
+        sources = _resolve_sources(chosen, clip_dur)
 
     shots = [
         {"src_path": sources[c["clip_id"]], "src_start": c["src_start"], "duration": c["slot_dur"]}

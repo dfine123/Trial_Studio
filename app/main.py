@@ -174,7 +174,8 @@ def api_generate(req: GenerateRequest):
 
     try:
         res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
-                            audio_desc=audio.description, audio_bpm=audio.bpm)
+                            audio_desc=audio.description, audio_bpm=audio.bpm,
+                            audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 

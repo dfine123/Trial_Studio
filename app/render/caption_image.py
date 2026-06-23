@@ -1,8 +1,8 @@
-"""Render a caption to a transparent PNG — the locked style.
+"""Render a caption to a transparent PNG — the locked TikTok-caption style.
 
-TikTok Sans (heavy), white fill + dark stroke, centered, blank-line stanza spacing, static.
-Auto-fits the font size so the widest line stays inside the IG safe zone. Composited
-losslessly over the video by the compositor.
+TikTok Sans (heavy), white fill + a thin dark outline, centered, blank-line stanza spacing,
+upper-third placement, static. Auto-fits the font size so the widest line stays inside the safe
+zone. Composited losslessly over the video by the compositor.
 """
 from __future__ import annotations
 
@@ -10,25 +10,20 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.config import settings
 
+# Weight axis order for TikTokSans-VariableFont: [Optical size, Width, Weight, Slant].
+_AXES = lambda weight: [36, 100, weight, 0]  # noqa: E731
 
-def _load_font(size: int) -> ImageFont.FreeTypeFont:
+
+def _load_font(size: int, weight: int = 800) -> ImageFont.FreeTypeFont:
     font = ImageFont.truetype(settings.font_path, size)
-    # Variable font: pick the heaviest sensible named instance for the TikTok look.
+    # Set the Weight axis directly (reliable) — the variable font defaults to 300 (Light).
     try:
-        names = font.get_variation_names()
-        chosen = None
-        for pref in (b"Black", b"ExtraBold", b"Bold", b"SemiBold", b"Medium"):
-            for n in names:
-                nb = n if isinstance(n, bytes) else str(n).encode()
-                if pref.lower() in nb.lower():
-                    chosen = n
-                    break
-            if chosen:
-                break
-        if chosen is not None:
-            font.set_variation_by_name(chosen)
+        font.set_variation_by_axes(_AXES(weight))
     except Exception:
-        pass
+        try:
+            font.set_variation_by_name(b"ExtraBold")
+        except Exception:
+            pass
     return font
 
 
@@ -37,26 +32,28 @@ def render_caption_png(
     out_path: str,
     width: int | None = None,
     height: int | None = None,
-    max_font: int = 74,
-    min_font: int = 34,
-    stroke: int = 8,
-    y_frac: float = 0.42,
-    margin_frac: float = 0.86,
+    max_font: int = 86,
+    min_font: int = 42,
+    weight: int = 800,
+    stroke_frac: float = 0.065,
+    y_frac: float = 0.31,
+    margin_frac: float = 0.90,
 ) -> str:
     width = width or settings.reel_width
     height = height or settings.reel_height
-    lines = [ln for ln in text.split("\n")]
+    lines = text.split("\n")
 
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
     size = max_font
     while size > min_font:
-        font = _load_font(size)
+        font = _load_font(size, weight)
         widest = max((probe.textlength(ln, font=font) for ln in lines if ln.strip()), default=0.0)
         if widest <= width * margin_frac:
             break
         size -= 2
 
-    font = _load_font(size)
+    font = _load_font(size, weight)
+    stroke = max(2, round(size * stroke_frac))
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     draw.multiline_text(
@@ -68,7 +65,7 @@ def render_caption_png(
         align="center",
         stroke_width=stroke,
         stroke_fill=(0, 0, 0, 255),
-        spacing=int(size * 0.35),
+        spacing=int(size * 0.28),
     )
     img.save(out_path)
     return out_path

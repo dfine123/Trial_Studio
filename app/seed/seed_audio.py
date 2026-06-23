@@ -53,6 +53,50 @@ SEED_AUDIOS = [
         "thematic_tags": ["trap", "upbeat", "hype"],
         "ig_audio_url": "https://www.instagram.com/reels/audio/25730052399936515/",
     },
+    # ── client-1 audios (titles = descriptions; thematic_tags = the user's category hint,
+    #    used as a SOFT vibe steer for caption generation, never copied verbatim) ──
+    {
+        "file": "samples/audio/slowed_upbeat_house_dance.mp3",
+        "description": "Slowed upbeat house dance track",
+        "structure": "steady", "energy_arc": "rising",
+        "thematic_tags": ["ironic-motivational", "glow-up", "how-life-feels-when", "house"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/detroit_bass_boosted_2.mp3",
+        "description": "Detroit Bass boosted 2",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["tuff", "defiant", "hard", "chip-on-shoulder"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/minimal_slow_guitar.mp3",
+        "description": "Minimalslow guitar instrumental",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["reflective", "wisdom", "hard-truth", "introspective"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/slowed_aspirational_housetrap.mp3",
+        "description": "Slowed aspirational housetrap ethereal beat",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["business-realtalk", "building", "hindsight", "growth"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/slowed_house_upbeat_aspirational.mp3",
+        "description": "Slowed house song upbeat but aspirational at the same time",
+        "structure": "steady", "energy_arc": "rising",
+        "thematic_tags": ["aspirational", "summer", "boys-and-money", "flex"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/upbeat_house_instrumental.mp3",
+        "description": "Upbeat house beat instrumental",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["backhanded-motivation", "absurd-grind", "ironic-hype"],
+        "ig_audio_url": None,
+    },
 ]
 
 

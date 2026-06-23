@@ -32,10 +32,14 @@ def _default_user_id() -> uuid.UUID:
         return u.id
 
 
-def ingest_folder(folder: str, limit: int | None = None) -> list[dict]:
-    """Index every video in `folder` synchronously (or the first `limit`). One record per file."""
+def ingest_folder(
+    folder: str, limit: int | None = None, max_indexed: int | None = None
+) -> list[dict]:
+    """Index videos in `folder` synchronously. `limit` caps files attempted; `max_indexed` stops
+    once that many clips successfully index (QC rejects don't count). One record per file."""
     user_id = _default_user_id()
     out: list[dict] = []
+    indexed = 0
     files = sorted(f for f in os.listdir(folder) if f.lower().endswith(_VID_EXT))
     if limit:
         files = files[:limit]
@@ -60,6 +64,10 @@ def ingest_folder(folder: str, limit: int | None = None) -> list[dict]:
                 nseg = 0
         out.append({"file": fname, "clip_id": str(clip_id), "status": status,
                     "segments": nseg, "reason": reason})
+        if status == "indexed":
+            indexed += 1
+            if max_indexed and indexed >= max_indexed:
+                break
     return out
 
 
@@ -90,21 +98,25 @@ def generate_reels(
     for i in range(n):
         audio = audios[i % len(audios)]
         audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key or ""))
+        print(f"[reel {i + 1}/{n}] audio={audio.description[:34]!r} ...", flush=True)
         if not os.path.exists(audio_path):
-            results.append({"error": f"audio file missing: {audio_path}", "audio": audio.description})
+            r = {"error": f"audio file missing: {audio_path}", "audio": audio.description}
+            results.append(r)
+            print(f"    SKIP: {r['error']}", flush=True)
             continue
         out = os.path.join(out_dir, f"battle_{i + 1}_{uuid.uuid4().hex[:8]}.mp4")
         try:
             res = generate_reel(
                 audio_path, niche, out,
                 audio_desc=audio.description, audio_bpm=audio.bpm,
+                audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
                 sources=sources, clip_ids=clip_ids,
             )
-            results.append({
-                "reel": out, "audio": audio.description, "caption": res["caption"],
-                "clip_context": res.get("clip_context"), "shots": res["shots"],
-                "duration": res["duration"],
-            })
+            r = {"reel": out, "audio": audio.description, "caption": res["caption"],
+                 "shots": res["shots"], "duration": res["duration"]}
+            results.append(r)
+            print(f"    OK {out} [{r['duration']}s, {r['shots']} shots]\n    caption: {r['caption']!r}", flush=True)
         except Exception as exc:  # noqa: BLE001
             results.append({"error": str(exc)[:300], "audio": audio.description})
+            print(f"    ERROR: {str(exc)[:200]}", flush=True)
     return results

@@ -34,7 +34,9 @@
     <select id="audio"></select>
     <label>Notes (optional — nudge the caption topic/vibe)</label>
     <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
-    <button id="gen">Generate reel</button>
+    <label>How many reels to generate</label>
+    <input id="count" type="number" min="1" max="12" value="1" />
+    <button id="gen">Generate reels</button>
     <div class="status" id="status"></div>
   </div>
   <div id="result"></div>
@@ -46,31 +48,39 @@ async function loadAudios() {
     x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`
   ).join('');
 }
+function renderReel(d) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.innerHTML = `<div class="reelbox">
+    <video controls loop playsinline src="${d.reel_url}"></video>
+    <div class="meta"><div style="color:#9a9aa6;font-size:13px">caption</div>
+      <div class="cap"></div>
+      <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+  </div>`;
+  div.querySelector('.cap').textContent = d.caption;
+  document.getElementById('result').prepend(div);
+}
 document.getElementById('gen').onclick = async () => {
   const btn = document.getElementById('gen'), st = document.getElementById('status');
+  const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value, 10) || 1));
+  const audio_id = document.getElementById('audio').value;
+  const notes = document.getElementById('notes').value || null;
   btn.disabled = true;
-  st.textContent = 'Generating… writing caption, cutting to the beat, rendering (~30–60s)';
-  try {
-    const body = { audio_id: document.getElementById('audio').value, notes: document.getElementById('notes').value || null };
-    const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error((await r.text()).slice(0, 300));
-    const d = await r.json();
-    st.textContent = `Done — ${d.shots} shots · ${d.duration}s`;
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML = `<div class="reelbox">
-      <video controls autoplay loop src="${d.reel_url}"></video>
-      <div class="meta"><div style="color:#9a9aa6;font-size:13px">caption</div>
-        <div class="cap"></div>
-        <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
-    </div>`;
-    div.querySelector('.cap').textContent = d.caption;
-    document.getElementById('result').prepend(div);
-  } catch (e) {
-    st.textContent = 'Error: ' + e.message;
-  } finally {
-    btn.disabled = false;
+  let done = 0, failed = 0;
+  for (let i = 1; i <= n; i++) {
+    st.textContent = `Generating ${i}/${n}… writing caption, cutting to the beat, rendering (~30–60s each)`;
+    try {
+      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id, notes }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+      renderReel(await r.json());
+      done++;
+    } catch (e) {
+      failed++;
+      st.textContent = `Reel ${i}/${n} failed: ${e.message}`;
+    }
   }
+  st.textContent = `Done — ${done} generated${failed ? `, ${failed} failed (server may have been reaped — re-run)` : ''}.`;
+  btn.disabled = false;
 };
 loadAudios();
 </script>
