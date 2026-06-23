@@ -29,6 +29,29 @@ from app.render.caption_image import render_caption_png
 from app.render.compositor import compose_reel
 
 
+_CLIP_USAGE_PATH = "var/clip_usage.json"
+
+
+def _load_clip_usage() -> dict[str, int]:
+    """Cumulative per-clip use count across reels — drives cross-reel footage variety."""
+    try:
+        with open(_CLIP_USAGE_PATH) as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _log_clip_usage(clip_ids: list[str]) -> None:
+    usage = _load_clip_usage()
+    for cid in clip_ids:
+        usage[cid] = usage.get(cid, 0) + 1
+    os.makedirs(os.path.dirname(_CLIP_USAGE_PATH) or ".", exist_ok=True)
+    tmp = _CLIP_USAGE_PATH + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(usage, fh)
+    os.replace(tmp, _CLIP_USAGE_PATH)
+
+
 def _probe_duration(path: str) -> float:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -207,10 +230,13 @@ def generate_reel(
         pick = _pick_reel_caption(cands, prefer)
         caption_text = (pick.get("text") if pick else None) or "no caption"
 
-    # Clips REACT to the caption — rank by fit, prefer the best behind this caption.
+    # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
+    # so the whole library gets exercised instead of the same few flashy ones.
     ranked = _match_clips_to_caption(caption_text, clip_meta)
     preferred = set(ranked[: max(3, len(ranked) // 2)])
-    chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe, preferred_clip_ids=preferred)
+    chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
+                             preferred_clip_ids=preferred, usage=_load_clip_usage())
+    _log_clip_usage([c["clip_id"] for c in chosen])
 
     if sources is None:
         sources = _resolve_sources(chosen, clip_dur)

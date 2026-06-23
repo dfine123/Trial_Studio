@@ -12,6 +12,7 @@ coherence locking are Phase 3.
 """
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 
 from app.config import settings
@@ -68,39 +69,45 @@ def select_segments(
     segments: list[dict],
     caption_vibe_tags: list[str] | None = None,
     preferred_clip_ids: set[str] | None = None,
+    usage: dict[str, int] | None = None,
     min_seg: float = 0.8,
 ) -> list[dict]:
-    """Assign a segment to each slot. segments: dicts with id, clip_id, start_ts, duration,
-    usability_score, energy, is_hero, vibe_tags. `preferred_clip_ids` are clips that best react
-    to the caption — they win ties first. Returns the reel sequence."""
+    """Assign a segment to each slot. VARIETY-FIRST: the least-used clips win — globally across
+    reels (via `usage`) and within this reel — so the whole library gets exercised instead of the
+    same few flashy clips. Caption match (`preferred_clip_ids`) + usability are soft tiebreakers,
+    a random tiebreak breaks exact ties, and consecutive shots avoid the same clip. Returns the
+    reel sequence."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
     pref = preferred_clip_ids or set()
+    usage = usage or {}
 
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
 
     chosen: list[dict] = []
-    used: dict[str, int] = {}
+    seg_used: dict[str, int] = {}
+    clip_used: dict[str, int] = {}
 
     for slot in slots:
         length = slot.duration
         # prefer segments long enough to fill the slot; relax if none qualify
         pool = [s for s in segments if (s.get("duration") or 0.0) >= length] or \
                [s for s in segments if (s.get("duration") or 0.0) >= min_seg] or list(segments)
-        prev = chosen[-1]["segment_id"] if chosen else None
+        prev_clip = chosen[-1]["clip_id"] if chosen else None
         ranked = sorted(
-            [s for s in pool if s["id"] != prev] or pool,
+            [s for s in pool if s["clip_id"] != prev_clip] or pool,
             key=lambda s: (
-                1 if s["clip_id"] in pref else 0,      # caption-matched clips win first
+                -(usage.get(s["clip_id"], 0) + 3 * clip_used.get(s["clip_id"], 0)),  # least-used FIRST
+                1 if s["clip_id"] in pref else 0,      # caption match — soft tiebreaker
                 vibe_score(s),
-                -used.get(s["id"], 0),                 # rotation: prefer less-used
-                1 if s.get("is_hero") else 0,
                 s.get("usability_score") or 0.0,
+                random.random(),                       # break exact ties randomly
             ),
             reverse=True,
         )
         seg = ranked[0]
-        used[seg["id"]] = used.get(seg["id"], 0) + 1
+        seg_used[seg["id"]] = seg_used.get(seg["id"], 0) + 1
+        clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
 
         seg_dur = seg.get("duration") or length
         offset = max(0.0, (seg_dur - length) / 2.0)    # center the sub-window in the segment
