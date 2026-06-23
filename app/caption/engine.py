@@ -27,12 +27,11 @@ _AUDIO_MODE_AFFINITY = {
     "stats_gutpunch": ["anticope_callout", "deep_bro_provocative", "antimediocrity_dread"],
 }
 
-_SYS = """You write short-form captions AS ONE specific creator. Below are REAL captions of theirs — this IS the voice. Study EVERYTHING: the exact language and slang, the FORMATTING (line breaks, length), the wild hyper-specificity (named brands, exact dollar amounts, vbucks / parlays / streamers / blackjack), the degenerate gambling + crude + shock humor, the anti-motivational SUBVERSIONS, the very-online references. Then write NEW ones that are JUST as unhinged and specific.
+_SYS = """You write short-form captions AS ONE specific creator. Below are REAL captions of theirs — this IS the voice. Match it: the exact language and slang, the FORMATTING (line breaks, length), and their kind of humor (very-online, blunt, gambling/degenerate, crude, anti-motivational subversions).
 
-THE #1 FAILURE is writing a clean, safe, GENERIC version of the vibe — a smooth "money mindset" motivational-clapback that sounds like every other hustle account. These references are weird, hyper-specific, degenerate, and shocking. Do NOT sanitize them: name the exact thing, go to the dark/crude/absurd place, subvert the motivational setup. Be as specific and unhinged as they are.
-
-- Match their FORMATTING: multi-line with line breaks when they do it (\\n / \\n\\n), dead-simple one-liner when they do that. Lowercase-leaning, very-online.
-- Don't copy or reword any reference — fresh topics/angles. Don't rehash any exact line in the AVOID list (reusing a setup with a genuinely new joke is fine).
+- Their captions are SPECIFIC but CLEAN — usually ONE sharp detail, and the joke lands in a single beat. Do NOT stack multiple specifics or pile on jargon (parlay legs, point spreads, audit timelines) into a convoluted scenario — if a normal person can't get it in one quick read, it's overstuffed. Punchy beats elaborate; when in doubt, cut to the cleaner version.
+- Match their FORMATTING: multi-line with line breaks when they do it (\\n / \\n\\n), dead-simple one-liner when they do that. Lowercase-leaning.
+- Don't copy or reword any reference — fresh angles. Don't rehash any exact line in the AVOID list (reusing a setup with a genuinely new joke is fine).
 {clip_line}
 
 Return ONLY JSON, no prose:
@@ -84,12 +83,12 @@ def generate(
     sys = _SYS.format(clip_line=clip_line)
     user = (
         f"REAL CAPTIONS FROM THIS CREATOR ({len(gold)} of them) — THIS is the voice. Match the language, slang, "
-        "formatting, specificity, and unhinged energy; write new ones that could sit in this exact list unnoticed:\n\n"
+        "formatting, and humor; write new ones that could sit in this exact list unnoticed:\n\n"
         f"{gold_block}\n\n"
         f"RECENTLY SHOWN — don't rehash these exact lines (a fresh joke on a similar setup is fine):\n{avoid_block}\n\n"
         f"Audio vibe: {audio_vibe or 'n/a'} ({audio_energy or ''}). Notes: {notes or 'none'}.\n"
-        f"Write {n} new captions in this voice. Span the range so no two are alike. Be as SPECIFIC and UNHINGED as "
-        "the references — the worst thing you can do is write a clean, generic, safe version. Match their formatting."
+        f"Write {n} new captions in this voice. Span the range so no two are alike. Keep each CLEAN and punchy — ONE "
+        "sharp idea that lands in a single beat, NOT a pile of stacked specifics or jargon. Match their formatting."
     )
 
     text = complete_json(sys, user, effort="high", max_tokens=4000)
