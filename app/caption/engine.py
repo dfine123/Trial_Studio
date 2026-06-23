@@ -45,6 +45,20 @@ def _is_clip_ref(r: dict) -> bool:
     return cap.startswith(("pov", "when ", "how i look", "how bro", "me when", "me after", "what the"))
 
 
+_GAMBLING_TERMS = (
+    "parlay", "casino", "blackjack", "dealer", "slot", "sportsbook", "vegas", "lottery",
+    "gambl", "on black", "on red", "the odds", "comp room", "referral code", "the under",
+    "the over", "buzzer beater", "betting", "a bet", "day trad", "rimmed out", "put $",
+)
+
+
+def _is_gambling(r: dict) -> bool:
+    if r.get("persona_trait") == "self_aware_degenerate":
+        return True
+    cap = (r.get("caption") or "").lower()
+    return any(t in cap for t in _GAMBLING_TERMS)
+
+
 _SYS_VOICE = """You write short-form captions AS ONE specific creator. Below are REAL captions of theirs — this IS the voice. Match it: the exact language and slang, the FORMATTING (line breaks, length), and their kind of humor (very-online, blunt, gambling/degenerate, crude, anti-motivational subversions).
 
 - Their captions are SPECIFIC but CLEAN — usually ONE sharp detail, and the joke lands in a single beat. Do NOT stack multiple specifics or pile on jargon (parlay legs, point spreads, audit timelines) into a convoluted scenario — if a normal person can't get it in one quick read, it's overstuffed. Punchy beats elaborate; when in doubt, cut to the cleaner version.
@@ -74,10 +88,17 @@ Return ONLY JSON, no prose:
 {"candidates": [{"text": "the caption (\\n for line breaks)", "mode": "short label", "primary_lever": "shareability|comment_bait|relatability|...", "why": "one line"}]}"""
 
 
-def _gold_block(refs: list[dict], k: int) -> str:
+def _gold_block(refs: list[dict], k: int, max_gambling_frac: float = 0.15) -> str:
     pool = list(refs)
     random.shuffle(pool)
-    gold = [(r.get("caption") or "").strip() for r in pool[:k] if (r.get("caption") or "").strip()]
+    # The corpus is gambling-heavy; cap gambling refs in the shown examples so it stays present
+    # but proportionate (no prompt rule, no quality touch — just rebalance the input).
+    cap = max(1, int(k * max_gambling_frac))
+    gambling = [r for r in pool if _is_gambling(r)]
+    other = [r for r in pool if not _is_gambling(r)]
+    picked = gambling[:cap] + other[: max(0, k - cap)]
+    random.shuffle(picked)
+    gold = [(r.get("caption") or "").strip() for r in picked[:k] if (r.get("caption") or "").strip()]
     return "\n\n".join(f"[{i + 1}]\n{c}" for i, c in enumerate(gold)) or "(none)"
 
 
@@ -131,8 +152,14 @@ def generate(
     n_serious = min(n - n_clip - 1, 3 if reflective else 2)
     n_voice = max(1, n - n_serious - n_clip)
 
+    # The model over-reaches for gambling on its own; one light proportion note keeps it to a flavor.
+    topic_note = (
+        "Gambling/degenerate (casino, slots, parlays, the dealer, sportsbook) is just ONE flavor — at MOST one "
+        "gambling-themed caption here. Spread the rest widely: money/income, work/career, dating, family, status, absurd.\n\n"
+    )
+
     def voice():
-        return _tag(_lane(_SYS_VOICE, _gold_block(refs, 40), n_voice, avoid, audio_vibe, audio_energy, notes), "voice")
+        return _tag(_lane(_SYS_VOICE, _gold_block(refs, 40), n_voice, avoid, audio_vibe, audio_energy, notes, topic_note), "voice")
 
     def serious():
         return _tag(_lane(_SYS_SERIOUS, _gold_block(serious_refs, 22), n_serious, avoid, audio_vibe, audio_energy, notes), "serious")
@@ -140,7 +167,10 @@ def generate(
     def clipaware():
         if not n_clip:
             return []
-        extra = f"THE CLIP this caption sits over: {clip}. The caption must connect to / react to what's on screen.\n\n"
+        extra = (
+            f"THE CLIP this caption sits over: {clip}. The caption must connect to / react to what's on screen "
+            "(react to THIS shot — don't default to a casino/gambling joke).\n\n"
+        )
         return _tag(_lane(_SYS_CLIP, _gold_block(clip_refs, 18), n_clip, avoid, audio_vibe, audio_energy, notes, extra), "clip")
 
     with ThreadPoolExecutor(max_workers=3) as ex:
