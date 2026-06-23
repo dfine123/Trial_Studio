@@ -59,6 +59,28 @@ def _is_gambling(r: dict) -> bool:
     return any(t in cap for t in _GAMBLING_TERMS)
 
 
+# The structural palette actually present in the corpus. The model defaults to ~6 of these; we
+# rotate a shuffled subset into each batch so variety widens within a batch and differs across them.
+_FORMATS = [
+    "a dead-simple one-liner",
+    "a two-speaker bit (Mom: ... / Me: ...) or (Officer: ... / Me: ...)",
+    "an enumerated list (bigger than you = roids / richer = daddy's money / ...)",
+    "a fake statistic (98% have abs, 88% have a liquid mil)",
+    "an X-is-like-Y analogy",
+    "an absurd scheme or fake math (buy a chicken for $20, charge $8M an egg)",
+    "a fake / misattributed quote gag (- MLK, probably)",
+    "a flipped familiar phrase (objects in account are smaller than they appear)",
+    "a POV: scenario",
+    "a proverb subversion (a poor man X / a wise man Y)",
+    "a when-X-but-Y reaction",
+    "a she-said-X then subversion clapback",
+    "an anti-motivational timeline (Zuckerberg at 19... it's over bro)",
+    "backhanded encouragement (keep grinding bro, the world needs more ...)",
+    "a self-own pushed to an absurd extreme",
+    "a reframe (X is just Y with extra steps)",
+]
+
+
 _SYS_VOICE = """You write short-form captions AS ONE specific creator. Below are REAL captions of theirs — this IS the voice. Match it: the exact language and slang, the FORMATTING (line breaks, length), and their kind of humor (very-online, blunt, gambling/degenerate, crude, anti-motivational subversions).
 
 - Their captions are SPECIFIC but CLEAN — usually ONE sharp detail, and the joke lands in a single beat. Do NOT stack multiple specifics or pile on jargon (parlay legs, point spreads, audit timelines) into a convoluted scenario — if a normal person can't get it in one quick read, it's overstuffed. Punchy beats elaborate; when in doubt, cut to the cleaner version.
@@ -152,24 +174,36 @@ def generate(
     n_serious = min(n - n_clip - 1, 3 if reflective else 2)
     n_voice = max(1, n - n_serious - n_clip)
 
-    # The model over-reaches for gambling on its own; one light proportion note keeps it to a flavor.
+    # The model over-reaches for gambling + recycles ~6 salient structures; one light note nudges
+    # proportion, and a shuffled subset of the format palette widens structure per & across batches.
+    fmt_spread = "; ".join(random.sample(_FORMATS, k=min(8, len(_FORMATS))))
     topic_note = (
-        "Gambling/degenerate (casino, slots, parlays, the dealer, sportsbook) is just ONE flavor — at MOST one "
-        "gambling-themed caption here. Spread the rest widely: money/income, work/career, dating, family, status, absurd.\n\n"
+        "Gambling/degenerate (casino, slots, parlays, the dealer) is just ONE flavor — at MOST one gambling caption "
+        "here; spread topics widely (money, work, dating, family, status, absurd).\n"
+        "VARY THE STRUCTURE — the creator writes in many shapes, not just 'she said' and 'would you rather'. Reach for "
+        f"a spread this batch, e.g.: {fmt_spread}. No two captions should share a structure; don't default to the same "
+        "few molds — but only use a shape if THIS specific joke lands.\n\n"
     )
 
     def voice():
         return _tag(_lane(_SYS_VOICE, _gold_block(refs, 40), n_voice, avoid, audio_vibe, audio_energy, notes, topic_note), "voice")
 
+    serious_note = (
+        "Vary the shape — don't default to 'everyone wants X / nobody wants Y' or 'you'll never be ready'. Also reach for: "
+        "a blunt one-line truth, a 'you're not X, you're Y' reframe, an anti-motivational timeline, a subverted aphorism, "
+        "a hard callout. Only if it lands.\n\n"
+    )
+
     def serious():
-        return _tag(_lane(_SYS_SERIOUS, _gold_block(serious_refs, 22), n_serious, avoid, audio_vibe, audio_energy, notes), "serious")
+        return _tag(_lane(_SYS_SERIOUS, _gold_block(serious_refs, 22), n_serious, avoid, audio_vibe, audio_energy, notes, serious_note), "serious")
 
     def clipaware():
         if not n_clip:
             return []
         extra = (
             f"THE CLIP this caption sits over: {clip}. The caption must connect to / react to what's on screen "
-            "(react to THIS shot — don't default to a casino/gambling joke).\n\n"
+            "(react to THIS shot — a blunt or funny reaction; don't default to a casino/gambling joke or a wistful "
+            "'nobody sees the real me' reflection).\n\n"
         )
         return _tag(_lane(_SYS_CLIP, _gold_block(clip_refs, 18), n_clip, avoid, audio_vibe, audio_energy, notes, extra), "clip")
 
