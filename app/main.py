@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from app import schemas
@@ -157,7 +157,7 @@ def api_audios():
 def api_generate(req: GenerateRequest):
     """One-button reel generation: audio -> caption -> beat-cut selection -> render."""
     with SessionLocal() as s:
-        audio = s.get(Audio, req.audio_id) if req.audio_id else s.scalar(select(Audio).limit(1))
+        audio = s.get(Audio, req.audio_id) if req.audio_id else s.scalar(select(Audio).order_by(func.random()).limit(1))
     if audio is None or not audio.r2_key:
         raise HTTPException(status_code=404, detail="no audio in library — run the seed")
 

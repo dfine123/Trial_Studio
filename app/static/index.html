@@ -42,19 +42,23 @@
   <div id="result"></div>
 </div>
 <script>
+let AUDIOS = [];
 async function loadAudios() {
-  const a = await (await fetch('/api/audios')).json();
-  document.getElementById('audio').innerHTML = a.map(
-    x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`
-  ).join('');
+  AUDIOS = await (await fetch('/api/audios')).json();
+  document.getElementById('audio').innerHTML =
+    '<option value="mix">🎲 Mix — a different audio each reel</option>' +
+    AUDIOS.map(
+      x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`
+    ).join('');
 }
-function renderReel(d) {
+function renderReel(d, audioLabel) {
   const div = document.createElement('div');
   div.className = 'card';
   div.innerHTML = `<div class="reelbox">
     <video controls loop playsinline src="${d.reel_url}"></video>
     <div class="meta"><div style="color:#9a9aa6;font-size:13px">caption</div>
       <div class="cap"></div>
+      <div style="color:#6a6a76;font-size:12px;margin-top:10px">🎵 ${audioLabel || ''} · ${d.duration}s · ${d.shots} shots</div>
       <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
   </div>`;
   div.querySelector('.cap').textContent = d.caption;
@@ -63,16 +67,21 @@ function renderReel(d) {
 document.getElementById('gen').onclick = async () => {
   const btn = document.getElementById('gen'), st = document.getElementById('status');
   const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value, 10) || 1));
-  const audio_id = document.getElementById('audio').value;
+  const sel = document.getElementById('audio').value;
   const notes = document.getElementById('notes').value || null;
+  // "Mix" = a different audio per reel (shuffled, cycling); otherwise the chosen audio for all.
+  const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
+  const audioFor = (i) => sel === 'mix' ? ((shuffled[(i - 1) % shuffled.length] || {}).id) : sel;
   btn.disabled = true;
   let done = 0, failed = 0;
   for (let i = 1; i <= n; i++) {
+    const aid = audioFor(i);
+    const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
     st.textContent = `Generating ${i}/${n}… writing caption, cutting to the beat, rendering (~30–60s each)`;
     try {
-      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id, notes }) });
+      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes }) });
       if (!r.ok) throw new Error((await r.text()).slice(0, 200));
-      renderReel(await r.json());
+      renderReel(await r.json(), label);
       done++;
     } catch (e) {
       failed++;
