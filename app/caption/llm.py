@@ -37,7 +37,8 @@ def _openai(system: str, user: str, max_tokens: int) -> str:
         model=settings.openai_caption_model,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
         response_format={"type": "json_object"},
-        max_tokens=max_tokens,
-        temperature=1.0,
+        # gpt-5.x: use max_completion_tokens (not max_tokens), leave headroom for internal
+        # reasoning, and omit temperature (reasoning models reject a custom value).
+        max_completion_tokens=max(max_tokens, 8000),
     )
     return resp.choices[0].message.content or ""
