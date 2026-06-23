@@ -32,14 +32,14 @@ _AUDIO_MODE_AFFINITY = {
 }
 
 _FOCUS = [
-    "BLUNT aggressive money-bravado — sneer at budgeting/saving as weak ('wtf is budget, just make more money'), cocky insult cap ('pussy', 'broke ahh', 'soft'); ATTITUDE over cleverness",
-    "money / grindset — the come-up, out-earning, 'we gonna eat', work-ethic flex",
-    "wealth mindset — rich-vs-poor mindset, opportunity, money psychology (sharp, never corny)",
-    "finance / investing flex or wordplay (the S&P, the portfolio, the index-fund bit)",
-    "absurd / villain / shameless humor, money-flavored (the landlord, charging people, the bill)",
-    "self-aware degenerate (gambling, the bank app, the slot machine, the streets)",
-    "crude / wordplay / IYKYK humor",
-    "balanced — LEAD with money/grind; relationship/anti-simp at most a minority",
+    "go funny — absurd / villain / shameless (money-flavored where it fits)",
+    "blunt money-bravado — anti-budget, 'just make more money', cocky and dismissive",
+    "wealth / grind mindset — rich-vs-poor, opportunity, the come-up (sharp, not corny)",
+    "anti-simp / relationship — make it land hard",
+    "crude / wordplay / IYKYK",
+    "self-aware degenerate (gambling, the bank app, the streets)",
+    "sincere mentor-motivation with a razor-sharp metaphor",
+    "dealer's choice — whatever hits hardest; no two alike",
 ]
 
 _SYS = """You write short-form captions in ONE specific creator's voice. The caption IS the post — the words carry it; a clip plays behind. Goal: something a very-online person screenshots and SENDS to a friend (shareability is the dominant lever in this creator's corpus).
@@ -48,9 +48,8 @@ You are given REAL reference captions from THIS creator's corpus, each with WHY 
 
 Rules learned the hard way:
 - BASE PERSONA: the narrator is a rich, winning, flex entrepreneur — the guy with the money, the landlord collecting rent, the one who already made it. Even the jokes come from that POV (villain landlord, the guy who charges his own therapist, the winner looking down). Flex/status is the bedrock under every caption; humor and motivation sit ON TOP of it.
-- CORE SUBJECT = MONEY. This persona's home turf is making money: the come-up, out-earning everyone, rich-vs-poor mindset, investing/finance, opportunity, "we gonna eat", the grind. THAT is the main course. Relationship / anti-simp / "she said" / girlfriend jokes are good but a SIDE DISH — keep them a clear minority, never the dominant theme.
-- MONEY TONE — don't over-polish. A CORE, under-used flavor is BLUNT AGGRESSIVE money-bravado: sneer at budgeting / saving / being careful with money as weak ("wtf is budget, just make more money"), prescribe earning over saving, cap with a cocky/hostile insult ("pussy", "broke ahh", "soft", "weird ahh"). Here the ATTITUDE is the payoff — NOT a clever twist. Not every line needs wordplay or a setup→reveal; sometimes raw dismissive dominance hits hardest. Stay cocky, blunt, a little hostile.
-- NO CORNY / SENTIMENTAL / PSEUDO-POETIC lines — this is the most common cringe and an instant fail. Kill on sight: smug pet-names ("sweetheart", "darling"), flowery emotional payoffs, and any attempt to sound deep-and-SOFT about money. EXACT cringe to never write: "my bank keeps flagging the deposits as suspicious activity. that's not fraud sweetheart. that's just the first time the account's seen someone actually mean it." — theatrical, soft, self-serious, trying to be poetic. Heuristic: if a line could be read aloud in a wistful, tender voice, it FAILED. Blunt and a little mean ALWAYS beats poetic and soft.
+- MONEY is the home turf — the come-up, out-earning, wealth mindset, the flex — so it leans there often, but the FULL range is fair game; do NOT force money into every line. One strong flavor is blunt anti-budget bravado ("wtf is budget, just make more money") where the attitude IS the payoff.
+- NEVER corny, sentimental, or pseudo-poetic — and never soft/wistful about money. Blunt and a little mean beats clever-and-soft every time.
 - LEAD WITH FUNNY. The creator wants genuinely funny captions MORE than motivational ones — but funny only counts if the payoff lands.
 - THE PAYOFF IS EVERYTHING. The #1 failure mode is a strong setup with a limp, confusing, or illogical payoff. The punchline must hit hard, be specific, and be logically airtight — the premise has to actually hold (no logic holes like "a funeral is invite-only anyway", no weak analogies, nothing corny or try-hard). A great setup with a weak payoff is a FAILURE — rebuild the landing or throw the whole line out.
 - Decode the real mechanism — never write something that merely sounds edgy or deep.
@@ -119,7 +118,6 @@ def generate(
         )
 
     sys = _SYS.format(clip_line=clip_line)
-    focus = random.choice(_FOCUS)
     user = (
         f"AUDIO — vibe: {audio_vibe}; purpose: {audio_purpose}; energy: {audio_energy}.\n"
         f"Creator notes/topic (optional): {notes or 'none — lean core persona, any topic'}.\n\n"
@@ -127,12 +125,11 @@ def generate(
         f"CROWNED BEST — the creator's all-time favorites; THIS is the bar every caption must clear:\n{best_block}\n\n"
         f"GOOD — these LANDED with the creator (match this caliber and spirit, never copy):\n{good_block}\n\n"
         f"AVOID — already shown or rejected. NEVER repeat, reword, or reuse the structure/template of any:\n{avoid_block}\n\n"
-        f"This batch: {focus}. Write {n} captions. Center the THEME on MONEY / the grind / wealth / finance (this "
-        f"persona's world) — keep relationship/anti-simp to AT MOST 1 of the batch, not the theme. MOST must be "
-        f"genuinely FUNNY (lead with humor); a couple may be sincere money/grind motivation. Every one must be a "
-        f"DIFFERENT structure and opening — NO two in this batch share a template or mold, none echo the AVOID list. "
-        f"Each must land a hard, coherent payoff (logic must hold; no weak analogies, nothing corny) and be strong "
-        f"enough you'd stake your name on it; if the landing is weak, confusing, or familiar, throw it out and rebuild. Built to be SENT."
+        f"Write {n} captions that deliberately SPAN the range — no two alike, none echoing the AVOID list. Mix it: a "
+        f"few money/grind (include at least one blunt anti-budget bravado), a few flat-out funny (villain / absurd / "
+        f"crude / wordplay), maybe one anti-simp — and AT MOST ONE sincere-motivational (the corpus over-indexes those, "
+        f"and a corny metaphor is an instant fail). Funny or sharp first, every payoff landing hard; if a line is weak, "
+        f"confusing, corny, or familiar, throw it out and rebuild. Built to be SENT."
     )
 
     text = complete_json(sys, user, effort="high", max_tokens=4000)
