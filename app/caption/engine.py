@@ -14,7 +14,7 @@ import random
 from app.caption.llm import complete_json
 from app.caption.refine import refine
 from app.corpus.genlog import log_generated, recent_generated
-from app.corpus.grades import best_captions, kept_captions, killed_captions
+from app.corpus.grades import best_captions, kept_captions
 from app.corpus.store import load_refs, retrieve
 
 # Soft affinity: an audio's PURPOSE -> persona modes that tend to fit it (biases retrieval only).
@@ -71,7 +71,11 @@ def generate(
             gold.append(c)
     gold_block = "\n".join("- " + c.replace("\n", " / ") for c in gold) or "(corpus empty)"
 
-    avoid = (killed_captions() + recent_generated(45))[-60:]
+    # Only recent GENERATIONS go here (to avoid rehashing exact lines). Kills are deliberately NOT
+    # used in-context: the same setup gets both kept AND killed (execution-dependent), so a kill is
+    # too noisy to steer the voice — using it bans good setups and drifts the voice weak/weird.
+    # Kills still feed the future reward model, where the noise averages out across many examples.
+    avoid = recent_generated(50)
     avoid_block = "\n".join("- " + c.replace("\n", " / ") for c in avoid) or "(none yet)"
 
     if clip_context:
@@ -87,11 +91,11 @@ def generate(
         "REAL CAPTIONS FROM THIS CREATOR — this IS the voice. Match their language, slang, cadence, "
         "length, and attitude; write new ones that sound like the same person. Do NOT copy or reword any:\n"
         f"{gold_block}\n\n"
-        f"AVOID — already shown or rejected; never repeat, reword, or reuse the structure of any:\n{avoid_block}\n\n"
+        f"ALREADY SHOWN (recent batches) — don't repeat or closely reword these exact lines. Reusing a good SETUP with a genuinely NEW joke is FINE; just don't rehash the same caption:\n{avoid_block}\n\n"
         f"Audio vibe: {audio_vibe or 'n/a'} ({audio_energy or ''}). Notes: {notes or 'none'}.\n"
         f"Write {n} new captions. Span topics so no two are alike — money / the grind shows up a lot (their "
         "world) but not every line; at most one sincere-motivational. Funny/sharp first, RAW not constructed; "
-        "never corny. None may echo AVOID."
+        "never corny. Don't rehash the exact recent lines above."
     )
 
     text = complete_json(sys, user, effort="high", max_tokens=4000)
