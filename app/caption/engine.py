@@ -110,17 +110,13 @@ Return ONLY JSON, no prose:
 {"candidates": [{"text": "the caption (\\n for line breaks)", "mode": "short label", "primary_lever": "shareability|comment_bait|relatability|...", "why": "one line"}]}"""
 
 
-def _gold_block(refs: list[dict], k: int, max_gambling_frac: float = 0.15) -> str:
+def _gold_block(refs: list[dict], k: int) -> str:
+    # Faithful random sample — the references ARE the voice (degenerate core included). Do NOT
+    # cap or rebalance them: an under-representative sample is exactly what drifts the model toward
+    # generic grindset/flex and away from the references.
     pool = list(refs)
     random.shuffle(pool)
-    # The corpus is gambling-heavy; cap gambling refs in the shown examples so it stays present
-    # but proportionate (no prompt rule, no quality touch — just rebalance the input).
-    cap = max(1, int(k * max_gambling_frac))
-    gambling = [r for r in pool if _is_gambling(r)]
-    other = [r for r in pool if not _is_gambling(r)]
-    picked = gambling[:cap] + other[: max(0, k - cap)]
-    random.shuffle(picked)
-    gold = [(r.get("caption") or "").strip() for r in picked[:k] if (r.get("caption") or "").strip()]
+    gold = [(r.get("caption") or "").strip() for r in pool[:k] if (r.get("caption") or "").strip()]
     return "\n\n".join(f"[{i + 1}]\n{c}" for i, c in enumerate(gold)) or "(none)"
 
 
@@ -174,24 +170,22 @@ def generate(
     n_serious = min(n - n_clip - 1, 3 if reflective else 2)
     n_voice = max(1, n - n_serious - n_clip)
 
-    # The model over-reaches for gambling + recycles ~6 salient structures; one light note nudges
-    # proportion, and a shuffled subset of the format palette widens structure per & across batches.
-    fmt_spread = "; ".join(random.sample(_FORMATS, k=min(8, len(_FORMATS))))
+    # REFERENCE-DOMINATED: the gold block above IS the voice. One light note keeps range without
+    # forcing templates, and reasserts the unhinged core that generic drift erodes.
     topic_note = (
-        "Gambling/degenerate (casino, slots, parlays, the dealer) is just ONE flavor — at MOST one gambling caption "
-        "here; spread topics widely (money, work, dating, family, status, absurd).\n"
-        "VARY THE STRUCTURE — the creator writes in many shapes, not just 'she said' and 'would you rather'. Reach for "
-        f"a spread this batch, e.g.: {fmt_spread}. No two captions should share a structure; don't default to the same "
-        "few molds — but only use a shape if THIS specific joke lands.\n\n"
+        "Stay locked to the references' voice — their exact slang, their formatting, their unhinged hyper-specific "
+        "humor (gambling/degenerate, crude, anti-motivational subversions are CORE — never sand them into something "
+        "safe). Range across setups so they're not all alike, but NEVER settle for a generic grindset / flex / "
+        "fake-stat line a normal money account would post — if it isn't genuinely funny the way THESE references are, "
+        "throw it out.\n\n"
     )
 
     def voice():
         return _tag(_lane(_SYS_VOICE, _gold_block(refs, 40), n_voice, avoid, audio_vibe, audio_energy, notes, topic_note), "voice")
 
     serious_note = (
-        "Vary the shape — don't default to 'everyone wants X / nobody wants Y' or 'you'll never be ready'. Also reach for: "
-        "a blunt one-line truth, a 'you're not X, you're Y' reframe, an anti-motivational timeline, a subverted aphorism, "
-        "a hard callout. Only if it lands.\n\n"
+        "Match the references' SERIOUS lines — a sharp real truth or clean reframe in one beat, never a corny "
+        "poster-metaphor or a generic motivational line. Vary the angle; only keep it if it genuinely lands.\n\n"
     )
 
     def serious():
