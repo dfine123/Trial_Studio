@@ -14,7 +14,6 @@ import random
 from app.caption.llm import complete_json
 from app.caption.refine import refine
 from app.corpus.genlog import log_generated, recent_generated
-from app.corpus.grades import best_captions, kept_captions
 from app.corpus.store import load_refs, retrieve
 
 # Soft affinity: an audio's PURPOSE -> persona modes that tend to fit it (biases retrieval only).
@@ -28,16 +27,16 @@ _AUDIO_MODE_AFFINITY = {
     "stats_gutpunch": ["anticope_callout", "deep_bro_provocative", "antimediocrity_dread"],
 }
 
-_SYS = """You write short-form captions AS ONE specific creator. The REAL captions you're shown ARE the voice — study their exact language, slang, rhythm, length, and attitude, then write NEW ones that sound like the same person wrote them. Match the TEXTURE, not a formula.
+_SYS = """You write short-form captions AS ONE specific creator. Below are REAL captions of theirs — this IS the voice. Study EVERYTHING: the exact language and slang, the FORMATTING (line breaks, length), the wild hyper-specificity (named brands, exact dollar amounts, vbucks / parlays / streamers / blackjack), the degenerate gambling + crude + shock humor, the anti-motivational SUBVERSIONS, the very-online references. Then write NEW ones that are JUST as unhinged and specific.
 
-- Talk like them: raw, blunt, lowercase, deadpan, very-online slang (mf, fym, ahh, "broke ahh", dat, ik, ts). a little mean.
-- Many of their best are DEAD SIMPLE — pure raw attitude, no clever wordplay ("wtf is budget... just make more money pussy"). Don't get writerly or over-construct; the funniest hit fast and land on something concrete.
-- Steal their cadence and slang, not their topics. Never corny, sentimental, soft, or motivational-poster.
-- Don't copy or reword any example — fresh topics/angles. Never repeat anything in the AVOID list.
+THE #1 FAILURE is writing a clean, safe, GENERIC version of the vibe — a smooth "money mindset" motivational-clapback that sounds like every other hustle account. These references are weird, hyper-specific, degenerate, and shocking. Do NOT sanitize them: name the exact thing, go to the dark/crude/absurd place, subvert the motivational setup. Be as specific and unhinged as they are.
+
+- Match their FORMATTING: multi-line with line breaks when they do it (\\n / \\n\\n), dead-simple one-liner when they do that. Lowercase-leaning, very-online.
+- Don't copy or reword any reference — fresh topics/angles. Don't rehash any exact line in the AVOID list (reusing a setup with a genuinely new joke is fine).
 {clip_line}
 
 Return ONLY JSON, no prose:
-{{"candidates": [{{"text": "the caption (\\n for line breaks)", "mode": "short label", "primary_lever": "shareability|comment_bait|relatability|iykyk_decode|shock_humor|...", "why": "one line"}}]}}"""
+{{"candidates": [{{"text": "the caption (use \\n for line breaks)", "mode": "short label", "primary_lever": "shareability|comment_bait|relatability|iykyk_decode|shock_humor|...", "why": "one line"}}]}}"""
 
 
 def _modes_for_audio(audio_purpose: list[str] | None) -> list[str]:
@@ -58,18 +57,14 @@ def generate(
     """Generate n captions grounded in a big RAW set of the creator's real captions + grades."""
     refs = load_refs()
     target_modes = _modes_for_audio(audio_purpose)
-    pool = retrieve(refs, target_modes=target_modes, n=min(30, max(1, len(refs))))
+    pool = retrieve(refs, target_modes=target_modes, n=min(40, max(1, len(refs))))
     random.shuffle(pool)
 
-    # The voice = the real captions. Lead with the gathered references (the actual creator voice),
-    # then the crowned bests + recent keeps. Raw text, no analysis labels, deduped.
-    gold, seen = [], set()
-    for c in [r.get("caption", "") for r in pool[:26]] + best_captions()[-6:] + kept_captions()[-8:]:
-        c = (c or "").strip()
-        if c and c not in seen:
-            seen.add(c)
-            gold.append(c)
-    gold_block = "\n".join("- " + c.replace("\n", " / ") for c in gold) or "(corpus empty)"
+    # The voice = the creator's REAL captions ONLY — a big sample with FORMATTING (line breaks)
+    # intact. Do NOT mix in generated keeps/bests: they're smoother than the references and anchor
+    # the model to a sanitized version of the voice.
+    gold = [(r.get("caption") or "").strip() for r in pool[:40] if (r.get("caption") or "").strip()]
+    gold_block = "\n\n".join(f"[{i + 1}]\n{c}" for i, c in enumerate(gold)) or "(corpus empty)"
 
     # Only recent GENERATIONS go here (to avoid rehashing exact lines). Kills are deliberately NOT
     # used in-context: the same setup gets both kept AND killed (execution-dependent), so a kill is
@@ -88,14 +83,13 @@ def generate(
 
     sys = _SYS.format(clip_line=clip_line)
     user = (
-        "REAL CAPTIONS FROM THIS CREATOR — this IS the voice. Match their language, slang, cadence, "
-        "length, and attitude; write new ones that sound like the same person. Do NOT copy or reword any:\n"
+        f"REAL CAPTIONS FROM THIS CREATOR ({len(gold)} of them) — THIS is the voice. Match the language, slang, "
+        "formatting, specificity, and unhinged energy; write new ones that could sit in this exact list unnoticed:\n\n"
         f"{gold_block}\n\n"
-        f"ALREADY SHOWN (recent batches) — don't repeat or closely reword these exact lines. Reusing a good SETUP with a genuinely NEW joke is FINE; just don't rehash the same caption:\n{avoid_block}\n\n"
+        f"RECENTLY SHOWN — don't rehash these exact lines (a fresh joke on a similar setup is fine):\n{avoid_block}\n\n"
         f"Audio vibe: {audio_vibe or 'n/a'} ({audio_energy or ''}). Notes: {notes or 'none'}.\n"
-        f"Write {n} new captions. Span topics so no two are alike — money / the grind shows up a lot (their "
-        "world) but not every line; at most one sincere-motivational. Funny/sharp first, RAW not constructed; "
-        "never corny. Don't rehash the exact recent lines above."
+        f"Write {n} new captions in this voice. Span the range so no two are alike. Be as SPECIFIC and UNHINGED as "
+        "the references — the worst thing you can do is write a clean, generic, safe version. Match their formatting."
     )
 
     text = complete_json(sys, user, effort="high", max_tokens=4000)
