@@ -11,7 +11,7 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 from pilmoji import Pilmoji
-from pilmoji.source import BaseSource
+from pilmoji.source import AppleEmojiSource, BaseSource
 
 from app.config import settings
 
@@ -44,6 +44,27 @@ class _NotoEmojiSource(BaseSource):
         return bio
 
     def get_discord_emoji(self, id: int):  # noqa: A002 — required by the BaseSource interface
+        return None
+
+
+class _AppleThenNotoSource(BaseSource):
+    """Apple / iOS emoji (via the emoji CDN) — the look the creator wants — with the local Noto
+    font as an OFFLINE fallback so an emoji never renders as a box even if the CDN is unreachable."""
+
+    def __init__(self):
+        self._apple = AppleEmojiSource()
+        self._noto = _NotoEmojiSource()
+
+    def get_emoji(self, emoji: str):
+        try:
+            r = self._apple.get_emoji(emoji)
+            if r:
+                return r
+        except Exception:  # noqa: BLE001 — CDN hiccup → fall back to local Noto
+            pass
+        return self._noto.get_emoji(emoji)
+
+    def get_discord_emoji(self, id: int):  # noqa: A002
         return None
 
 
@@ -110,7 +131,7 @@ def render_caption_png(
     stroke = max(2, round(size * stroke_frac))
 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    with Pilmoji(img, source=_NotoEmojiSource) as pilmoji:
+    with Pilmoji(img, source=_AppleThenNotoSource) as pilmoji:
         pilmoji.text(
             (width // 2, int(height * y_frac)),
             final,
