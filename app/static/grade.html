@@ -64,7 +64,7 @@ async function refreshStats() {
       `${s.total} grades · ${s.keeps} keep / ${s.kills} kill / ${s.best} best`;
   } catch (e) {}
 }
-function ctx(c) { return { mode:c.mode, lever:c.primary_lever, notes: document.getElementById('notes').value || null }; }
+function ctx(c) { return { anchor: c.anchor_ref || null, mode:c.mode, lever:c.primary_lever, notes: document.getElementById('notes').value || null }; }
 function updateProgress() {
   const n = verdicts.filter(Boolean).length;
   document.getElementById('progress').textContent = batch.length ? `graded ${n} / ${batch.length}` : '';
