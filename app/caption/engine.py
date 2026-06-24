@@ -112,6 +112,7 @@ Write {n} NEW captions that run THIS move. Hard rules:
 - Run the SAME joke-engine as the examples — not a different move.
 - The creator's voice: very-online, blunt, hyper-specific, crude/degenerate is welcome where it fits, genuinely FUNNY.
 - The punchline must actually LAND and make logical sense — no forced twist, no nonsense, no "almost a joke". If it doesn't make you exhale, it's wrong.
+- PUNCHY: match the LENGTH and economy of the examples — land it in ONE clean beat and STOP. Do NOT over-explain, stretch the analogy, or tack on a second clause to seem clever (no "...like a salmon swimming upstream to die"). The shortest version that lands is the best version; if a clause can be cut, cut it.
 - Don't force gambling/casino — only if it genuinely fits this line.
 - Fresh — never copy or reword an example.
 
@@ -143,51 +144,48 @@ def _gen_move(move: str, exemplars: list[str], n: int, audio_line: str, avoid: s
     return out
 
 
-_JUDGE_SYS = """You are the ruthless quality gate for ONE creator's short-form captions. Here is their BAR — captions THEY personally crowned as their best:
+_JUDGE_SYS = """You rank ONE creator's candidate captions by quality. Here is their BAR — captions THEY crowned as their best. These are GREAT; they'd score 9-10:
 
 {bests}
 
-Score each candidate 0-10 on the ONLY things that matter:
-- Does the joke actually LAND and make logical sense? (no holes, no nonsense, no forced/half-baked twist)
-- Is it in THIS creator's exact voice (very-online, blunt, hyper-specific, funny)?
-- Is it as sharp as the bar above?
+Score each candidate 0-10 against that bar:
+- 9-10 = as good as the bar: blunt, PUNCHY, lands in one clean beat, genuinely funny, you'd screenshot it.
+- 6-8 = solid and in-voice, but not elite.
+- 3-5 = mediocre / forgettable / slightly off.
+- 0-2 = broken: nonsense, no real joke, over-written or run-on, stretched analogy, buried punchline, off-voice, or generic.
 
-KILL (keep=false) anything generic, nonsensical, a dead joke, a forced template, or below the bar — be harsh, most candidates should NOT clear it. A caption that's "fine" is a kill.
+Reward PUNCH — the bar is short and hits instantly. A short blunt line that lands (e.g. "shut up poor person", "i don't have a spending problem / i have a not-enough-money-to-spend problem") beats a long clever one every time. Penalize over-writing and stretched analogies HARD.
 
-Return ONLY JSON: {{"verdicts": [{{"i": <index>, "score": <0-10>, "keep": <true|false>}}]}}"""
+Return ONLY JSON: {{"verdicts": [{{"i": <index>, "score": <0-10>}}]}}"""
 
 
 def _judge(cands: list[dict], bests: list[str]) -> list[dict]:
     if not cands:
         return []
-    if not bests:
-        return cands
     listing = "\n".join(f"[{i}] {(c.get('text') or '').replace(chr(10), ' / ')}" for i, c in enumerate(cands))
-    sys = _JUDGE_SYS.format(bests="\n".join(f"- {b.replace(chr(10), ' / ')}" for b in bests))
-    text = complete_json(sys, "Judge these candidates:\n" + listing, effort="high", max_tokens=2000)
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        return cands
-    try:
-        verdicts = json.loads(text[start:end + 1]).get("verdicts", [])
-    except json.JSONDecodeError:
-        return cands
-    scored, seen = [], set()
-    for v in verdicts:
-        i = v.get("i")
-        if isinstance(i, int) and 0 <= i < len(cands) and i not in seen:
-            seen.add(i)
-            c = dict(cands[i])
-            c["score"] = v.get("score", 0)
-            c["keep"] = bool(v.get("keep"))
-            scored.append(c)
-    for i, c in enumerate(cands):  # never lose a candidate the judge skipped
-        if i not in seen:
-            c = dict(c)
-            c["score"], c["keep"] = 0, False
-            scored.append(c)
-    scored.sort(key=lambda c: c.get("score", 0), reverse=True)
-    return scored
+    scores: dict[int, float] = {}
+    if bests:
+        sys = _JUDGE_SYS.format(bests="\n".join(f"- {b.replace(chr(10), ' / ')}" for b in bests))
+        for _ in range(2):  # retry once on a flaky non-JSON return
+            try:
+                text = complete_json(sys, "Rank these candidates:\n" + listing, effort="high", max_tokens=2000)
+                start, end = text.find("{"), text.rfind("}")
+                verdicts = json.loads(text[start:end + 1]).get("verdicts", []) if start != -1 else []
+            except Exception:  # noqa: BLE001
+                verdicts = []
+            for v in verdicts:
+                i = v.get("i")
+                if isinstance(i, int) and 0 <= i < len(cands):
+                    scores[i] = v.get("score", 5)
+            if scores:
+                break
+    out = []
+    for i, c in enumerate(cands):
+        c = dict(c)
+        c["score"] = scores.get(i, 5)  # neutral default so a candidate is never lost / un-scored
+        out.append(c)
+    out.sort(key=lambda c: c.get("score", 0), reverse=True)
+    return out
 
 
 def generate(

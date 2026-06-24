@@ -6,12 +6,26 @@ upper-third placement, static. Composited losslessly over the video by the compo
 """
 from __future__ import annotations
 
+import re
+
 from PIL import Image, ImageDraw, ImageFont
 
 from app.config import settings
 
 # Weight axis order for TikTokSans-VariableFont: [Optical size, Width, Weight, Slant].
 _AXES = lambda weight: [36, 100, weight, 0]  # noqa: E731
+
+# The caption font has no emoji glyphs (they render as ▢ boxes). Map the load-bearing 🥷 to text
+# so the ninja move still reads, and strip any other emoji so nothing renders as a box.
+_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF\U00002B00-\U00002BFF️‍]"
+)
+
+
+def _sanitize(text: str) -> str:
+    text = text.replace("🥷's", "ninjas").replace("🥷", "ninja")
+    text = _EMOJI_RE.sub("", text)
+    return re.sub(r"[ ]{2,}", " ", text).strip()
 
 
 def _load_font(size: int, weight: int = 800) -> ImageFont.FreeTypeFont:
@@ -62,7 +76,7 @@ def render_caption_png(
     width = width or settings.reel_width
     height = height or settings.reel_height
     max_w = width * margin_frac
-    paras = text.split("\n")
+    paras = _sanitize(text).split("\n")
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
 
     # Hold the size CONSISTENT (wrap to fit width); only shrink if a caption is so long it
