@@ -105,8 +105,8 @@ def render_caption_png(
     out_path: str,
     width: int | None = None,
     height: int | None = None,
-    font_size: int = 70,
-    min_font: int = 52,
+    font_size: int = 60,
+    min_font: int = 44,
     weight: int = 800,
     stroke_frac: float = 0.067,
     y_frac: float = 0.30,
@@ -127,22 +127,34 @@ def render_caption_png(
         size -= 3
 
     font = _load_font(size, weight)
-    final = "\n".join(_wrap(paras, font, max_w, probe))
+    lines = _wrap(paras, font, max_w, probe)
     stroke = max(2, round(size * stroke_frac))
+    spacing = int(size * 0.26)
+
+    # Lay the lines out MANUALLY and render each as a SINGLE Pilmoji call — Pilmoji's own multiline
+    # rendering botches the stroke on every line past the first, so we stack the lines ourselves
+    # (each single-line call strokes correctly). Block stays centered on y_frac.
+    ascent, descent = font.getmetrics()
+    line_h = ascent + descent
+    step = line_h + spacing
+    total_h = len(lines) * line_h + max(0, len(lines) - 1) * spacing
+    top = height * y_frac - total_h / 2.0
 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     with Pilmoji(img, source=_AppleThenNotoSource) as pilmoji:
-        pilmoji.text(
-            (width // 2, int(height * y_frac)),
-            final,
-            font=font,
-            fill=(255, 255, 255, 255),
-            anchor="mm",
-            align="center",
-            stroke_width=stroke,
-            stroke_fill=(0, 0, 0, 255),
-            spacing=int(size * 0.30),
-            emoji_scale_factor=1.15,
-        )
+        for i, line in enumerate(lines):
+            if not line.strip():
+                continue
+            cy = top + i * step + line_h / 2.0
+            pilmoji.text(
+                (width // 2, int(cy)),
+                line,
+                font=font,
+                fill=(255, 255, 255, 255),
+                anchor="mm",
+                stroke_width=stroke,
+                stroke_fill=(0, 0, 0, 255),
+                emoji_scale_factor=1.15,
+            )
     img.save(out_path)
     return out_path
