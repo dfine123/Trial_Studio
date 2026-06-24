@@ -26,6 +26,7 @@
   .cap { white-space:pre-wrap; font-size:16px; line-height:1.45; }
   .meta { color:#6f8b82; font-size:12px; margin-top:8px; }
   .seed { color:#1fae89; font-weight:700; }
+  .struct { color:#7fae9f; font-style:italic; }
   .note { width:100%; margin-top:10px; background:#0b0f0d; color:#ececf0; border:1px solid #2a3a33; border-radius:8px; padding:9px 10px; font-size:13px; }
   .btns { display:flex; gap:8px; margin-top:10px; }
   .keep { background:#1d3a30; color:#cfeede; } .kill { background:#3a2230; color:#ffd0d8; } .best { background:#33301f; color:#ffd76a; }
@@ -68,7 +69,7 @@ async function refreshStats() {
       `${s.total} seed-grades · ${s.keeps} keep / ${s.kills} kill / ${s.best} best`;
   } catch (e) {}
 }
-function ctx(c) { return { seed: c.seed || null, notes: document.getElementById('notes').value || null }; }
+function ctx(c) { return { seed: c.seed || null, structure: c.structure || null, notes: document.getElementById('notes').value || null }; }
 function updateProgress() {
   const n = verdicts.filter(Boolean).length;
   document.getElementById('progress').textContent = batch.length ? `graded ${n} / ${batch.length}` : '';
@@ -95,11 +96,12 @@ function render() {
   const wrap = document.getElementById('cards'); wrap.innerHTML = '';
   batch.forEach((c, i) => {
     const card = document.createElement('div'); card.className = 'card';
-    card.innerHTML = `<div class="cap"></div><div class="meta">🌱 seed: <span class="seed"></span></div>
+    card.innerHTML = `<div class="cap"></div><div class="meta">🌱 <span class="seed"></span> → <span class="struct"></span></div>
       <input class="note" placeholder="optional note — why it hit, or specifically what missed" />
       <div class="btns"><button class="keep">keep</button><button class="kill">kill</button><button class="best">⭐ best</button></div>`;
     card.querySelector('.cap').textContent = c.text;
     card.querySelector('.seed').textContent = c.seed || '—';
+    card.querySelector('.struct').textContent = c.structure || '—';
     const noteEl = card.querySelector('.note');
     const keepB = card.querySelector('.keep'), killB = card.querySelector('.kill'), bestB = card.querySelector('.best');
     keepB.onclick = () => setVerdict(i, 'keep', card, noteEl, keepB, killB);
