@@ -35,6 +35,3 @@ Pillow>=10.2,<12.0
 tenacity>=8.2,<10.0
 httpx>=0.27,<1.0
 openai>=2.43.0
-
-# ── Caption seeding experiment (offline random-word generator, no AI/network) ──
-wonderwords>=2.2,<4.0
