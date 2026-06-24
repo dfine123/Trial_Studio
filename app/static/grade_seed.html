@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trial Studio — Seeding Experiment</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:#0b0f0d; color:#ececf0; display:flex; justify-content:center; }
+  .wrap { width:100%; max-width:820px; padding:28px 20px 90px; }
+  h1 { font-weight:600; margin:0 0 4px; }
+  .tag { font-size:12px; font-weight:700; color:#0b0f0d; background:#1fae89; padding:2px 8px; border-radius:6px; vertical-align:middle; margin-left:8px; }
+  .sub { color:#8fb3a8; margin:0 0 6px; font-size:14px; }
+  .legend { color:#6f8b82; font-size:13px; line-height:1.5; margin:0 0 16px; }
+  .legend b { color:#bfe0d5; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; background:#111614; border:1px solid #213029; border-radius:12px; padding:14px; position:sticky; top:8px; z-index:5; }
+  .bar input { flex:1; min-width:160px; background:#0b0f0d; color:#ececf0; border:1px solid #2a3a33; border-radius:8px; padding:10px; font-size:14px; }
+  button { border:0; border-radius:9px; padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; }
+  .gen { background:#1fae89; color:#04130d; }
+  button:disabled { opacity:.4; cursor:default; }
+  .stats { font-size:13px; color:#86c4ad; }
+  .progress { font-size:13px; color:#8fb3a8; margin:10px 2px 0; }
+  .status { color:#8fb3a8; font-size:14px; margin:8px 2px; min-height:18px; }
+  .card { background:#111614; border:1px solid #213029; border-radius:12px; padding:16px 18px; margin-bottom:12px; transition:opacity .15s, border-color .15s; }
+  .cap { white-space:pre-wrap; font-size:16px; line-height:1.45; }
+  .meta { color:#6f8b82; font-size:12px; margin-top:8px; }
+  .seed { color:#1fae89; font-weight:700; }
+  .note { width:100%; margin-top:10px; background:#0b0f0d; color:#ececf0; border:1px solid #2a3a33; border-radius:8px; padding:9px 10px; font-size:13px; }
+  .btns { display:flex; gap:8px; margin-top:10px; }
+  .keep { background:#1d3a30; color:#cfeede; } .kill { background:#3a2230; color:#ffd0d8; } .best { background:#33301f; color:#ffd76a; }
+  .keep.on { background:#1f7a4d; color:#fff; } .kill.on { background:#7a2330; color:#fff; } .best.on { background:#caa42e; color:#1a1500; }
+  .card.kept { border-color:#1f7a4d; } .card.killed { border-color:#7a2330; opacity:.6; } .card.bestmark { border-color:#ffd76a; }
+  .next { width:100%; padding:15px; font-size:16px; background:#1a221e; color:#ececf0; margin-top:8px; }
+  .next.ready { background:#1fae89; color:#04130d; box-shadow:0 0 0 3px rgba(31,174,137,.25); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Grade <span class="tag">SEEDING TEST</span></h1>
+  <p class="sub">Random-word divergence seeding — separate page, separate tracking. Won't touch your real grades.</p>
+  <p class="legend">
+    Each caption is generated off ONE random seed word (shown on the card). The word is just a nudge —
+    it may have <i>nothing</i> to do with the output. Grade like normal:
+    <b>keep</b> = you'd post it &nbsp;·&nbsp; <b>kill</b> = it missed (a <i>why</i> note is gold) &nbsp;·&nbsp;
+    <b>⭐ best</b> = the standout of the batch.
+  </p>
+  <div class="bar">
+    <input id="notes" placeholder="optional topic/nudge (usually leave blank for the test)" />
+    <button class="gen" id="gen">Generate batch</button>
+    <span class="stats" id="stats">0 grades</span>
+  </div>
+  <div class="progress" id="progress"></div>
+  <div class="status" id="status"></div>
+  <div id="cards"></div>
+  <button class="next" id="next" style="display:none">Next batch →</button>
+</div>
+<script>
+let batch = [], verdicts = [], busy = [], bestIdx = -1, bestBusy = false;
+
+async function post(url, body) {
+  return fetch(url, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+}
+async function refreshStats() {
+  try {
+    const s = await (await fetch('/api/captions/stats_seed')).json();
+    document.getElementById('stats').textContent =
+      `${s.total} seed-grades · ${s.keeps} keep / ${s.kills} kill / ${s.best} best`;
+  } catch (e) {}
+}
+function ctx(c) { return { seed: c.seed || null, notes: document.getElementById('notes').value || null }; }
+function updateProgress() {
+  const n = verdicts.filter(Boolean).length;
+  document.getElementById('progress').textContent = batch.length ? `graded ${n} / ${batch.length}` : '';
+  document.getElementById('next').classList.toggle('ready', batch.length > 0 && n >= batch.length);
+}
+async function genBatch() {
+  const btn = document.getElementById('gen'), st = document.getElementById('status'), next = document.getElementById('next');
+  btn.disabled = true; next.style.display = 'none';
+  st.textContent = 'Generating a seeded batch… (~30–50s)'; document.getElementById('cards').innerHTML = '';
+  try {
+    const notes = document.getElementById('notes').value || null;
+    const r = await fetch('/api/captions/generate_seeded', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ notes, n: 8 }) });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+    batch = (await r.json()).candidates || [];
+    verdicts = batch.map(() => null); busy = batch.map(() => false); bestIdx = -1; bestBusy = false;
+    st.textContent = `${batch.length} candidates — react to each.`;
+    render(); updateProgress();
+    next.style.display = batch.length ? 'block' : 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { st.textContent = 'Error: ' + e.message; }
+  finally { btn.disabled = false; }
+}
+function render() {
+  const wrap = document.getElementById('cards'); wrap.innerHTML = '';
+  batch.forEach((c, i) => {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<div class="cap"></div><div class="meta">🌱 seed: <span class="seed"></span></div>
+      <input class="note" placeholder="optional note — why it hit, or specifically what missed" />
+      <div class="btns"><button class="keep">keep</button><button class="kill">kill</button><button class="best">⭐ best</button></div>`;
+    card.querySelector('.cap').textContent = c.text;
+    card.querySelector('.seed').textContent = c.seed || '—';
+    const noteEl = card.querySelector('.note');
+    const keepB = card.querySelector('.keep'), killB = card.querySelector('.kill'), bestB = card.querySelector('.best');
+    keepB.onclick = () => setVerdict(i, 'keep', card, noteEl, keepB, killB);
+    killB.onclick = () => setVerdict(i, 'kill', card, noteEl, keepB, killB);
+    bestB.onclick = () => setBest(i, card, bestB);
+  wrap.appendChild(card);
+  });
+}
+async function setVerdict(i, verdict, card, noteEl, keepB, killB) {
+  if (busy[i] || verdicts[i] === verdict) return;
+  busy[i] = true; keepB.disabled = killB.disabled = true;
+  try { await post('/api/captions/grade_seed', { caption: batch[i].text, verdict, note: noteEl.value || null, context: ctx(batch[i]) }); }
+  finally { busy[i] = false; keepB.disabled = killB.disabled = false; }
+  verdicts[i] = verdict;
+  card.classList.toggle('kept', verdict === 'keep'); card.classList.toggle('killed', verdict === 'kill');
+  keepB.classList.toggle('on', verdict === 'keep'); killB.classList.toggle('on', verdict === 'kill');
+  updateProgress(); refreshStats();
+}
+async function setBest(i, card, bestB) {
+  if (bestIdx !== -1 || bestBusy) return;
+  bestBusy = true;
+  try { await post('/api/captions/best_seed', { winner: batch[i].text, batch: batch.map(c => c.text), context: ctx(batch[i]) }); }
+  finally { bestBusy = false; }
+  bestIdx = i; bestB.classList.add('on'); card.classList.add('bestmark');
+  document.querySelectorAll('.best').forEach(b => { if (b !== bestB) b.disabled = true; });
+  refreshStats();
+}
+document.getElementById('gen').onclick = genBatch;
+document.getElementById('next').onclick = genBatch;
+refreshStats();
+</script>
+</body>
+</html>

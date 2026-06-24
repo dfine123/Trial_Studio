@@ -240,3 +240,45 @@ def api_captions_stats():
         "kills": sum(1 for x in verdicts if x.get("verdict") == "kill"),
         "best": sum(1 for x in g if x.get("type") == "best"),
     }
+
+
+# ── Seeding experiment (random-word divergence; ISOLATED store) ─
+@app.get("/grade-seed")
+def grade_seed_page():
+    return FileResponse(os.path.join(_WEB_DIR, "grade_seed.html"))
+
+
+@app.post("/api/captions/generate_seeded")
+def api_captions_generate_seeded(req: CapGenRequest):
+    from app.caption.seeded import generate_seeded  # lazy import
+
+    try:
+        cands = generate_seeded(n=req.n, notes=req.notes)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"seeded generation failed: {exc}") from exc
+    return {"candidates": cands}
+
+
+@app.post("/api/captions/grade_seed")
+def api_captions_grade_seed(req: GradeRequest):
+    grade_store.record_verdict(req.caption, req.verdict, req.context, req.note,
+                               path=grade_store.SEED_GRADES_PATH)
+    return {"ok": True}
+
+
+@app.post("/api/captions/best_seed")
+def api_captions_best_seed(req: BestRequest):
+    grade_store.record_best(req.winner, req.batch, req.context, path=grade_store.SEED_GRADES_PATH)
+    return {"ok": True}
+
+
+@app.get("/api/captions/stats_seed")
+def api_captions_stats_seed():
+    g = grade_store.load_grades(grade_store.SEED_GRADES_PATH)
+    verdicts = [x for x in g if x.get("type") == "verdict"]
+    return {
+        "total": len(g),
+        "keeps": sum(1 for x in verdicts if x.get("verdict") == "keep"),
+        "kills": sum(1 for x in verdicts if x.get("verdict") == "kill"),
+        "best": sum(1 for x in g if x.get("type") == "best"),
+    }
