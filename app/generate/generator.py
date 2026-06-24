@@ -217,18 +217,17 @@ def generate_reel(
 
     # CAPTION FIRST — the caption is the post (a standalone joke).
     if caption_text is None:
-        from app.caption.engine import generate as gen_caps  # lazy: pulls anthropic + corpus
+        from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
+        from app.caption.chooser import choose_best
 
         bpm = audio_bpm or bp.bpm
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
-        # Keep notes MINIMAL — piling niche/audio/vibe context into the prompt degrades the
-        # engine (the over-constraint trap). Audio steering is STRUCTURAL (the lane preference
-        # below), not prompt-stuffing. Only the user's optional nudge passes through.
+        # Keep notes MINIMAL — piling niche/audio/vibe context into the prompt degrades the engine.
         note = (niche or "").strip() or None
-        cands = gen_caps(audio_energy=energy, notes=note, n=6) or []
-        # candidates come back judge-ranked (best first); the reel takes the top.
-        pick = cands[0] if cands else None
-        caption_text = (pick.get("text") if pick else None) or "no caption"
+        # BEST-OF-3: three INDEPENDENT caption generations (distinct anchors, run in parallel), then
+        # the chooser layer picks the single one to post. Best-of-N -> higher per-reel quality.
+        candidates = generate_independent(k=3, notes=note, audio_energy=energy)
+        caption_text = choose_best(candidates) or (candidates[0] if candidates else "no caption")
 
     # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
     # so the whole library gets exercised instead of the same few flashy ones.

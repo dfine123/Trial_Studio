@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor
 
 from app.caption.llm import complete_json
 from app.caption.refine import refine
@@ -193,3 +194,47 @@ def generate(
     out = refine(out)  # preserves anchor_ref (dict(c)) + order/count
     log_generated([c.get("text", "") for c in out])
     return out
+
+
+def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None) -> list[str]:
+    """k INDEPENDENT single-caption generations for best-of-N selection (the reel chooser layer).
+
+    Each candidate rides a DISTINCT anchor (one usage update, no race) and is generated in its OWN
+    call — no shared batch, no avoid-list cross-suppression between the k — so each is the model's
+    own best single shot. Runs the k calls in parallel. Returns refined candidate texts.
+    """
+    refs = load_refs()
+    anchors = _pick_anchors(refs, max(1, k))
+    random.shuffle(refs)
+    ref_block = "\n\n".join(
+        (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
+    )
+    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
+    note = (notes or "").strip()
+
+    def one(anchor: dict) -> str | None:
+        user = (
+            (f"Lean (soft): {note}\n\n" if note else "")
+            + "Here's one of your own real captions — a format you use. Say something NEW in YOUR "
+            "voice using that exact format: same structure, rhythm, and twist — but a fresh subject "
+            "(never a rewrite of its joke). Sound unmistakably like YOU — lowercase, slangy, blunt, "
+            "money-brained, very-online — never corporate or poetic. Match its sharpness and "
+            "hyper-specificity:\n\n"
+            f"ANCHOR: {(anchor.get('caption') or '').strip()}\n\n"
+            f"(Don't rehash these exact recent lines: {avoid})\n\n"
+            'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
+        )
+        text = complete_json(_SYS.format(references=ref_block), user, effort="high", max_tokens=1500)
+        s, e = text.find("{"), text.rfind("}")
+        if s == -1 or e == -1:
+            return None
+        try:
+            return (json.loads(text[s:e + 1]).get("text") or "").strip() or None
+        except json.JSONDecodeError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
+        raw = [c for c in ex.map(one, anchors) if c]
+    cands = [c.get("text", "") for c in refine([{"text": c} for c in raw]) if (c.get("text") or "").strip()]
+    log_generated(cands)
+    return cands
