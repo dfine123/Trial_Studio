@@ -22,7 +22,10 @@
   video { width:300px; max-width:100%; border-radius:12px; background:#000; }
   .meta { flex:1; min-width:220px; }
   .cap { white-space:pre-wrap; background:#0d0d11; border:1px solid #262630; border-radius:9px; padding:13px; margin-top:6px; font-size:14px; line-height:1.5; }
-  a.dl { display:inline-block; margin-top:12px; color:#9ab0ff; text-decoration:none; }
+  a.dl { color:#9ab0ff; text-decoration:none; font-size:14px; }
+  .actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+  button.val { width:auto; margin:0; padding:9px 15px; font-size:14px; background:#1f7a4d; }
+  button.val.done { background:#14532d; cursor:default; }
 </style>
 </head>
 <body>
@@ -59,9 +62,23 @@ function renderReel(d, audioLabel) {
     <div class="meta"><div style="color:#9a9aa6;font-size:13px">caption</div>
       <div class="cap"></div>
       <div style="color:#6a6a76;font-size:12px;margin-top:10px">🎵 ${audioLabel || ''} · ${d.duration}s · ${d.shots} shots</div>
-      <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+      <div class="actions">
+        <button class="val">✓ Validate → Drive</button>
+        <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a>
+      </div></div>
   </div>`;
   div.querySelector('.cap').textContent = d.caption;
+  const valBtn = div.querySelector('.val');
+  valBtn.onclick = async () => {
+    const prev = valBtn.textContent;
+    valBtn.disabled = true; valBtn.textContent = 'Exporting…';
+    try {
+      const name = d.reel_url.split('/').pop();
+      const r = await fetch('/api/reels/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, caption: d.caption }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+      valBtn.textContent = '✓ Validated → Drive'; valBtn.classList.add('done');
+    } catch (e) { valBtn.disabled = false; valBtn.textContent = prev; alert('Export failed: ' + e.message); }
+  };
   document.getElementById('result').prepend(div);
 }
 document.getElementById('gen').onclick = async () => {

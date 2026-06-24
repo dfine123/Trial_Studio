@@ -1,7 +1,10 @@
 """FastAPI app + routes (Phase 0): health, upload, and read endpoints."""
 from __future__ import annotations
 
+import json
 import os
+import re
+import shutil
 import uuid
 from contextlib import asynccontextmanager
 
@@ -12,6 +15,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from app import schemas
+from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import Audio, Clip, User
 from app.storage import r2
@@ -54,6 +58,11 @@ class BestRequest(BaseModel):
     winner: str
     batch: list[str]
     context: dict | None = None
+
+
+class ValidateRequest(BaseModel):
+    name: str                 # reel filename (from reel_url)
+    caption: str | None = None
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -193,6 +202,42 @@ def get_reel(name: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="reel not found")
     return FileResponse(path, media_type="video/mp4")
+
+
+def _slug(text: str, maxlen: int = 60) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return s[:maxlen].strip("-") or "reel"
+
+
+@app.post("/api/reels/validate")
+def api_reels_validate(req: ValidateRequest):
+    """Mark a reel postable -> copy it (+ a caption sidecar .txt) into the export folder (your Google
+    Drive for Desktop synced folder). Named by a caption slug so the folder is scannable; idempotent;
+    logged to var/validated.jsonl."""
+    src = os.path.join(_REELS_DIR, os.path.basename(req.name))
+    if not os.path.exists(src):
+        raise HTTPException(status_code=404, detail="reel not found (already cleaned up?)")
+    if os.path.getsize(src) < 100_000:  # a real reel is multiple MB; a broken/partial render is bytes
+        raise HTTPException(status_code=422, detail=f"reel looks broken/empty ({os.path.getsize(src)} bytes) — regenerate before validating")
+    export_dir = settings.reel_export_dir
+    try:
+        os.makedirs(export_dir, exist_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"export folder not writable: {export_dir} ({exc})")
+    stem = _slug(req.caption) + "__" + os.path.splitext(os.path.basename(req.name))[0][:8]
+    dest_mp4 = os.path.join(export_dir, stem + ".mp4")
+    try:
+        if not os.path.exists(dest_mp4):
+            shutil.copy2(src, dest_mp4)
+        if (req.caption or "").strip():
+            with open(os.path.join(export_dir, stem + ".txt"), "w", encoding="utf-8") as f:
+                f.write(req.caption.strip() + "\n")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"export copy failed: {exc}")
+    os.makedirs("var", exist_ok=True)
+    with open("var/validated.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps({"name": req.name, "caption": req.caption, "exported": dest_mp4}, ensure_ascii=False) + "\n")
+    return {"ok": True, "exported": dest_mp4}
 
 
 # ── Caption grading (reward-model data capture) ───────────────

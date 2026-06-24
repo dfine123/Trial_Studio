@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     min_resolution: int = 1080                   # QC: reject if min(w,h) < this
     min_fps: float = 29.9                         # QC: reject if fps < this
 
+    # ── Validated-reel export (Google Drive for Desktop sync) ─
+    # Set REEL_EXPORT_DIR to your Drive-synced folder as a WSL path, e.g.
+    # /mnt/c/Users/Streaming/My Drive/Reels — validated reels are copied here and Drive uploads them.
+    reel_export_dir: str = "/mnt/c/Users/Streaming/Validated Reels"
+
     @property
     def sqlalchemy_url(self) -> str:
         """Normalize a bare Postgres URL (e.g. Railway's) to the psycopg driver."""
