@@ -1,37 +1,56 @@
-"""Render a caption to a transparent PNG — the locked TikTok-caption style.
+"""Render a caption to a transparent PNG — the locked TikTok-caption style, WITH emoji.
 
-TikTok Sans (heavy), white fill + a thin dark outline, centered, word-WRAPPED to fit the frame
-so nothing overflows, at a CONSISTENT size (so the outline weight stays uniform reel to reel),
-upper-third placement, static. Composited losslessly over the video by the compositor.
+TikTok Sans (heavy) white fill + thin dark outline, word-wrapped, centered, upper-third. Emoji
+(🥷 🙏 😭 💀 …) render in COLOR from the local Noto Color Emoji font via Pilmoji — fully offline,
+no CDN. The caption engine is free to use emoji as the references do; the renderer handles them,
+they are never stripped or a constraint on generation.
 """
 from __future__ import annotations
 
-import re
+from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
+from pilmoji import Pilmoji
+from pilmoji.source import BaseSource
 
 from app.config import settings
 
 # Weight axis order for TikTokSans-VariableFont: [Optical size, Width, Weight, Slant].
 _AXES = lambda weight: [36, 100, weight, 0]  # noqa: E731
-
-# The caption font has no emoji glyphs (they render as ▢ boxes). Map the load-bearing 🥷 to text
-# so the ninja move still reads, and strip any other emoji so nothing renders as a box.
-_EMOJI_RE = re.compile(
-    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF\U00002B00-\U00002BFF️‍]"
-)
+_NOTO_PATH = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"
 
 
-def _sanitize(text: str) -> str:
-    text = text.replace("🥷's", "ninjas").replace("🥷", "ninja")
-    text = _EMOJI_RE.sub("", text)
-    return re.sub(r"[ ]{2,}", " ", text).strip()
+class _NotoEmojiSource(BaseSource):
+    """Emoji glyphs from the local Noto Color Emoji font (offline). Noto is a bitmap font with a
+    single 109px strike, so it must be opened at exactly that size; Pilmoji resizes from there."""
+
+    def __init__(self):
+        try:
+            self._font = ImageFont.truetype(_NOTO_PATH, 109)
+        except Exception:  # noqa: BLE001 — degrade gracefully (emoji just won't draw, no crash)
+            self._font = None
+
+    def get_emoji(self, emoji: str):
+        if self._font is None:
+            return None
+        img = Image.new("RGBA", (140, 140), (0, 0, 0, 0))
+        ImageDraw.Draw(img).text((6, 6), emoji, font=self._font, embedded_color=True)
+        bbox = img.getbbox()
+        if not bbox:
+            return None
+        bio = BytesIO()
+        img.crop(bbox).save(bio, "PNG")
+        bio.seek(0)
+        return bio
+
+    def get_discord_emoji(self, id: int):  # noqa: A002 — required by the BaseSource interface
+        return None
 
 
 def _load_font(size: int, weight: int = 800) -> ImageFont.FreeTypeFont:
     font = ImageFont.truetype(settings.font_path, size)
     try:
-        font.set_variation_by_axes(_AXES(weight))  # variable font defaults to 300 (Light)
+        font.set_variation_by_axes(_AXES(weight))
     except Exception:
         try:
             font.set_variation_by_name(b"ExtraBold")
@@ -76,11 +95,9 @@ def render_caption_png(
     width = width or settings.reel_width
     height = height or settings.reel_height
     max_w = width * margin_frac
-    paras = _sanitize(text).split("\n")
+    paras = text.split("\n")
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
 
-    # Hold the size CONSISTENT (wrap to fit width); only shrink if a caption is so long it
-    # would exceed max_lines after wrapping.
     size = font_size
     while size > min_font:
         lines = _wrap(paras, _load_font(size, weight), max_w, probe)
@@ -89,22 +106,22 @@ def render_caption_png(
         size -= 3
 
     font = _load_font(size, weight)
-    lines = _wrap(paras, font, max_w, probe)
-    final = "\n".join(lines)
+    final = "\n".join(_wrap(paras, font, max_w, probe))
     stroke = max(2, round(size * stroke_frac))
 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.multiline_text(
-        (width / 2, height * y_frac),
-        final,
-        font=font,
-        fill=(255, 255, 255, 255),
-        anchor="mm",
-        align="center",
-        stroke_width=stroke,
-        stroke_fill=(0, 0, 0, 255),
-        spacing=int(size * 0.30),
-    )
+    with Pilmoji(img, source=_NotoEmojiSource) as pilmoji:
+        pilmoji.text(
+            (width // 2, int(height * y_frac)),
+            final,
+            font=font,
+            fill=(255, 255, 255, 255),
+            anchor="mm",
+            align="center",
+            stroke_width=stroke,
+            stroke_fill=(0, 0, 0, 255),
+            spacing=int(size * 0.30),
+            emoji_scale_factor=1.15,
+        )
     img.save(out_path)
     return out_path
