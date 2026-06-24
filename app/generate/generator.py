@@ -226,8 +226,8 @@ def generate_reel(
         # below), not prompt-stuffing. Only the user's optional nudge passes through.
         note = (niche or "").strip() or None
         cands = gen_caps(audio_energy=energy, notes=note, n=6) or []
-        prefer = "serious" if (energy == "low" or (audio_vibe and set(audio_vibe) & _SERIOUS_VIBES)) else "voice"
-        pick = _pick_reel_caption(cands, prefer)
+        # candidates come back judge-ranked (best first); the reel takes the top.
+        pick = cands[0] if cands else None
         caption_text = (pick.get("text") if pick else None) or "no caption"
 
     # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
