@@ -1,23 +1,26 @@
-"""Caption engine — reference-dominated, full-range, MOLD-anchored for tight conformance.
+"""Caption engine — reference-dominated, full-range, ROTATION-anchored for format coverage + variety.
 
-Understanding (real re-read of all 95 refs): the voice is a precise TWIST stated with deadpan
-confidence, hyper-specific + very-online, spanning a huge range. Always SHARP + specific or parody —
-NEVER generic wisdom.
+Understanding (real re-read of all 95 refs): the voice is a precise TWIST, deadpan, hyper-specific +
+very-online, spanning a HUGE range of distinct FORMATS (🥷 hate-so-much, the Iran/I-ran homophone,
+for-perspective scale parody, the Zuckerberg-timeline, Uber/Amazon middlemen, would-you-rather,
+two-speaker, 50/30/20 rule, objects-in-mirror, fake-stat, X-is-like-Y, proverb-subversion, ...).
+The references' POWER is that variety.
 
-Diagnosis (fresh batches vs the references): FORMAT conformance is already high (outputs ride the
-proven molds, sometimes near-reskins), but the "sincere/deep" slots DRIFT into generic motivation /
-borrowed clichés the references never touch ("Rock bottom has a basement", "the last knock opens the
-door") — because seeding a slot with ONE reference + "riff loose" lets the model freewheel on "deep".
+Diagnosis (graded session on the trait-mold engine): organizing slots by persona_trait (TONE) was
+the bug — tone != format, some traits map to ONE rigid format, and random trait-selection repeated a
+handful ("How I look at [relative]" ×4, "you let your girl" ×3, crime-wordplay ×3) while ~15 real
+formats never appeared. Framing felt constant; formats were missing.
 
-Conformance fix (structural, NOT more "don't" notes): anchor each batch slot to a tight MOLD — a SET
-of ~3 real references from the SAME pocket of the voice — and ask for one that slips into that exact
-set unnoticed. Three real examples per slot pin the precise sharpness/rhythm, so the model imitates
-the pocket instead of drifting generic. Molds are one-per-distinct-trait (spans the range), gambling
-bounded to ~one mold. Whole corpus still shown for voice. No move-decomposition, no caps, no judge.
+Fix (structural): anchor each slot to a DISTINCT real reference and ROTATE through the whole corpus —
+a persisted usage tracker picks least-used-first, so EVERY format gets its turn and nothing repeats
+until the set is cycled. One sharp anchor per slot (distinct trait within a batch for tonal spread,
+gambling soft-capped). Whole corpus still shown for voice. No trait-molds, no caps on the voice,
+no judge. The grading loop curates.
 """
 from __future__ import annotations
 
 import json
+import os
 import random
 
 from app.caption.llm import complete_json
@@ -29,8 +32,9 @@ _GAMBLING_TERMS = (
     "parlay", "casino", "blackjack", "dealer", "slot", "sportsbook", "vegas", "lottery",
     "gambl", "on black", "on red", "the odds", "comp room", "referral code", "the under",
     "the over", "betting", "a bet", "rimmed out", "put $", "down bad on this hand", "the hand",
-    "card declined", "deposit", "hit me", "hitting is", "ante",
+    "card declined", "deposit", "hit me", "hitting is", "ante", "roulette",
 )
+_REF_USAGE_PATH = os.path.join("var", "ref_usage.json")
 
 
 def _is_gambling(r: dict) -> bool:
@@ -38,6 +42,26 @@ def _is_gambling(r: dict) -> bool:
         return True
     cap = (r.get("caption") or "").lower()
     return any(t in cap for t in _GAMBLING_TERMS)
+
+
+def _ref_key(r: dict) -> str:
+    return r.get("ref_id") or (r.get("caption") or "")[:60]
+
+
+def _load_ref_usage() -> dict:
+    try:
+        with open(_REF_USAGE_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _save_ref_usage(usage: dict) -> None:
+    os.makedirs("var", exist_ok=True)
+    tmp = _REF_USAGE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(usage, f)
+    os.replace(tmp, _REF_USAGE_PATH)
 
 
 _SYS = """You ARE this creator, writing your own short-form captions — the kind people screenshot and send a friend. Below is a big pile of your REAL captions. This is the voice, the range, AND the bar:
@@ -52,35 +76,41 @@ What every one of these shares (your instincts — feel them, don't check them o
 - ALWAYS SHARP — never generic. Even your sincere lines are SPECIFIC truths or parody ("nobody is good at the start, nobody is bad after 1000 attempts"). You never sound like a motivational poster, a quote everyone's heard, or a soft nature-metaphor about seeds and rivers — that's the one thing that is never you."""
 
 
-def _pick_molds(refs: list[dict], n: int) -> list[list[dict]]:
-    """n MOLDS — one per distinct persona_trait (spans the range), each a set of up to 3 real refs
-    from that same pocket. Gambling bounded to ~one mold."""
-    by_trait: dict[str, list[dict]] = {}
-    for r in refs:
-        if (r.get("caption") or "").strip():
-            by_trait.setdefault(r.get("persona_trait") or "?", []).append(r)
-    traits = list(by_trait)
-    random.shuffle(traits)
-    molds: list[list[dict]] = []
-    gambling_used = 0
-    for t in traits:
-        if len(molds) >= n:
+def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
+    """n DISTINCT reference anchors, least-used-first (rotates through the whole corpus so every
+    format gets covered), distinct persona_trait within a batch for tonal spread, gambling soft-cap."""
+    usage = _load_ref_usage()
+    pool = [r for r in refs if (r.get("caption") or "").strip()]
+    random.shuffle(pool)  # random tiebreak among equally-used refs
+    pool.sort(key=lambda r: usage.get(_ref_key(r), 0))  # least-used first
+    anchors: list[dict] = []
+    seen_traits: set[str] = set()
+    gambling = 0
+    for r in pool:
+        if len(anchors) >= n:
             break
-        group = list(by_trait[t])
-        random.shuffle(group)
-        mold = group[:3]
-        if sum(1 for r in mold if _is_gambling(r)) > len(mold) / 2:  # predominantly gambling pocket
-            if gambling_used >= 1:
+        trait = r.get("persona_trait") or "?"
+        if trait in seen_traits:  # one per trait this batch -> tonal + format spread
+            continue
+        if _is_gambling(r):
+            if gambling >= 2:
                 continue
-            gambling_used += 1
-        molds.append(mold)
-    if len(molds) < n:  # not enough distinct traits — pad with extra single-ref molds
-        used = {id(r) for m in molds for r in m}
-        pool = [r for r in refs if id(r) not in used and (r.get("caption") or "").strip()]
-        random.shuffle(pool)
-        molds += [[r] for r in pool[: n - len(molds)]]
-    random.shuffle(molds)
-    return molds[:n]
+            gambling += 1
+        anchors.append(r)
+        seen_traits.add(trait)
+    if len(anchors) < n:  # ran out of distinct traits — relax the constraint, keep rotating
+        chosen = {id(a) for a in anchors}
+        for r in pool:
+            if len(anchors) >= n:
+                break
+            if id(r) not in chosen:
+                anchors.append(r)
+                chosen.add(id(r))
+    for r in anchors:
+        usage[_ref_key(r)] = usage.get(_ref_key(r), 0) + 1
+    _save_ref_usage(usage)
+    random.shuffle(anchors)
+    return anchors[:n]
 
 
 def generate(
@@ -91,29 +121,29 @@ def generate(
     n: int = 8,
     clip_context: str | None = None,
 ) -> list[dict]:
-    """Mold-anchored generation: each slot writes one that slips into a tight set of 3 real refs."""
+    """Rotation-anchored generation: each slot writes a fresh caption in the FORMAT of a distinct
+    real reference, rotating through the whole corpus for full format coverage + variety."""
     refs = load_refs()
     random.shuffle(refs)
     ref_block = "\n\n".join(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
     )
-    molds = _pick_molds(refs, n)
-    mold_block = "\n\n".join(
-        f"SET {i + 1}:\n" + "\n".join(f"  • {(r.get('caption') or '').strip()}" for r in mold)
-        for i, mold in enumerate(molds)
+    anchors = _pick_anchors(refs, n)
+    anchor_block = "\n\n".join(
+        f"ANCHOR {i + 1}: {(a.get('caption') or '').strip()}" for i, a in enumerate(anchors)
     )
     avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
     note = (notes or "").strip()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "Here are " + str(n) + " small SETS of your own real captions — each set is one tight pocket "
-        "of your voice. For EACH set, write ONE NEW caption that could slip into that exact set "
-        "unnoticed: the same voice, the same sharpness, the same hyper-specific edge, the same rhythm "
-        "and length — fresh material, but unmistakably from the same person. Never a rewrite of any "
-        "line shown.\n\n"
-        + mold_block
+        + "Here are " + str(n) + " of your own real captions — each one a DIFFERENT format you use. "
+        "For EACH anchor, write ONE NEW caption in that SAME format and voice: the same structure, "
+        "rhythm, length, and kind of twist — but a totally fresh subject (never a rewrite of its "
+        "joke). Match its exact sharpness and hyper-specificity; if yours lands softer or vaguer than "
+        "the anchor, it's not there yet.\n\n"
+        + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
-        + f"Return {n} captions — one per set, in order. ONLY JSON, no prose: "
+        + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
         '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
     )
     text = complete_json(_SYS.format(references=ref_block), user, effort="high", max_tokens=4000)
