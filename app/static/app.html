@@ -8,23 +8,17 @@
   :root { color-scheme: dark; --grn:#2fd47a; --bg:#070d0a; --panel:#0e1813; --line:#1c3a2c; --ink:#eafff4; --mut:#7fae9f; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); display:flex; min-height:100vh; }
-  a { color:#9be7c4; }
-  /* sidebar */
   .side { width:232px; flex:none; background:#0a130e; border-right:1px solid var(--line); padding:20px 16px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; }
   .brand { display:flex; align-items:center; gap:10px; padding:6px 8px 18px; }
   .brand img { width:34px; height:34px; }
   .brand b { font-size:19px; letter-spacing:-.4px; } .brand b span { color:var(--grn); }
-  .nav { display:block; width:100%; text-align:left; background:none; border:0; color:var(--mut); font-size:15px;
-    padding:11px 12px; border-radius:10px; cursor:pointer; font-weight:600; }
-  .nav:hover { background:#0f1d15; color:var(--ink); }
-  .nav.on { background:#14301f; color:var(--grn); }
+  .nav { display:block; width:100%; text-align:left; background:none; border:0; color:var(--mut); font-size:15px; padding:11px 12px; border-radius:10px; cursor:pointer; font-weight:600; }
+  .nav:hover { background:#0f1d15; color:var(--ink); } .nav.on { background:#14301f; color:var(--grn); }
   .spacer { flex:1; }
   .logout { color:#6f8b82; font-size:13px; background:none; border:0; cursor:pointer; text-align:left; padding:11px 12px; }
   .logout:hover { color:#ff9aa6; }
-  /* main */
   .main { flex:1; min-width:0; }
-  .view { display:none; padding:30px 34px 70px; max-width:980px; }
-  .view.on { display:block; }
+  .view { display:none; padding:30px 34px 70px; max-width:1040px; } .view.on { display:block; }
   h2 { font-weight:650; margin:0 0 4px; font-size:22px; }
   .vsub { color:var(--mut); margin:0 0 22px; font-size:14px; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:18px; }
@@ -34,7 +28,6 @@
   button.cta { margin-top:18px; width:100%; padding:14px; font-size:16px; font-weight:700; border:0; border-radius:11px; background:var(--grn); color:#05130c; cursor:pointer; }
   button.cta:disabled { opacity:.55; cursor:default; }
   .status { margin-top:13px; color:#9aa3c8; font-size:14px; min-height:20px; }
-  /* studio reel cards */
   .reelbox { display:flex; gap:20px; flex-wrap:wrap; }
   video { width:288px; max-width:100%; border-radius:12px; background:#000; }
   .meta { flex:1; min-width:220px; }
@@ -43,10 +36,22 @@
   button.val { width:auto; margin:0; padding:9px 15px; font-size:14px; font-weight:600; border:0; border-radius:9px; background:#1f7a4d; color:#fff; cursor:pointer; }
   button.val.done { background:#14532d; cursor:default; }
   a.dl { color:#9be7c4; text-decoration:none; font-size:14px; }
-  /* library */
-  .upzone { border:1.5px dashed #2c5a43; border-radius:13px; padding:26px; text-align:center; color:var(--mut); cursor:pointer; transition:.15s; }
+  /* library + folders */
+  .libwrap { display:flex; gap:18px; align-items:flex-start; }
+  .folders { width:216px; flex:none; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; position:sticky; top:18px; }
+  .fitem { display:flex; align-items:center; gap:6px; font-size:13.5px; color:var(--mut); padding:7px 8px; border-radius:8px; cursor:pointer; }
+  .fitem:hover { background:#0f1d15; color:var(--ink); } .fitem.on { background:#14301f; color:var(--grn); }
+  .fitem .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fitem .ct { font-size:11px; color:#5f8071; } .fitem.on .ct { color:#2fd47a; }
+  .fitem .add, .fitem .del { opacity:0; font-size:13px; color:#6f8b82; padding:0 3px; } .fitem:hover .add, .fitem:hover .del { opacity:1; }
+  .fitem .add:hover { color:var(--grn); } .fitem .del:hover { color:#ff9aa6; }
+  .newfolder { width:100%; margin-top:8px; background:none; border:1px dashed #2c5a43; color:var(--mut); border-radius:9px; padding:9px; font-size:13px; cursor:pointer; }
+  .newfolder:hover { border-color:var(--grn); color:var(--ink); }
+  .libmain { flex:1; min-width:0; }
+  .upzone { border:1.5px dashed #2c5a43; border-radius:13px; padding:22px; text-align:center; color:var(--mut); cursor:pointer; transition:.15s; }
   .upzone:hover, .upzone.drag { border-color:var(--grn); background:#0c1812; color:var(--ink); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:14px; margin-top:18px; }
+  .upzone b { color:var(--grn); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:14px; margin-top:16px; }
   .clip { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
   .badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
   .b-indexed { background:#13361f; color:#5ee08e; } .b-indexing { background:#3a3413; color:#e8cf5a; }
@@ -60,7 +65,8 @@
   .prog > i { display:block; height:100%; width:40%; background:linear-gradient(90deg,transparent,var(--grn),transparent); animation:slide 1.2s linear infinite; }
   @keyframes slide { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }
   .reject { color:#ff9aa6; font-size:12px; margin-top:10px; }
-  iframe { width:100%; height:calc(100vh - 0px); border:0; }
+  .move { margin-top:10px; font-size:12px; padding:6px 8px; }
+  iframe { width:100%; height:100vh; border:0; }
   .gradewrap { padding:0; max-width:none; }
 </style>
 </head>
@@ -74,13 +80,14 @@
     <button class="logout" id="logout">Sign out (dfine)</button>
   </nav>
   <main class="main">
-    <!-- STUDIO -->
     <section class="view on" id="view-studio">
       <h2>Generation Studio</h2>
-      <p class="vsub">Pick an audio, hit generate — writes a caption in your voice (best of 3), cuts your clips to the beat, bakes the audio in. Validate the keepers.</p>
+      <p class="vsub">Pick an audio + which folder of clips to pull from, hit generate. Caption is best-of-3, cut to the beat, audio baked in. Validate the keepers.</p>
       <div class="panel">
         <label>Audio</label>
         <select id="audio"></select>
+        <label>Generate from</label>
+        <select id="genfolder"></select>
         <label>Notes (optional — nudge the caption topic/vibe)</label>
         <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
         <label>How many reels</label>
@@ -90,34 +97,165 @@
       </div>
       <div id="result"></div>
     </section>
-    <!-- LIBRARY -->
     <section class="view" id="view-library">
       <h2>Clip Library</h2>
-      <p class="vsub">Your indexed footage. Upload new clips and watch them index — once tagged, they're available to the studio.</p>
-      <div class="panel">
-        <div class="upzone" id="upzone">⬆ Drop clips here or click to upload<br/><span style="font-size:12px">mp4 / mov — they'll index automatically</span></div>
-        <input type="file" id="file" accept="video/*" multiple style="display:none" />
+      <p class="vsub">Organize footage into folders (and sub-folders). Upload into the selected folder; generate from any folder in the Studio.</p>
+      <div class="libwrap">
+        <aside class="folders" id="folders"></aside>
+        <div class="libmain">
+          <div class="upzone" id="upzone">⬆ Drop clips or click to upload into <b id="uptarget">All clips</b><br/><span style="font-size:12px">mp4 / mov — they index automatically</span></div>
+          <input type="file" id="file" accept="video/*" multiple style="display:none" />
+          <div class="grid" id="cliplib"></div>
+        </div>
       </div>
-      <div class="grid" id="cliplib"></div>
     </section>
-    <!-- GRADE -->
     <section class="view gradewrap" id="view-grade">
       <iframe id="gradeframe" data-src="/grade"></iframe>
     </section>
   </main>
 <script>
-// ---------- nav ----------
 const views = { studio:'view-studio', library:'view-library', grade:'view-grade' };
 let libLoaded = false, gradeLoaded = false;
+let FOLDERS = [], selectedFolder = null; // null=All, 'none'=Unfiled, <id>=folder
 document.querySelectorAll('.nav').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.nav').forEach(x => x.classList.remove('on'));
-  b.classList.add('on');
+  document.querySelectorAll('.nav').forEach(x => x.classList.remove('on')); b.classList.add('on');
   Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
   const v = b.dataset.view; document.getElementById(views[v]).classList.add('on');
-  if (v === 'library' && !libLoaded) { libLoaded = true; loadClips(); }
+  if (v === 'library' && !libLoaded) { libLoaded = true; loadFolders().then(() => selectFolder(null)); }
   if (v === 'grade' && !gradeLoaded) { gradeLoaded = true; const f = document.getElementById('gradeframe'); f.src = f.dataset.src; }
 });
 document.getElementById('logout').onclick = async () => { await fetch('/api/logout', {method:'POST'}); location.href = '/login'; };
+
+// ---------- folders ----------
+function depthOf(f) { let d = 0, p = f.parent_id; while (p) { const par = FOLDERS.find(x => x.id === p); if (!par) break; d++; p = par.parent_id; } return d; }
+function childrenOf(pid) { return FOLDERS.filter(f => f.parent_id === pid).sort((a,b) => a.name.localeCompare(b.name)); }
+async function loadFolders() {
+  try { FOLDERS = await (await fetch('/api/folders')).json(); } catch (_) { FOLDERS = []; }
+  renderFolderTree(); populateGenFolder();
+}
+function renderFolderTree() {
+  const wrap = document.getElementById('folders');
+  const row = (id, label, count, depth, f) => {
+    const on = String(selectedFolder) === String(id) ? ' on' : '';
+    const pad = 8 + depth * 14;
+    const ct = count == null ? '' : `<span class="ct">${count}</span>`;
+    const ctrls = f ? `<span class="add" title="New sub-folder" data-add="${id}">＋</span><span class="del" title="Delete folder" data-del="${id}">×</span>` : '';
+    return `<div class="fitem${on}" data-sel="${id}" style="padding-left:${pad}px"><span class="nm">${label}</span>${ct}${ctrls}</div>`;
+  };
+  let html = row('all', '📁 All clips', null, 0) + row('none', '📂 Unfiled', null, 0);
+  const walk = (pid) => childrenOf(pid).forEach(f => { html += row(f.id, '📁 ' + f.name, f.clips, depthOf(f), f); walk(f.id); });
+  walk(null);
+  wrap.innerHTML = html + `<button class="newfolder" id="newfolder">＋ New folder</button>`;
+  wrap.querySelectorAll('.fitem').forEach(el => el.onclick = (e) => {
+    if (e.target.dataset.add) { return createFolder(e.target.dataset.add); }
+    if (e.target.dataset.del) { return deleteFolder(e.target.dataset.del); }
+    const sel = el.dataset.sel; selectFolder(sel === 'all' ? null : sel);
+  });
+  document.getElementById('newfolder').onclick = () => createFolder(null);
+}
+function populateGenFolder() {
+  const sel = document.getElementById('genfolder');
+  let opts = '<option value="">All clips</option>';
+  const walk = (pid, depth) => childrenOf(pid).forEach(f => { opts += `<option value="${f.id}">${'  '.repeat(depth)}${f.name} (${f.clips})</option>`; walk(f.id, depth+1); });
+  walk(null, 0);
+  sel.innerHTML = opts;
+}
+async function createFolder(parentId) {
+  const name = prompt(parentId ? 'New sub-folder name:' : 'New folder name:');
+  if (!name) return;
+  await fetch('/api/folders', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, parent_id: parentId }) });
+  await loadFolders(); renderFolderTree();
+}
+async function deleteFolder(id) {
+  if (!confirm('Delete this folder? Its sub-folders are removed and its clips become Unfiled (clips are not deleted).')) return;
+  await fetch('/api/folders/' + id, { method:'DELETE' });
+  if (String(selectedFolder) === String(id)) selectedFolder = null;
+  await loadFolders(); selectFolder(selectedFolder);
+}
+function selectFolder(id) {
+  selectedFolder = id;
+  const label = id == null ? 'All clips' : (id === 'none' ? 'Unfiled' : (FOLDERS.find(f => f.id === id)||{}).name || 'folder');
+  document.getElementById('uptarget').textContent = label;
+  renderFolderTree();
+  loadClips();
+}
+
+// ---------- clips ----------
+const STATUSES = { indexed:'b-indexed', indexing:'b-indexing', uploaded:'b-indexing', rejected:'b-rejected' };
+function folderOptions(cur) {
+  let o = `<option value="">— Unfiled —</option>`;
+  const walk = (pid, d) => childrenOf(pid).forEach(f => { o += `<option value="${f.id}"${String(cur)===String(f.id)?' selected':''}>${'  '.repeat(d)}${f.name}</option>`; walk(f.id, d+1); });
+  walk(null, 0); return o;
+}
+function clipCard(c) {
+  const badge = STATUSES[c.status] || 'b-uploaded';
+  const indexing = (c.status === 'indexing' || c.status === 'uploaded');
+  const chips = [];
+  if (c.setting) chips.push(`<span class="chip meta">${c.setting}</span>`);
+  if (c.time_of_day) chips.push(`<span class="chip meta">${c.time_of_day}</span>`);
+  (c.vibe_tags || []).slice(0, 8).forEach(t => chips.push(`<span class="chip">${t}</span>`));
+  const mv = (c.status === 'indexed') ? `<select class="move" data-clip="${c.id}">${folderOptions(c.folder_id)}</select>` : '';
+  return `<div class="clip" data-id="${c.id}">
+    <span class="dur">${c.duration ? c.duration + 's' : ''}</span>
+    <span class="badge ${badge}">${c.status}</span>
+    ${indexing ? '<div class="prog"><i></i></div>' : ''}
+    ${c.summary ? `<div class="sum">${(c.summary||'').slice(0,160)}</div>` : ''}
+    <div class="chips">${chips.join('')}</div>
+    ${c.status === 'rejected' && c.rejection_reason ? `<div class="reject">✗ ${c.rejection_reason}</div>` : ''}
+    ${mv}
+  </div>`;
+}
+function wireCards() {
+  document.querySelectorAll('.move').forEach(sel => sel.onchange = () => moveClip(sel.dataset.clip, sel.value || null));
+}
+async function moveClip(clipId, folderId) {
+  await fetch(`/api/clips/${clipId}/move`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ folder_id: folderId }) });
+  loadFolders(); loadClips();
+}
+async function loadClips() {
+  const wrap = document.getElementById('cliplib');
+  const qs = selectedFolder == null ? '' : ('?folder_id=' + selectedFolder);
+  try {
+    const clips = await (await fetch('/api/clips/library' + qs)).json();
+    wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : '<p class="vsub">No clips here yet — upload some above.</p>';
+    wireCards();
+    clips.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
+  } catch (_) { wrap.innerHTML = '<p class="vsub">Could not load clips.</p>'; }
+}
+async function pollClip(id) {
+  for (let t = 0; t < 150; t++) {
+    await new Promise(r => setTimeout(r, 4000));
+    let c; try { c = await (await fetch(`/api/clips/${id}/status`)).json(); } catch (_) { continue; }
+    const el = document.querySelector(`.clip[data-id="${id}"]`);
+    if (el) { el.outerHTML = clipCard(c); wireCards(); }
+    if (c.status === 'indexed' || c.status === 'rejected') { loadFolders(); return; }
+  }
+}
+function uploadFiles(files) {
+  const wrap = document.getElementById('cliplib');
+  const targetFolder = (selectedFolder && selectedFolder !== 'none') ? selectedFolder : null;
+  [...files].forEach(async (file) => {
+    const fd = new FormData(); fd.append('file', file); if (targetFolder) fd.append('folder_id', targetFolder);
+    const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
+    wrap.insertAdjacentHTML('afterbegin', `<div class="clip" data-id="${tmpId}"><span class="badge b-indexing">uploading</span><div class="prog"><i></i></div><div class="sum">${file.name}</div></div>`);
+    try {
+      const r = await fetch('/api/clips/upload', { method:'POST', body: fd });
+      const d = await r.json();
+      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
+      if (el) { el.outerHTML = clipCard({ id:d.clip_id, status:'indexing', summary:file.name, vibe_tags:[], folder_id:targetFolder }); }
+      pollClip(d.clip_id);
+    } catch (e) {
+      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
+      if (el) el.outerHTML = clipCard({ id:tmpId, status:'rejected', rejection_reason:'upload failed', vibe_tags:[] });
+    }
+  });
+}
+const uz = document.getElementById('upzone'), fi = document.getElementById('file');
+uz.onclick = () => fi.click();
+fi.onchange = () => { if (fi.files.length) uploadFiles(fi.files); fi.value = ''; };
+uz.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
+uz.ondragleave = () => uz.classList.remove('drag');
+uz.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
 
 // ---------- studio ----------
 let AUDIOS = [];
@@ -133,11 +271,9 @@ function renderReel(d, audioLabel) {
   const div = document.createElement('div'); div.className = 'panel';
   div.innerHTML = `<div class="reelbox">
     <video controls loop playsinline src="${d.reel_url}"></video>
-    <div class="meta"><div style="color:var(--mut);font-size:13px">caption</div>
-      <div class="cap"></div>
+    <div class="meta"><div style="color:var(--mut);font-size:13px">caption</div><div class="cap"></div>
       <div style="color:#6a8b7c;font-size:12px;margin-top:10px">🎵 ${audioLabel||''} · ${d.duration}s · ${d.shots} shots</div>
-      <div class="actions"><button class="val">✓ Validate → Drive</button>
-        <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+      <div class="actions"><button class="val">✓ Validate → Drive</button><a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
     </div></div>`;
   div.querySelector('.cap').textContent = d.caption;
   const vb = div.querySelector('.val');
@@ -157,6 +293,7 @@ document.getElementById('gen').onclick = async () => {
   const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value,10) || 1));
   const sel = document.getElementById('audio').value;
   const notes = document.getElementById('notes').value || null;
+  const folder_id = document.getElementById('genfolder').value || null;
   const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
   const audioFor = (i) => sel === 'mix' ? ((shuffled[(i-1) % shuffled.length] || {}).id) : sel;
   btn.disabled = true; let done = 0, failed = 0;
@@ -165,8 +302,8 @@ document.getElementById('gen').onclick = async () => {
     const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
     st.textContent = `Generating ${i}/${n}… caption (best of 3), beat-cut, render (~2–3 min each)`;
     try {
-      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes }) });
-      if (!r.ok) throw new Error((await r.text()).slice(0,160));
+      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes, folder_id }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0,200));
       renderReel(await r.json(), label); done++;
     } catch (e) { failed++; st.textContent = `Reel ${i}/${n} failed: ${e.message}`; }
   }
@@ -174,69 +311,7 @@ document.getElementById('gen').onclick = async () => {
   btn.disabled = false;
 };
 
-// ---------- clip library ----------
-const STATUSES = { indexed:'b-indexed', indexing:'b-indexing', uploaded:'b-indexing', rejected:'b-rejected' };
-function clipCard(c) {
-  const badge = STATUSES[c.status] || 'b-uploaded';
-  const indexing = (c.status === 'indexing' || c.status === 'uploaded');
-  const chips = [];
-  if (c.setting) chips.push(`<span class="chip meta">${c.setting}</span>`);
-  if (c.time_of_day) chips.push(`<span class="chip meta">${c.time_of_day}</span>`);
-  (c.vibe_tags || []).slice(0, 8).forEach(t => chips.push(`<span class="chip">${t}</span>`));
-  return `<div class="clip" data-id="${c.id}">
-    <span class="dur">${c.duration ? c.duration + 's' : ''}</span>
-    <span class="badge ${badge}">${c.status}</span>
-    ${indexing ? '<div class="prog"><i></i></div>' : ''}
-    ${c.summary ? `<div class="sum">${(c.summary||'').slice(0,160)}</div>` : ''}
-    <div class="chips">${chips.join('')}</div>
-    ${c.status === 'rejected' && c.rejection_reason ? `<div class="reject">✗ ${c.rejection_reason}</div>` : ''}
-  </div>`;
-}
-async function loadClips() {
-  const wrap = document.getElementById('cliplib');
-  try {
-    const clips = await (await fetch('/api/clips/library')).json();
-    wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : '<p class="vsub">No clips yet — upload some above.</p>';
-    clips.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
-  } catch (_) { wrap.innerHTML = '<p class="vsub">Could not load clips.</p>'; }
-}
-async function pollClip(id) {
-  for (let t = 0; t < 150; t++) {
-    await new Promise(r => setTimeout(r, 4000));
-    let c; try { c = await (await fetch(`/api/clips/${id}/status`)).json(); } catch (_) { continue; }
-    const el = document.querySelector(`.clip[data-id="${id}"]`);
-    if (el) el.outerHTML = clipCard(c);
-    if (c.status === 'indexed' || c.status === 'rejected') return;
-  }
-}
-function uploadFiles(files) {
-  const wrap = document.getElementById('cliplib');
-  [...files].forEach(async (file) => {
-    const fd = new FormData(); fd.append('file', file);
-    const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
-    wrap.insertAdjacentHTML('afterbegin', `<div class="clip" data-id="${tmpId}">
-      <span class="badge b-indexing">uploading</span><div class="prog"><i></i></div>
-      <div class="sum">${file.name}</div></div>`);
-    try {
-      const r = await fetch('/api/clips/upload', { method:'POST', body: fd });
-      const d = await r.json();
-      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
-      if (el) el.outerHTML = clipCard({ id:d.clip_id, status:'indexing', summary:file.name, vibe_tags:[] });
-      pollClip(d.clip_id);
-    } catch (e) {
-      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
-      if (el) el.outerHTML = clipCard({ id:tmpId, status:'rejected', rejection_reason:'upload failed', vibe_tags:[] });
-    }
-  });
-}
-const uz = document.getElementById('upzone'), fi = document.getElementById('file');
-uz.onclick = () => fi.click();
-fi.onchange = () => { if (fi.files.length) uploadFiles(fi.files); fi.value = ''; };
-uz.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
-uz.ondragleave = () => uz.classList.remove('drag');
-uz.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
-
-loadAudios();
+loadAudios(); loadFolders();
 </script>
 </body>
 </html>

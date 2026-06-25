@@ -11,7 +11,7 @@ import threading
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ from sqlalchemy.orm import selectinload
 from app import schemas
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import Audio, Clip, User
+from app.models import Audio, Clip, ClipFolder, User
 from app.storage import r2
 from app.workers.tasks import enqueue_index
 from app.corpus import grades as grade_store
@@ -38,6 +38,7 @@ _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
 class GenerateRequest(BaseModel):
     audio_id: uuid.UUID | None = None
     notes: str | None = None
+    folder_id: uuid.UUID | None = None   # restrict generation to this folder (+ its sub-folders)
 
 
 class CapGenRequest(BaseModel):
@@ -67,6 +68,15 @@ class BestRequest(BaseModel):
 class ValidateRequest(BaseModel):
     name: str                 # reel filename (from reel_url)
     caption: str | None = None
+
+
+class FolderCreate(BaseModel):
+    name: str
+    parent_id: uuid.UUID | None = None
+
+
+class ClipMove(BaseModel):
+    folder_id: uuid.UUID | None = None
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -185,12 +195,16 @@ def get_clip(clip_id: uuid.UUID):
 
 # ── Clip library + upload (treelz.ai) ─────────────────────────
 @app.get("/api/clips/library")
-def api_clips_library():
-    """All clips with tags + status, newest first — for the Clip Library view."""
+def api_clips_library(folder_id: str | None = None):
+    """Clips with tags + status, newest first. folder_id filters the view: a folder id shows clips
+    DIRECTLY in it, 'none' shows unfiled clips, omitted shows all."""
     with SessionLocal() as s:
-        rows = s.scalars(
-            select(Clip).options(selectinload(Clip.segments)).order_by(Clip.created_at.desc())
-        ).all()
+        q = select(Clip).options(selectinload(Clip.segments)).order_by(Clip.created_at.desc())
+        if folder_id == "none":
+            q = q.where(Clip.folder_id.is_(None))
+        elif folder_id:
+            q = q.where(Clip.folder_id == uuid.UUID(folder_id))
+        rows = s.scalars(q).all()
         return [
             {
                 "id": str(c.id),
@@ -204,15 +218,16 @@ def api_clips_library():
                 "rejection_reason": c.rejection_reason,
                 "segments": len(c.segments),
                 "filename": os.path.basename(c.r2_key) if c.r2_key else None,
+                "folder_id": str(c.folder_id) if c.folder_id else None,
             }
             for c in rows
         ]
 
 
 @app.post("/api/clips/upload")
-async def api_clips_upload(file: UploadFile = File(...)):
+async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None = Form(None)):
     """Upload a clip -> save locally -> index in a background thread (run_pipeline). The UI polls
-    /api/clips/{id}/status to drive the indexing progress bar."""
+    /api/clips/{id}/status to drive the indexing progress bar. Optionally filed into a folder."""
     user_id = ensure_default_user()
     clip_id = uuid.uuid4()
     ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
@@ -220,8 +235,9 @@ async def api_clips_upload(file: UploadFile = File(...)):
     dest = os.path.abspath(os.path.join("var/uploads", f"{clip_id}{ext}"))
     with open(dest, "wb") as out:
         shutil.copyfileobj(file.file, out)
+    fid = uuid.UUID(folder_id) if folder_id else None
     with SessionLocal() as s:
-        s.add(Clip(id=clip_id, user_id=user_id, r2_key=dest, status="uploaded"))
+        s.add(Clip(id=clip_id, user_id=user_id, r2_key=dest, status="uploaded", folder_id=fid))
         s.commit()
 
     def _index() -> None:
@@ -251,7 +267,85 @@ def api_clip_status(clip_id: uuid.UUID):
             "setting": c.setting, "time_of_day": c.time_of_day, "summary": c.summary,
             "duration": round(c.duration, 1) if c.duration else None,
             "rejection_reason": c.rejection_reason,
+            "folder_id": str(c.folder_id) if c.folder_id else None,
         }
+
+
+# ── Folders (treelz.ai) ───────────────────────────────────────
+def _folder_subtree_ids(folder_id: uuid.UUID) -> set:
+    """folder_id + all descendant folder ids — so generating from a folder includes its sub-folders."""
+    with SessionLocal() as s:
+        rows = s.scalars(select(ClipFolder)).all()
+    children: dict = {}
+    for f in rows:
+        children.setdefault(f.parent_id, []).append(f.id)
+    out, stack = set(), [folder_id]
+    while stack:
+        fid = stack.pop()
+        if fid in out:
+            continue
+        out.add(fid)
+        stack.extend(children.get(fid, []))
+    return out
+
+
+def _clip_ids_in_folder(folder_id: uuid.UUID) -> list[str]:
+    """Indexed clip ids in a folder + all its sub-folders (for folder-scoped generation)."""
+    ids = _folder_subtree_ids(folder_id)
+    with SessionLocal() as s:
+        clips = s.scalars(select(Clip).where(Clip.folder_id.in_(ids), Clip.status == "indexed")).all()
+    return [str(c.id) for c in clips]
+
+
+@app.get("/api/folders")
+def api_folders():
+    """All folders (flat: id, name, parent_id, direct clip count). The UI builds the tree."""
+    with SessionLocal() as s:
+        folders = s.scalars(select(ClipFolder).order_by(ClipFolder.name)).all()
+        counts: dict = {}
+        for (fid,) in s.execute(select(Clip.folder_id).where(Clip.folder_id.isnot(None))).all():
+            counts[fid] = counts.get(fid, 0) + 1
+        return [
+            {"id": str(f.id), "name": f.name,
+             "parent_id": str(f.parent_id) if f.parent_id else None,
+             "clips": counts.get(f.id, 0)}
+            for f in folders
+        ]
+
+
+@app.post("/api/folders")
+def api_create_folder(req: FolderCreate):
+    with SessionLocal() as s:
+        f = ClipFolder(user_id=ensure_default_user(),
+                       name=(req.name or "Untitled").strip()[:255] or "Untitled",
+                       parent_id=req.parent_id)
+        s.add(f)
+        s.commit()
+        s.refresh(f)
+        return {"id": str(f.id), "name": f.name,
+                "parent_id": str(f.parent_id) if f.parent_id else None, "clips": 0}
+
+
+@app.delete("/api/folders/{folder_id}")
+def api_delete_folder(folder_id: uuid.UUID):
+    """Delete a folder: sub-folders cascade (FK), clips in it become unfiled (folder_id -> NULL)."""
+    with SessionLocal() as s:
+        f = s.get(ClipFolder, folder_id)
+        if f is not None:
+            s.delete(f)
+            s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/clips/{clip_id}/move")
+def api_move_clip(clip_id: uuid.UUID, req: ClipMove):
+    with SessionLocal() as s:
+        c = s.get(Clip, clip_id)
+        if c is None:
+            raise HTTPException(status_code=404, detail="clip not found")
+        c.folder_id = req.folder_id
+        s.commit()
+    return {"ok": True}
 
 
 # ── treelz.ai web app ─────────────────────────────────────────
@@ -301,10 +395,17 @@ def api_generate(req: GenerateRequest):
 
     from app.generate.generator import generate_reel  # lazy: keeps web import light
 
+    clip_ids = None
+    if req.folder_id:
+        clip_ids = _clip_ids_in_folder(req.folder_id)
+        if not clip_ids:
+            raise HTTPException(status_code=400, detail="no indexed clips in that folder yet — upload + index some first")
+
     try:
         res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
                             audio_desc=audio.description, audio_bpm=audio.bpm,
-                            audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags)
+                            audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
+                            clip_ids=clip_ids)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 

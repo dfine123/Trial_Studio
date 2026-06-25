@@ -10,9 +10,8 @@ if [ ! -f var/grades.jsonl ] && [ -f corpus/grades.jsonl ]; then
   echo "[start] seeded grading history into var/grades.jsonl"
 fi
 
-# Create DB tables on a fresh database (idempotent). Don't crash the boot if the DB isn't ready yet.
-python -c "import app.models; from app.db import Base, engine; Base.metadata.create_all(engine)" \
-  || echo "[start] create_all warning (continuing)"
+# Create tables + apply column migrations (idempotent). Don't crash the boot if the DB isn't ready.
+python -m app.migrate || echo "[start] migrate warning (continuing)"
 
 # Seed the curated audio library (idempotent; R2 upload is best-effort and may warn).
 python -m app.seed.seed_audio || echo "[start] seed_audio warning (continuing)"

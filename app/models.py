@@ -42,6 +42,20 @@ class User(Base):
     clips: Mapped[list["Clip"]] = relationship(back_populates="user")
 
 
+class ClipFolder(Base):
+    """A folder for organizing clips. Nestable via parent_id (sub-folders). Deleting a folder
+    cascades to its sub-folders; clips in deleted folders are unfiled (folder_id -> NULL)."""
+    __tablename__ = "clip_folders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clip_folders.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Clip(Base):
     __tablename__ = "clips"
 
@@ -50,6 +64,9 @@ class Clip(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     r2_key: Mapped[str | None] = mapped_column(String(1024))
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clip_folders.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # uploaded | indexing | indexed | rejected
     status: Mapped[str] = mapped_column(String(32), default="uploaded", index=True)
