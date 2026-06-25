@@ -4,93 +4,194 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>treelz.ai studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; --grn:#2fd47a; --bg:#070d0a; --panel:#0e1813; --line:#1c3a2c; --ink:#eafff4; --mut:#7fae9f; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); display:flex; min-height:100vh; }
-  .side { width:232px; flex:none; background:#0a130e; border-right:1px solid var(--line); padding:20px 16px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; }
-  .brand { display:flex; align-items:center; gap:10px; padding:6px 8px 18px; }
-  .brand img { width:34px; height:34px; }
-  .brand b { font-size:19px; letter-spacing:-.4px; } .brand b span { color:var(--grn); }
-  .nav { display:block; width:100%; text-align:left; background:none; border:0; color:var(--mut); font-size:15px; padding:11px 12px; border-radius:10px; cursor:pointer; font-weight:600; }
-  .nav:hover { background:#0f1d15; color:var(--ink); } .nav.on { background:#14301f; color:var(--grn); }
+  :root {
+    color-scheme: dark;
+    --bg:#0b0e13; --sidebar:#0d1017; --surface:#141922; --surface-2:#1a202b; --elevate:#1f2733;
+    --border:#222b38; --border-2:#303b4b;
+    --ink:#e9eef6; --ink-soft:#c4ccd9; --muted:#8a94a7; --faint:#5c6675;
+    --blue:#4d8bff; --blue-bright:#73a4ff; --blue-deep:#2f63d6;
+    --blue-soft:rgba(77,139,255,.13); --blue-line:rgba(77,139,255,.34); --blue-glow:rgba(77,139,255,.45);
+    --good:#46c98a; --good-bg:rgba(70,201,138,.13); --warn:#e3b53f; --warn-bg:rgba(227,181,63,.13);
+    --bad:#fa6d83; --bad-bg:rgba(250,109,131,.13);
+    --r:16px; --r-sm:11px; --r-xs:9px;
+    --shadow:0 8px 28px -10px rgba(0,0,0,.55); --shadow-lg:0 24px 70px -20px rgba(0,0,0,.65);
+  }
+  * { box-sizing:border-box; }
+  ::selection { background:var(--blue-line); color:#fff; }
+  ::-webkit-scrollbar { width:11px; height:11px; }
+  ::-webkit-scrollbar-thumb { background:#222b38; border:3px solid transparent; background-clip:content-box; border-radius:10px; }
+  ::-webkit-scrollbar-thumb:hover { background:#303a49; background-clip:content-box; }
+  body {
+    margin:0; min-height:100vh; display:flex; color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; line-height:1.5;
+    background:radial-gradient(1300px 680px at 82% -12%, #131c2b 0%, #0b0e13 58%);
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---------- sidebar ---------- */
+  .side { width:250px; flex:none; height:100vh; position:sticky; top:0; padding:22px 14px;
+    background:linear-gradient(180deg,#0e121a,#0b0e14); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; gap:4px; }
+  .brand { display:flex; align-items:center; gap:11px; padding:6px 10px 22px; }
+  .brand img { width:32px; height:32px; border-radius:8px; }
+  .brand b { font-size:19px; font-weight:700; letter-spacing:-.5px; }
+  .brand b span { color:var(--blue); }
+  .nav { position:relative; display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+    background:none; border:0; color:var(--muted); font-size:14.5px; font-weight:550; font-family:inherit;
+    padding:11px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .nav svg { width:19px; height:19px; flex:none; opacity:.92; }
+  .nav:hover { background:var(--surface); color:var(--ink-soft); }
+  .nav.on { background:var(--blue-soft); color:var(--blue-bright); }
+  .nav.on::before { content:''; position:absolute; left:-14px; top:50%; transform:translateY(-50%);
+    width:3px; height:20px; border-radius:0 3px 3px 0; background:var(--blue); }
   .spacer { flex:1; }
-  .logout { color:#6f8b82; font-size:13px; background:none; border:0; cursor:pointer; text-align:left; padding:11px 12px; }
-  .logout:hover { color:#ff9aa6; }
+  .sep { height:1px; background:var(--border); margin:8px 10px; }
+  .logout { display:flex; align-items:center; gap:10px; color:var(--faint); font-size:13px; font-family:inherit;
+    background:none; border:0; cursor:pointer; text-align:left; padding:10px 12px; border-radius:10px; transition:.15s; }
+  .logout svg { width:17px; height:17px; }
+  .logout:hover { background:var(--surface); color:var(--bad); }
+  /* ---------- main ---------- */
   .main { flex:1; min-width:0; }
-  .view { display:none; padding:30px 34px 70px; max-width:1040px; } .view.on { display:block; }
-  h2 { font-weight:650; margin:0 0 4px; font-size:22px; }
-  .vsub { color:var(--mut); margin:0 0 22px; font-size:14px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:18px; }
-  label { display:block; font-size:13px; color:var(--mut); margin:14px 0 6px; } label:first-child { margin-top:0; }
-  select, input, textarea { width:100%; background:var(--bg); color:var(--ink); border:1px solid #224a37; border-radius:9px; padding:11px; font-size:14px; }
-  select:focus, input:focus { outline:none; border-color:var(--grn); }
-  button.cta { margin-top:18px; width:100%; padding:14px; font-size:16px; font-weight:700; border:0; border-radius:11px; background:var(--grn); color:#05130c; cursor:pointer; }
-  button.cta:disabled { opacity:.55; cursor:default; }
-  .status { margin-top:13px; color:#9aa3c8; font-size:14px; min-height:20px; }
-  .reelbox { display:flex; gap:20px; flex-wrap:wrap; }
-  video { width:288px; max-width:100%; border-radius:12px; background:#000; }
-  .meta { flex:1; min-width:220px; }
-  .cap { white-space:pre-wrap; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:13px; margin-top:6px; font-size:14px; line-height:1.5; }
-  .actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:14px; }
-  button.val { width:auto; margin:0; padding:9px 15px; font-size:14px; font-weight:600; border:0; border-radius:9px; background:#1f7a4d; color:#fff; cursor:pointer; }
-  button.val.done { background:#14532d; cursor:default; }
-  a.dl { color:#9be7c4; text-decoration:none; font-size:14px; }
-  /* library + folders */
-  .libwrap { display:flex; gap:18px; align-items:flex-start; }
-  .folders { width:216px; flex:none; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; position:sticky; top:18px; }
-  .fitem { display:flex; align-items:center; gap:6px; font-size:13.5px; color:var(--mut); padding:7px 8px; border-radius:8px; cursor:pointer; }
-  .fitem:hover { background:#0f1d15; color:var(--ink); } .fitem.on { background:#14301f; color:var(--grn); }
+  .view { display:none; padding:40px 44px 90px; max-width:1140px; margin:0 auto; }
+  .view.on { display:block; animation:fade .25s ease; }
+  @keyframes fade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .head { margin-bottom:26px; }
+  h2 { font-weight:700; margin:0 0 5px; font-size:24px; letter-spacing:-.5px; }
+  .vsub { color:var(--muted); margin:0; font-size:14px; max-width:680px; }
+  .vsub.empty { margin-top:14px; }
+  /* ---------- panels + forms ---------- */
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r);
+    padding:24px; margin-bottom:20px; box-shadow:var(--shadow); }
+  label { display:block; font-size:12.5px; font-weight:550; color:var(--muted); margin:18px 0 7px; letter-spacing:.1px; }
+  label:first-child { margin-top:0; }
+  select, input, textarea { width:100%; background:var(--surface-2); color:var(--ink); font-family:inherit;
+    border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 13px; font-size:14px; transition:.15s; }
+  input::placeholder { color:var(--faint); }
+  select { appearance:none; cursor:pointer; padding-right:38px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a94a7' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat; background-position:right 13px center; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
+  select:hover, input:hover { border-color:var(--border-2); }
+  .cta { margin-top:22px; width:100%; padding:14px; font-size:15px; font-weight:650; font-family:inherit;
+    border:0; border-radius:var(--r-sm); color:#fff; cursor:pointer; transition:.16s;
+    background:linear-gradient(180deg,var(--blue),var(--blue-deep)); box-shadow:0 8px 22px -8px var(--blue-glow); }
+  .cta:hover { background:linear-gradient(180deg,var(--blue-bright),var(--blue)); transform:translateY(-1px);
+    box-shadow:0 12px 28px -8px var(--blue-glow); }
+  .cta:active { transform:translateY(0); }
+  .cta:disabled { opacity:.5; cursor:default; transform:none; box-shadow:none; }
+  .status { margin-top:14px; color:var(--muted); font-size:13.5px; min-height:20px; }
+  .status .spin { display:inline-block; width:12px; height:12px; margin-right:7px; vertical-align:-1px;
+    border:2px solid var(--blue-soft); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  /* ---------- reel results ---------- */
+  .reelbox { display:flex; gap:22px; flex-wrap:wrap; }
+  video { width:270px; max-width:100%; border-radius:13px; background:#000; box-shadow:var(--shadow); display:block; }
+  .meta { flex:1; min-width:240px; display:flex; flex-direction:column; }
+  .reel-label { color:var(--faint); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.7px; margin-bottom:8px; }
+  .cap { white-space:pre-wrap; background:var(--surface-2); border:1px solid var(--border); border-left:3px solid var(--blue);
+    border-radius:var(--r-xs); padding:14px 16px; font-size:14.5px; line-height:1.55; color:var(--ink); }
+  .reel-stats { color:var(--faint); font-size:12.5px; margin-top:12px; }
+  .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:auto; padding-top:16px; }
+  .val { font-family:inherit; padding:10px 16px; font-size:13.5px; font-weight:600; border:0; border-radius:var(--r-xs);
+    background:var(--blue); color:#fff; cursor:pointer; transition:.15s; }
+  .val:hover { background:var(--blue-bright); }
+  .val.done { background:var(--good-bg); color:var(--good); cursor:default; }
+  .dl { display:inline-flex; align-items:center; gap:6px; color:var(--muted); text-decoration:none; font-size:13.5px;
+    font-weight:550; padding:10px 14px; border:1px solid var(--border); border-radius:var(--r-xs); transition:.15s; }
+  .dl:hover { color:var(--ink); border-color:var(--border-2); background:var(--surface-2); }
+  /* ---------- library ---------- */
+  .libwrap { display:flex; gap:20px; align-items:flex-start; }
+  .folders { width:232px; flex:none; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:10px; position:sticky; top:24px; box-shadow:var(--shadow); }
+  .folders .ftitle { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.7px;
+    color:var(--faint); padding:8px 10px 10px; }
+  .fitem { display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--muted);
+    padding:8px 9px; border-radius:9px; cursor:pointer; transition:.13s; }
+  .fitem .fic { flex:none; opacity:.85; }
+  .fitem:hover { background:var(--surface-2); color:var(--ink-soft); }
+  .fitem.on { background:var(--blue-soft); color:var(--blue-bright); }
   .fitem .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .fitem .ct { font-size:11px; color:#5f8071; } .fitem.on .ct { color:#2fd47a; }
-  .fitem .add, .fitem .del { opacity:0; font-size:13px; color:#6f8b82; padding:0 3px; } .fitem:hover .add, .fitem:hover .del { opacity:1; }
-  .fitem .add:hover { color:var(--grn); } .fitem .del:hover { color:#ff9aa6; }
-  .newfolder { width:100%; margin-top:8px; background:none; border:1px dashed #2c5a43; color:var(--mut); border-radius:9px; padding:9px; font-size:13px; cursor:pointer; }
-  .newfolder:hover { border-color:var(--grn); color:var(--ink); }
+  .fitem .ct { font-size:11px; font-weight:600; color:var(--faint); background:var(--surface-2);
+    padding:1px 7px; border-radius:20px; }
+  .fitem.on .ct { color:var(--blue-bright); background:var(--blue-soft); }
+  .fbtn { opacity:0; font-size:14px; line-height:1; color:var(--faint); padding:2px 4px; border-radius:6px; transition:.12s; }
+  .fitem:hover .fbtn { opacity:1; }
+  .fbtn.add:hover { color:var(--blue); background:var(--blue-soft); }
+  .fbtn.del:hover { color:var(--bad); background:var(--bad-bg); }
+  .newfolder { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; margin-top:6px;
+    background:none; border:1px dashed var(--border-2); color:var(--muted); border-radius:9px; padding:10px;
+    font-size:13px; font-weight:550; font-family:inherit; cursor:pointer; transition:.15s; }
+  .newfolder:hover { border-color:var(--blue); color:var(--blue-bright); background:var(--blue-soft); }
   .libmain { flex:1; min-width:0; }
-  .upzone { border:1.5px dashed #2c5a43; border-radius:13px; padding:22px; text-align:center; color:var(--mut); cursor:pointer; transition:.15s; }
-  .upzone:hover, .upzone.drag { border-color:var(--grn); background:#0c1812; color:var(--ink); }
-  .upzone b { color:var(--grn); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:14px; margin-top:16px; }
-  .clip { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
-  .badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
-  .b-indexed { background:#13361f; color:#5ee08e; } .b-indexing { background:#3a3413; color:#e8cf5a; }
-  .b-rejected { background:#3a1b22; color:#ff8a9a; } .b-uploaded { background:#26303a; color:#9bb3c8; }
-  .clip .dur { color:var(--mut); font-size:12px; float:right; }
-  .clip .sum { font-size:13px; color:#c8e6d8; margin:10px 0; line-height:1.45; max-height:60px; overflow:hidden; }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .chip { font-size:11px; background:#0c2a1c; color:#86d9ab; border:1px solid #1d4a33; border-radius:20px; padding:3px 9px; }
-  .chip.meta { background:#10221a; color:#7fae9f; }
-  .prog { height:6px; background:#10221a; border-radius:6px; overflow:hidden; margin-top:12px; }
-  .prog > i { display:block; height:100%; width:40%; background:linear-gradient(90deg,transparent,var(--grn),transparent); animation:slide 1.2s linear infinite; }
+  .upzone { display:flex; flex-direction:column; align-items:center; gap:6px; border:1.5px dashed var(--border-2);
+    border-radius:var(--r); padding:30px; text-align:center; color:var(--muted); cursor:pointer; transition:.16s; }
+  .upzone svg { width:26px; height:26px; color:var(--faint); transition:.16s; }
+  .upzone .uz-main { font-size:14px; } .upzone .uz-sub { font-size:12px; color:var(--faint); }
+  .upzone b { color:var(--blue-bright); font-weight:600; }
+  .upzone:hover, .upzone.drag { border-color:var(--blue); background:var(--blue-soft); color:var(--ink-soft); }
+  .upzone:hover svg, .upzone.drag svg { color:var(--blue); transform:translateY(-2px); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(256px,1fr)); gap:15px; margin-top:18px; }
+  .clip { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:15px; transition:.15s; }
+  .clip:hover { border-color:var(--border-2); transform:translateY(-2px); box-shadow:var(--shadow); }
+  .clip-top { display:flex; align-items:center; gap:8px; }
+  .badge { display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.4px; }
+  .b-indexed { background:var(--good-bg); color:var(--good); } .b-indexing { background:var(--warn-bg); color:var(--warn); }
+  .b-rejected { background:var(--bad-bg); color:var(--bad); } .b-uploaded { background:var(--surface-2); color:var(--muted); }
+  .clip .dur { margin-left:auto; color:var(--faint); font-size:12px; font-weight:550; }
+  .clip-top .cdel { margin-left:6px; }
+  .clip .cdel.solo { margin-left:auto; }
+  .cdel { background:none; border:0; color:var(--faint); font-size:17px; line-height:1; cursor:pointer; padding:0 3px; transition:.13s; }
+  .cdel:hover { color:var(--bad); }
+  .clip .sum { font-size:13px; color:var(--ink-soft); margin:11px 0; line-height:1.5; max-height:58px; overflow:hidden; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+  .chip { font-size:11px; font-weight:550; background:var(--blue-soft); color:var(--blue-bright);
+    border:1px solid var(--blue-line); border-radius:20px; padding:3px 9px; }
+  .chip.meta { background:var(--surface-2); color:var(--muted); border-color:var(--border); }
+  .prog { height:5px; background:var(--surface-2); border-radius:6px; overflow:hidden; margin-top:13px; }
+  .prog > i { display:block; height:100%; width:42%; border-radius:6px;
+    background:linear-gradient(90deg,transparent,var(--blue),transparent); animation:slide 1.25s linear infinite; }
   @keyframes slide { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }
-  .reject { color:#ff9aa6; font-size:12px; margin-top:10px; }
-  .move { margin-top:10px; font-size:12px; padding:6px 8px; }
-  .cdel { float:right; background:none; border:0; color:#5f8071; font-size:18px; line-height:1; cursor:pointer; padding:0 2px; }
-  .cdel:hover { color:#ff9aa6; }
-  iframe { width:100%; height:100vh; border:0; }
+  .reject { color:var(--bad); font-size:12px; margin-top:11px; }
+  .move { margin-top:12px; font-size:12.5px; padding:8px 10px; padding-right:32px; background-position:right 11px center; }
+  /* ---------- grade ---------- */
   .gradewrap { padding:0; max-width:none; }
+  iframe { width:100%; height:100vh; border:0; display:block; }
 </style>
 </head>
 <body>
   <nav class="side">
     <div class="brand"><img src="/assets/treelz-logo.svg" alt="" /><b>treelz<span>.ai</span></b></div>
-    <button class="nav on" data-view="studio">🎬 Studio</button>
-    <button class="nav" data-view="library">🎞️ Clip Library</button>
-    <button class="nav" data-view="grade">⭐ Caption Grading</button>
+    <button class="nav on" data-view="studio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L18.7 9.7 13.9 11.6 12 16.4 10.1 11.6 5.3 9.7 10.1 7.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+      Studio</button>
+    <button class="nav" data-view="library">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>
+      Clip Library</button>
+    <button class="nav" data-view="grade">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17.1 6.75 19.6l1-5.85L3.5 9.7l5.9-.9z"/></svg>
+      Caption Grading</button>
     <div class="spacer"></div>
-    <button class="logout" id="logout">Sign out (dfine)</button>
+    <div class="sep"></div>
+    <button class="logout" id="logout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5M20 12H9M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4"/></svg>
+      Sign out · dfine</button>
   </nav>
   <main class="main">
     <section class="view on" id="view-studio">
-      <h2>Generation Studio</h2>
-      <p class="vsub">Pick an audio + which folder of clips to pull from, hit generate. Caption is best-of-3, cut to the beat, audio baked in. Validate the keepers.</p>
+      <div class="head">
+        <h2>Generation Studio</h2>
+        <p class="vsub">Pick an audio and a folder of clips, then generate. Each caption is best-of-3, cut to the beat with the audio baked in. Validate the keepers.</p>
+      </div>
       <div class="panel">
         <label>Audio</label>
         <select id="audio"></select>
         <label>Generate from</label>
         <select id="genfolder"></select>
-        <label>Notes (optional — nudge the caption topic/vibe)</label>
+        <label>Notes — optional nudge to the caption topic / vibe</label>
         <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
         <label>How many reels</label>
         <input id="count" type="number" min="1" max="12" value="1" />
@@ -100,12 +201,18 @@
       <div id="result"></div>
     </section>
     <section class="view" id="view-library">
-      <h2>Clip Library</h2>
-      <p class="vsub">Organize footage into folders (and sub-folders). Upload into the selected folder; generate from any folder in the Studio.</p>
+      <div class="head">
+        <h2>Clip Library</h2>
+        <p class="vsub">Organize footage into folders and sub-folders. Upload into the selected folder; generate from any folder in the Studio.</p>
+      </div>
       <div class="libwrap">
         <aside class="folders" id="folders"></aside>
         <div class="libmain">
-          <div class="upzone" id="upzone">⬆ Drop clips or click to upload into <b id="uptarget">All clips</b><br/><span style="font-size:12px">mp4 / mov — they index automatically</span></div>
+          <div class="upzone" id="upzone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
+            <div class="uz-main">Drop clips or click to upload into <b id="uptarget">All clips</b></div>
+            <div class="uz-sub">mp4 / mov — they index automatically</div>
+          </div>
           <input type="file" id="file" accept="video/*" multiple style="display:none" />
           <div class="grid" id="cliplib"></div>
         </div>
@@ -119,6 +226,8 @@
 const views = { studio:'view-studio', library:'view-library', grade:'view-grade' };
 let libLoaded = false, gradeLoaded = false;
 let FOLDERS = [], selectedFolder = null; // null=All, 'none'=Unfiled, <id>=folder
+const IC_FOLDER = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h3.6l1.8 2h9.6A1.5 1.5 0 0121 9.5v8A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg>`;
+const IC_ALL = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>`;
 document.querySelectorAll('.nav').forEach(b => b.onclick = () => {
   document.querySelectorAll('.nav').forEach(x => x.classList.remove('on')); b.classList.add('on');
   Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
@@ -137,15 +246,15 @@ async function loadFolders() {
 }
 function renderFolderTree() {
   const wrap = document.getElementById('folders');
-  const row = (id, label, count, depth, f) => {
+  const row = (id, label, count, depth, f, icon) => {
     const on = String(selectedFolder) === String(id) ? ' on' : '';
-    const pad = 8 + depth * 14;
+    const pad = 9 + depth * 14;
     const ct = count == null ? '' : `<span class="ct">${count}</span>`;
-    const ctrls = f ? `<span class="add" title="New sub-folder" data-add="${id}">＋</span><span class="del" title="Delete folder" data-del="${id}">×</span>` : '';
-    return `<div class="fitem${on}" data-sel="${id}" style="padding-left:${pad}px"><span class="nm">${label}</span>${ct}${ctrls}</div>`;
+    const ctrls = f ? `<span class="fbtn add" title="New sub-folder" data-add="${id}">＋</span><span class="fbtn del" title="Delete folder" data-del="${id}">×</span>` : '';
+    return `<div class="fitem${on}" data-sel="${id}" style="padding-left:${pad}px">${icon}<span class="nm">${label}</span>${ct}${ctrls}</div>`;
   };
-  let html = row('all', '📁 All clips', null, 0) + row('none', '📂 Unfiled', null, 0);
-  const walk = (pid) => childrenOf(pid).forEach(f => { html += row(f.id, '📁 ' + f.name, f.clips, depthOf(f), f); walk(f.id); });
+  let html = `<div class="ftitle">Folders</div>` + row('all', 'All clips', null, 0, null, IC_ALL) + row('none', 'Unfiled', null, 0, null, IC_FOLDER);
+  const walk = (pid) => childrenOf(pid).forEach(f => { html += row(f.id, f.name, f.clips, depthOf(f), f, IC_FOLDER); walk(f.id); });
   walk(null);
   wrap.innerHTML = html + `<button class="newfolder" id="newfolder">＋ New folder</button>`;
   wrap.querySelectorAll('.fitem').forEach(el => el.onclick = (e) => {
@@ -197,13 +306,16 @@ function clipCard(c) {
   if (c.time_of_day) chips.push(`<span class="chip meta">${c.time_of_day}</span>`);
   (c.vibe_tags || []).slice(0, 8).forEach(t => chips.push(`<span class="chip">${t}</span>`));
   const mv = (c.status === 'indexed') ? `<select class="move" data-clip="${c.id}">${folderOptions(c.folder_id)}</select>` : '';
+  const dur = c.duration ? `<span class="dur">${c.duration}s</span>` : '';
   return `<div class="clip" data-id="${c.id}">
-    <button class="cdel" data-cdel="${c.id}" title="Delete clip">×</button>
-    <span class="dur">${c.duration ? c.duration + 's' : ''}</span>
-    <span class="badge ${badge}">${c.status}</span>
+    <div class="clip-top">
+      <span class="badge ${badge}">${c.status}</span>
+      ${dur}
+      <button class="cdel ${dur ? '' : 'solo'}" data-cdel="${c.id}" title="Delete clip">×</button>
+    </div>
     ${indexing ? '<div class="prog"><i></i></div>' : ''}
     ${c.summary ? `<div class="sum">${(c.summary||'').slice(0,160)}</div>` : ''}
-    <div class="chips">${chips.join('')}</div>
+    ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
     ${c.status === 'rejected' && c.rejection_reason ? `<div class="reject">✗ ${c.rejection_reason}</div>` : ''}
     ${mv}
   </div>`;
@@ -226,10 +338,10 @@ async function loadClips() {
   const qs = selectedFolder == null ? '' : ('?folder_id=' + selectedFolder);
   try {
     const clips = await (await fetch('/api/clips/library' + qs)).json();
-    wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : '<p class="vsub">No clips here yet — upload some above.</p>';
+    wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : '<p class="vsub empty">No clips here yet — upload some above.</p>';
     wireCards();
     clips.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
-  } catch (_) { wrap.innerHTML = '<p class="vsub">Could not load clips.</p>'; }
+  } catch (_) { wrap.innerHTML = '<p class="vsub empty">Could not load clips.</p>'; }
 }
 async function pollClip(id) {
   for (let t = 0; t < 150; t++) {
@@ -246,7 +358,7 @@ function uploadFiles(files) {
   [...files].forEach(async (file) => {
     const fd = new FormData(); fd.append('file', file); if (targetFolder) fd.append('folder_id', targetFolder);
     const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
-    wrap.insertAdjacentHTML('afterbegin', `<div class="clip" data-id="${tmpId}"><span class="badge b-indexing">uploading</span><div class="prog"><i></i></div><div class="sum">${file.name}</div></div>`);
+    wrap.insertAdjacentHTML('afterbegin', `<div class="clip" data-id="${tmpId}"><div class="clip-top"><span class="badge b-indexing">uploading</span></div><div class="prog"><i></i></div><div class="sum">${file.name}</div></div>`);
     try {
       const r = await fetch('/api/clips/upload', { method:'POST', body: fd });
       const d = await r.json();
@@ -272,7 +384,7 @@ async function loadAudios() {
   try {
     AUDIOS = await (await fetch('/api/audios')).json();
     document.getElementById('audio').innerHTML =
-      '<option value="mix">🎲 Mix — a different audio each reel</option>' +
+      '<option value="mix">🎲  Mix — a different audio each reel</option>' +
       AUDIOS.map(x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`).join('');
   } catch (_) {}
 }
@@ -280,9 +392,11 @@ function renderReel(d, audioLabel) {
   const div = document.createElement('div'); div.className = 'panel';
   div.innerHTML = `<div class="reelbox">
     <video controls loop playsinline src="${d.reel_url}"></video>
-    <div class="meta"><div style="color:var(--mut);font-size:13px">caption</div><div class="cap"></div>
-      <div style="color:#6a8b7c;font-size:12px;margin-top:10px">🎵 ${audioLabel||''} · ${d.duration}s · ${d.shots} shots</div>
-      <div class="actions"><button class="val">✓ Validate → Drive</button><a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+    <div class="meta">
+      <div class="reel-label">Caption</div>
+      <div class="cap"></div>
+      <div class="reel-stats">🎵 ${audioLabel||''} · ${d.duration}s · ${d.shots} shots</div>
+      <div class="actions"><button class="val">✓ Validate → Drive</button><a class="dl" href="${d.reel_url}" download>↓ Download .mp4</a></div>
     </div></div>`;
   div.querySelector('.cap').textContent = d.caption;
   const vb = div.querySelector('.val');
@@ -309,7 +423,7 @@ document.getElementById('gen').onclick = async () => {
   for (let i = 1; i <= n; i++) {
     const aid = audioFor(i);
     const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
-    st.textContent = `Generating ${i}/${n}… caption (best of 3), beat-cut, render (~2–3 min each)`;
+    st.innerHTML = `<span class="spin"></span>Generating ${i}/${n}… caption (best of 3), beat-cut, render (~2–3 min each)`;
     try {
       const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes, folder_id }) });
       if (!r.ok) throw new Error((await r.text()).slice(0,200));
