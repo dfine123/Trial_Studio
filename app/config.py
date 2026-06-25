@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     reel_height: int = 1920
     reel_fps: int = 30
     work_dir: str = "/tmp/trial-studio"          # transient per-clip working space
-    min_resolution: int = 1080                   # QC: reject if min(w,h) < this
-    min_fps: float = 29.9                         # QC: reject if fps < this
+    min_resolution: int = 720                    # QC: reject if min(w,h) < this (720p phone/download footage is fine)
+    min_fps: float = 23.0                         # QC: reject if fps < this (accept 24fps content)
 
     # ── Validated-reel export (Google Drive for Desktop sync) ─
     # Defaults to a folder on the persistent volume (var/validated); set REEL_EXPORT_DIR to a

@@ -66,6 +66,8 @@
   @keyframes slide { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }
   .reject { color:#ff9aa6; font-size:12px; margin-top:10px; }
   .move { margin-top:10px; font-size:12px; padding:6px 8px; }
+  .cdel { float:right; background:none; border:0; color:#5f8071; font-size:18px; line-height:1; cursor:pointer; padding:0 2px; }
+  .cdel:hover { color:#ff9aa6; }
   iframe { width:100%; height:100vh; border:0; }
   .gradewrap { padding:0; max-width:none; }
 </style>
@@ -196,6 +198,7 @@ function clipCard(c) {
   (c.vibe_tags || []).slice(0, 8).forEach(t => chips.push(`<span class="chip">${t}</span>`));
   const mv = (c.status === 'indexed') ? `<select class="move" data-clip="${c.id}">${folderOptions(c.folder_id)}</select>` : '';
   return `<div class="clip" data-id="${c.id}">
+    <button class="cdel" data-cdel="${c.id}" title="Delete clip">×</button>
     <span class="dur">${c.duration ? c.duration + 's' : ''}</span>
     <span class="badge ${badge}">${c.status}</span>
     ${indexing ? '<div class="prog"><i></i></div>' : ''}
@@ -207,6 +210,12 @@ function clipCard(c) {
 }
 function wireCards() {
   document.querySelectorAll('.move').forEach(sel => sel.onchange = () => moveClip(sel.dataset.clip, sel.value || null));
+  document.querySelectorAll('.cdel').forEach(b => b.onclick = () => deleteClip(b.dataset.cdel));
+}
+async function deleteClip(id) {
+  if (!confirm('Delete this clip permanently?')) return;
+  await fetch('/api/clips/' + id, { method:'DELETE' });
+  loadFolders(); loadClips();
 }
 async function moveClip(clipId, folderId) {
   await fetch(`/api/clips/${clipId}/move`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ folder_id: folderId }) });

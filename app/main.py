@@ -33,6 +33,8 @@ _DEFAULT_NICHE = (
 )
 _REELS_DIR = "var/reels"
 _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
+# Serialize clip indexing (OpenCV is memory-heavy) so a batch upload can't OOM-crash the instance.
+_INDEX_SEM = threading.Semaphore(1)
 
 
 class GenerateRequest(BaseModel):
@@ -243,7 +245,8 @@ async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None =
     def _index() -> None:
         try:
             from app.indexing.pipeline import run_pipeline  # heavy (cv2 + TL) — import in the thread
-            run_pipeline(clip_id, source_path=dest)
+            with _INDEX_SEM:  # one clip indexes at a time — bounds memory so a batch can't OOM
+                run_pipeline(clip_id, source_path=dest)
         except Exception as exc:  # noqa: BLE001 — record the failure on the clip, never crash
             with SessionLocal() as s:
                 c = s.get(Clip, clip_id)
@@ -345,6 +348,23 @@ def api_move_clip(clip_id: uuid.UUID, req: ClipMove):
             raise HTTPException(status_code=404, detail="clip not found")
         c.folder_id = req.folder_id
         s.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/clips/{clip_id}")
+def api_delete_clip(clip_id: uuid.UUID):
+    """Delete a clip + its segments (cascade), best-effort removing the uploaded file."""
+    with SessionLocal() as s:
+        c = s.get(Clip, clip_id)
+        if c is not None:
+            path = c.r2_key
+            s.delete(c)
+            s.commit()
+            if path and os.path.isabs(path) and os.path.exists(path):  # only our uploads, not sample basenames
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
     return {"ok": True}
 
 
