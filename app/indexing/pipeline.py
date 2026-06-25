@@ -134,6 +134,16 @@ def _pad_short_for_tl(src: str, real_duration: float, work_dir: str, target: flo
     return out
 
 
+INDEX_TRACE: list[str] = []  # diagnostic ring of recent [idx] trace lines (read by /api/debug/index-test)
+
+
+def _t(msg: str, flush: bool = True) -> None:
+    """Trace: append to the in-memory ring AND print to stdout (Railway logs)."""
+    INDEX_TRACE.append(msg)
+    del INDEX_TRACE[:-400]
+    print(msg, flush=flush)
+
+
 def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
     """Index one clip. Returns the final status. Marks rejected (with reason) on any failure."""
     if isinstance(clip_id, str):
@@ -147,10 +157,10 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
 
         clip.status = "indexing"
         session.commit()
-        print(f"[idx] {clip_id} run_pipeline entered (status=indexing)", flush=True)
+        _t(f"[idx] {clip_id} run_pipeline entered (status=indexing)", flush=True)
 
         path, is_temp = _resolve_source(clip, source_path)
-        print(f"[idx] {clip_id} source resolved: {path}", flush=True)
+        _t(f"[idx] {clip_id} source resolved: {path}", flush=True)
 
         # QC — record dims either way
         qcres = qc.check(path, settings.min_resolution, settings.min_fps)
@@ -164,27 +174,27 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
             return clip.status
 
         # Segmentation (+ long-take windowing)
-        print(f"[idx] {clip_id} qc passed {p.width}x{p.height} {p.fps}fps {p.duration}s — segmenting…", flush=True)
+        _t(f"[idx] {clip_id} qc passed {p.width}x{p.height} {p.fps}fps {p.duration}s — segmenting…", flush=True)
         windows = segmentation.segment_video(path, total_duration=p.duration)
-        print(f"[idx] {clip_id} segmented into {len(windows)} window(s)", flush=True)
+        _t(f"[idx] {clip_id} segmented into {len(windows)} window(s)", flush=True)
 
         # Twelve Labs (index -> poll -> Pegasus -> Marengo).
         # Sub-4s clips: index a freeze-padded copy (TL's minimum) but keep the original as the
         # real asset; the analysis is attributed to the original.
-        print(f"[idx] {clip_id} building TwelveLabs client + index…", flush=True)
+        _t(f"[idx] {clip_id} building TwelveLabs client + index…", flush=True)
         c = twelvelabs.client()
         index_id = twelvelabs.ensure_index(c)
-        print(f"[idx] {clip_id} TL client ready, index={index_id}", flush=True)
+        _t(f"[idx] {clip_id} TL client ready, index={index_id}", flush=True)
         tl_source, tl_padded, real_dur = path, False, None
         if p.duration and p.duration < settings.tl_min_duration:
             tl_source = _pad_short_for_tl(path, p.duration, settings.work_dir, settings.tl_pad_target)
             tl_padded, real_dur = True, p.duration
         try:
-            print(f"[idx] {clip_id} TL.index_video uploading {tl_source}…", flush=True)
+            _t(f"[idx] {clip_id} TL.index_video uploading {tl_source}…", flush=True)
             task = twelvelabs.index_video(c, index_id, video_file=tl_source)
             clip.twelvelabs_video_id = task.video_id
             session.commit()
-            print(f"[idx] {clip_id} TL indexed video_id={task.video_id} — analyzing…", flush=True)
+            _t(f"[idx] {clip_id} TL indexed video_id={task.video_id} — analyzing…", flush=True)
 
             analysis = twelvelabs.analyze_clip(c, task.video_id, real_duration=real_dur)
             embedding = None
@@ -214,12 +224,12 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
         clip.status = "indexed"
         clip.indexed_at = datetime.now(timezone.utc)
         session.commit()
-        print(f"[idx] {clip_id} DONE — indexed", flush=True)
+        _t(f"[idx] {clip_id} DONE — indexed", flush=True)
         return clip.status
 
     except Exception as exc:  # noqa: BLE001 — record the failure on the clip per spec gotcha #4
         import traceback
-        print(f"[idx] {clip_id} ERROR: {exc}", flush=True)
+        _t(f"[idx] {clip_id} ERROR: {exc}", flush=True)
         traceback.print_exc()
         session.rollback()
         clip = session.get(Clip, clip_id)

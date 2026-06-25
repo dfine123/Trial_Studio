@@ -374,6 +374,47 @@ def api_delete_clip(clip_id: uuid.UUID):
     return {"ok": True}
 
 
+@app.get("/api/debug/index-test")
+def api_debug_index_test(clip_id: str | None = None):
+    """Diagnostic: run run_pipeline DIRECTLY on one clip (latest stuck clip if none given), in a
+    watchdog thread, and return the step trace + status/exception/hung. Visit in a browser to see
+    exactly where indexing stalls on THIS host — no log-digging. Bypasses the upload's bg thread,
+    so a success here vs. a stuck upload points at the threading; a hang/error points at the pipeline."""
+    import threading
+    import traceback as _tb
+    from app.indexing import pipeline as _pl
+
+    with SessionLocal() as s:
+        if clip_id:
+            clip = s.get(Clip, uuid.UUID(clip_id))
+        else:
+            clip = s.scalar(
+                select(Clip)
+                .where(Clip.status.in_(["uploaded", "indexing", "rejected"]))
+                .order_by(Clip.created_at.desc())
+            )
+        if clip is None:
+            return {"error": "no uploaded/indexing/rejected clip to test — upload one first"}
+        cid, src = str(clip.id), clip.r2_key
+
+    start = len(_pl.INDEX_TRACE)
+    out: dict = {"clip_id": cid, "source": src, "source_exists": bool(src and os.path.exists(src))}
+
+    def _run() -> None:
+        try:
+            out["status"] = _pl.run_pipeline(cid, source_path=src)
+        except Exception as exc:  # noqa: BLE001
+            out["exception"] = repr(exc)
+            out["traceback"] = _tb.format_exc().splitlines()[-25:]
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=120)
+    out["hung_after_120s"] = t.is_alive()
+    out["trace"] = _pl.INDEX_TRACE[start:][-50:]
+    return out
+
+
 # ── treelz.ai web app ─────────────────────────────────────────
 @app.get("/login")
 def login_page():
