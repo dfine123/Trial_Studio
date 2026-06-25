@@ -415,6 +415,56 @@ def api_debug_index_test(clip_id: str | None = None):
     return out
 
 
+@app.get("/api/debug/generate-test")
+def api_debug_generate_test():
+    """Diagnostic: check generation prerequisites + run generate_reel once, returning the exact
+    error/traceback. Visit in a browser; paste the JSON. Never exposes key values, only set/unset."""
+    import threading
+    import traceback as _tb
+
+    out: dict = {}
+    with SessionLocal() as s:
+        out["clips_total"] = s.scalar(select(func.count()).select_from(Clip))
+        out["clips_indexed"] = s.scalar(select(func.count()).select_from(Clip).where(Clip.status == "indexed"))
+        sample = s.scalar(select(Clip).where(Clip.status == "indexed").limit(1))
+        out["sample_clip_source"] = sample.r2_key if sample else None
+        out["sample_source_exists"] = bool(sample and sample.r2_key and os.path.exists(sample.r2_key))
+        audio = s.scalar(select(Audio).order_by(func.random()).limit(1))
+    if audio is None:
+        out["error"] = "no audio seeded"
+        return out
+
+    audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key)) if audio.r2_key else ""
+    out["audio"] = audio.description
+    out["audio_exists"] = bool(audio_path and os.path.exists(audio_path))
+    out["caption_provider"] = settings.caption_provider
+    out["anthropic_key_set"] = bool(settings.anthropic_api_key)
+    out["openai_key_set"] = bool(settings.openai_api_key)
+
+    os.makedirs(_REELS_DIR, exist_ok=True)
+    out_path = os.path.join(_REELS_DIR, f"debugtest_{uuid.uuid4().hex}.mp4")
+    box: dict = {}
+
+    def _run() -> None:
+        from app.generate.generator import generate_reel
+        try:
+            r = generate_reel(audio_path=audio_path, niche="", out_path=out_path,
+                              audio_desc=audio.description, audio_bpm=audio.bpm,
+                              audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags)
+            box["status"] = "ok"
+            box["result"] = list(r.keys()) if isinstance(r, dict) else str(r)[:200]
+        except Exception as exc:  # noqa: BLE001
+            box["exception"] = repr(exc)
+            box["traceback"] = _tb.format_exc().splitlines()[-30:]
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=220)
+    out["hung_after_220s"] = t.is_alive()
+    out.update(box)
+    return out
+
+
 # ── treelz.ai web app ─────────────────────────────────────────
 @app.get("/login")
 def login_page():
