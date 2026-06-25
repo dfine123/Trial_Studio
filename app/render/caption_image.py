@@ -7,6 +7,7 @@ they are never stripped or a constraint on generation.
 """
 from __future__ import annotations
 
+import os
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
@@ -156,5 +157,6 @@ def render_caption_png(
                 stroke_fill=(0, 0, 0, 255),
                 emoji_scale_factor=1.15,
             )
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)  # tmp/ may not exist on a fresh host
     img.save(out_path)
     return out_path
