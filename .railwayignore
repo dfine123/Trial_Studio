@@ -1,0 +1,26 @@
+# Used by `railway up --no-gitignore` — this becomes the ONLY upload filter, so your gitignored
+# voice (corpus/references.jsonl) + grading seed (corpus/grades.jsonl) DO get uploaded to Railway
+# (they're bundled into the image, never pushed to the public GitHub repo).
+.git
+.venv
+venv
+node_modules
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+tmp
+scratch
+*.log
+
+# runtime data lives on the Railway volume, not the upload
+var
+
+# never upload real secrets — set these as Railway variables instead
+.env
+.env.local
+
+# big video samples — keep only the audio the generator needs
+samples/*
+!samples/audio
