@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>treelz.ai — sign in</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family: system-ui,-apple-system,sans-serif;
+    background: radial-gradient(1100px 560px at 50% -8%, #11271c, #060d09 62%); color:#eafff4;
+    display:flex; align-items:center; justify-content:center; }
+  .card { width:368px; max-width:92vw; background:#0d1712; border:1px solid #1c3a2c; border-radius:18px;
+    padding:34px 28px; box-shadow:0 24px 70px rgba(0,0,0,.55); }
+  .brand { display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:4px; }
+  .brand img { width:48px; height:48px; }
+  .brand h1 { font-size:25px; margin:0; font-weight:700; letter-spacing:-.6px; }
+  .brand h1 span { color:#2fd47a; }
+  .sub { text-align:center; color:#7fae9f; font-size:13px; margin:2px 0 24px; }
+  label { display:block; font-size:12px; color:#7fae9f; margin:14px 0 6px; }
+  input { width:100%; background:#060d09; color:#eafff4; border:1px solid #224a37; border-radius:10px;
+    padding:12px; font-size:15px; }
+  input:focus { outline:none; border-color:#2fd47a; }
+  button { width:100%; margin-top:22px; padding:13px; font-size:16px; font-weight:700; border:0;
+    border-radius:11px; background:#2fd47a; color:#05130c; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  .err { color:#ff9aa6; font-size:13px; margin-top:14px; min-height:18px; text-align:center; }
+</style>
+</head>
+<body>
+<form class="card" id="f">
+  <div class="brand"><img src="/assets/treelz-logo.svg" alt="treelz" /><h1>treelz<span>.ai</span></h1></div>
+  <p class="sub">sign in to your studio</p>
+  <label>Username</label>
+  <input id="u" autocomplete="username" autofocus />
+  <label>Password</label>
+  <input id="p" type="password" autocomplete="current-password" />
+  <button type="submit" id="btn">Sign in</button>
+  <div class="err" id="err"></div>
+</form>
+<script>
+document.getElementById('f').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn'), err = document.getElementById('err');
+  btn.disabled = true; err.textContent = '';
+  try {
+    const r = await fetch('/api/login', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value }) });
+    if (!r.ok) { err.textContent = 'Wrong username or password'; btn.disabled = false; return; }
+    location.href = '/';
+  } catch (_) { err.textContent = 'Something went wrong — try again'; btn.disabled = false; }
+};
+</script>
+</body>
+</html>

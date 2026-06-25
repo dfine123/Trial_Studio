@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>treelz.ai studio</title>
+<style>
+  :root { color-scheme: dark; --grn:#2fd47a; --bg:#070d0a; --panel:#0e1813; --line:#1c3a2c; --ink:#eafff4; --mut:#7fae9f; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); display:flex; min-height:100vh; }
+  a { color:#9be7c4; }
+  /* sidebar */
+  .side { width:232px; flex:none; background:#0a130e; border-right:1px solid var(--line); padding:20px 16px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; }
+  .brand { display:flex; align-items:center; gap:10px; padding:6px 8px 18px; }
+  .brand img { width:34px; height:34px; }
+  .brand b { font-size:19px; letter-spacing:-.4px; } .brand b span { color:var(--grn); }
+  .nav { display:block; width:100%; text-align:left; background:none; border:0; color:var(--mut); font-size:15px;
+    padding:11px 12px; border-radius:10px; cursor:pointer; font-weight:600; }
+  .nav:hover { background:#0f1d15; color:var(--ink); }
+  .nav.on { background:#14301f; color:var(--grn); }
+  .spacer { flex:1; }
+  .logout { color:#6f8b82; font-size:13px; background:none; border:0; cursor:pointer; text-align:left; padding:11px 12px; }
+  .logout:hover { color:#ff9aa6; }
+  /* main */
+  .main { flex:1; min-width:0; }
+  .view { display:none; padding:30px 34px 70px; max-width:980px; }
+  .view.on { display:block; }
+  h2 { font-weight:650; margin:0 0 4px; font-size:22px; }
+  .vsub { color:var(--mut); margin:0 0 22px; font-size:14px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:18px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:14px 0 6px; } label:first-child { margin-top:0; }
+  select, input, textarea { width:100%; background:var(--bg); color:var(--ink); border:1px solid #224a37; border-radius:9px; padding:11px; font-size:14px; }
+  select:focus, input:focus { outline:none; border-color:var(--grn); }
+  button.cta { margin-top:18px; width:100%; padding:14px; font-size:16px; font-weight:700; border:0; border-radius:11px; background:var(--grn); color:#05130c; cursor:pointer; }
+  button.cta:disabled { opacity:.55; cursor:default; }
+  .status { margin-top:13px; color:#9aa3c8; font-size:14px; min-height:20px; }
+  /* studio reel cards */
+  .reelbox { display:flex; gap:20px; flex-wrap:wrap; }
+  video { width:288px; max-width:100%; border-radius:12px; background:#000; }
+  .meta { flex:1; min-width:220px; }
+  .cap { white-space:pre-wrap; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:13px; margin-top:6px; font-size:14px; line-height:1.5; }
+  .actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+  button.val { width:auto; margin:0; padding:9px 15px; font-size:14px; font-weight:600; border:0; border-radius:9px; background:#1f7a4d; color:#fff; cursor:pointer; }
+  button.val.done { background:#14532d; cursor:default; }
+  a.dl { color:#9be7c4; text-decoration:none; font-size:14px; }
+  /* library */
+  .upzone { border:1.5px dashed #2c5a43; border-radius:13px; padding:26px; text-align:center; color:var(--mut); cursor:pointer; transition:.15s; }
+  .upzone:hover, .upzone.drag { border-color:var(--grn); background:#0c1812; color:var(--ink); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:14px; margin-top:18px; }
+  .clip { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
+  .b-indexed { background:#13361f; color:#5ee08e; } .b-indexing { background:#3a3413; color:#e8cf5a; }
+  .b-rejected { background:#3a1b22; color:#ff8a9a; } .b-uploaded { background:#26303a; color:#9bb3c8; }
+  .clip .dur { color:var(--mut); font-size:12px; float:right; }
+  .clip .sum { font-size:13px; color:#c8e6d8; margin:10px 0; line-height:1.45; max-height:60px; overflow:hidden; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { font-size:11px; background:#0c2a1c; color:#86d9ab; border:1px solid #1d4a33; border-radius:20px; padding:3px 9px; }
+  .chip.meta { background:#10221a; color:#7fae9f; }
+  .prog { height:6px; background:#10221a; border-radius:6px; overflow:hidden; margin-top:12px; }
+  .prog > i { display:block; height:100%; width:40%; background:linear-gradient(90deg,transparent,var(--grn),transparent); animation:slide 1.2s linear infinite; }
+  @keyframes slide { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }
+  .reject { color:#ff9aa6; font-size:12px; margin-top:10px; }
+  iframe { width:100%; height:calc(100vh - 0px); border:0; }
+  .gradewrap { padding:0; max-width:none; }
+</style>
+</head>
+<body>
+  <nav class="side">
+    <div class="brand"><img src="/assets/treelz-logo.svg" alt="" /><b>treelz<span>.ai</span></b></div>
+    <button class="nav on" data-view="studio">🎬 Studio</button>
+    <button class="nav" data-view="library">🎞️ Clip Library</button>
+    <button class="nav" data-view="grade">⭐ Caption Grading</button>
+    <div class="spacer"></div>
+    <button class="logout" id="logout">Sign out (dfine)</button>
+  </nav>
+  <main class="main">
+    <!-- STUDIO -->
+    <section class="view on" id="view-studio">
+      <h2>Generation Studio</h2>
+      <p class="vsub">Pick an audio, hit generate — writes a caption in your voice (best of 3), cuts your clips to the beat, bakes the audio in. Validate the keepers.</p>
+      <div class="panel">
+        <label>Audio</label>
+        <select id="audio"></select>
+        <label>Notes (optional — nudge the caption topic/vibe)</label>
+        <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
+        <label>How many reels</label>
+        <input id="count" type="number" min="1" max="12" value="1" />
+        <button class="cta" id="gen">Generate reels</button>
+        <div class="status" id="gstatus"></div>
+      </div>
+      <div id="result"></div>
+    </section>
+    <!-- LIBRARY -->
+    <section class="view" id="view-library">
+      <h2>Clip Library</h2>
+      <p class="vsub">Your indexed footage. Upload new clips and watch them index — once tagged, they're available to the studio.</p>
+      <div class="panel">
+        <div class="upzone" id="upzone">⬆ Drop clips here or click to upload<br/><span style="font-size:12px">mp4 / mov — they'll index automatically</span></div>
+        <input type="file" id="file" accept="video/*" multiple style="display:none" />
+      </div>
+      <div class="grid" id="cliplib"></div>
+    </section>
+    <!-- GRADE -->
+    <section class="view gradewrap" id="view-grade">
+      <iframe id="gradeframe" data-src="/grade"></iframe>
+    </section>
+  </main>
+<script>
+// ---------- nav ----------
+const views = { studio:'view-studio', library:'view-library', grade:'view-grade' };
+let libLoaded = false, gradeLoaded = false;
+document.querySelectorAll('.nav').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.nav').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
+  const v = b.dataset.view; document.getElementById(views[v]).classList.add('on');
+  if (v === 'library' && !libLoaded) { libLoaded = true; loadClips(); }
+  if (v === 'grade' && !gradeLoaded) { gradeLoaded = true; const f = document.getElementById('gradeframe'); f.src = f.dataset.src; }
+});
+document.getElementById('logout').onclick = async () => { await fetch('/api/logout', {method:'POST'}); location.href = '/login'; };
+
+// ---------- studio ----------
+let AUDIOS = [];
+async function loadAudios() {
+  try {
+    AUDIOS = await (await fetch('/api/audios')).json();
+    document.getElementById('audio').innerHTML =
+      '<option value="mix">🎲 Mix — a different audio each reel</option>' +
+      AUDIOS.map(x => `<option value="${x.id}">${x.description} — ${Math.round(x.bpm)} BPM · ${x.duration.toFixed(1)}s</option>`).join('');
+  } catch (_) {}
+}
+function renderReel(d, audioLabel) {
+  const div = document.createElement('div'); div.className = 'panel';
+  div.innerHTML = `<div class="reelbox">
+    <video controls loop playsinline src="${d.reel_url}"></video>
+    <div class="meta"><div style="color:var(--mut);font-size:13px">caption</div>
+      <div class="cap"></div>
+      <div style="color:#6a8b7c;font-size:12px;margin-top:10px">🎵 ${audioLabel||''} · ${d.duration}s · ${d.shots} shots</div>
+      <div class="actions"><button class="val">✓ Validate → Drive</button>
+        <a class="dl" href="${d.reel_url}" download>⬇ download mp4</a></div>
+    </div></div>`;
+  div.querySelector('.cap').textContent = d.caption;
+  const vb = div.querySelector('.val');
+  vb.onclick = async () => {
+    const prev = vb.textContent; vb.disabled = true; vb.textContent = 'Exporting…';
+    try {
+      const name = d.reel_url.split('/').pop();
+      const r = await fetch('/api/reels/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, caption: d.caption }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0,160));
+      vb.textContent = '✓ Validated'; vb.classList.add('done');
+    } catch (e) { vb.disabled = false; vb.textContent = prev; alert('Export failed: ' + e.message); }
+  };
+  document.getElementById('result').prepend(div);
+}
+document.getElementById('gen').onclick = async () => {
+  const btn = document.getElementById('gen'), st = document.getElementById('gstatus');
+  const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value,10) || 1));
+  const sel = document.getElementById('audio').value;
+  const notes = document.getElementById('notes').value || null;
+  const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
+  const audioFor = (i) => sel === 'mix' ? ((shuffled[(i-1) % shuffled.length] || {}).id) : sel;
+  btn.disabled = true; let done = 0, failed = 0;
+  for (let i = 1; i <= n; i++) {
+    const aid = audioFor(i);
+    const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
+    st.textContent = `Generating ${i}/${n}… caption (best of 3), beat-cut, render (~2–3 min each)`;
+    try {
+      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0,160));
+      renderReel(await r.json(), label); done++;
+    } catch (e) { failed++; st.textContent = `Reel ${i}/${n} failed: ${e.message}`; }
+  }
+  st.textContent = `Done — ${done} generated${failed ? `, ${failed} failed` : ''}.`;
+  btn.disabled = false;
+};
+
+// ---------- clip library ----------
+const STATUSES = { indexed:'b-indexed', indexing:'b-indexing', uploaded:'b-indexing', rejected:'b-rejected' };
+function clipCard(c) {
+  const badge = STATUSES[c.status] || 'b-uploaded';
+  const indexing = (c.status === 'indexing' || c.status === 'uploaded');
+  const chips = [];
+  if (c.setting) chips.push(`<span class="chip meta">${c.setting}</span>`);
+  if (c.time_of_day) chips.push(`<span class="chip meta">${c.time_of_day}</span>`);
+  (c.vibe_tags || []).slice(0, 8).forEach(t => chips.push(`<span class="chip">${t}</span>`));
+  return `<div class="clip" data-id="${c.id}">
+    <span class="dur">${c.duration ? c.duration + 's' : ''}</span>
+    <span class="badge ${badge}">${c.status}</span>
+    ${indexing ? '<div class="prog"><i></i></div>' : ''}
+    ${c.summary ? `<div class="sum">${(c.summary||'').slice(0,160)}</div>` : ''}
+    <div class="chips">${chips.join('')}</div>
+    ${c.status === 'rejected' && c.rejection_reason ? `<div class="reject">✗ ${c.rejection_reason}</div>` : ''}
+  </div>`;
+}
+async function loadClips() {
+  const wrap = document.getElementById('cliplib');
+  try {
+    const clips = await (await fetch('/api/clips/library')).json();
+    wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : '<p class="vsub">No clips yet — upload some above.</p>';
+    clips.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
+  } catch (_) { wrap.innerHTML = '<p class="vsub">Could not load clips.</p>'; }
+}
+async function pollClip(id) {
+  for (let t = 0; t < 150; t++) {
+    await new Promise(r => setTimeout(r, 4000));
+    let c; try { c = await (await fetch(`/api/clips/${id}/status`)).json(); } catch (_) { continue; }
+    const el = document.querySelector(`.clip[data-id="${id}"]`);
+    if (el) el.outerHTML = clipCard(c);
+    if (c.status === 'indexed' || c.status === 'rejected') return;
+  }
+}
+function uploadFiles(files) {
+  const wrap = document.getElementById('cliplib');
+  [...files].forEach(async (file) => {
+    const fd = new FormData(); fd.append('file', file);
+    const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
+    wrap.insertAdjacentHTML('afterbegin', `<div class="clip" data-id="${tmpId}">
+      <span class="badge b-indexing">uploading</span><div class="prog"><i></i></div>
+      <div class="sum">${file.name}</div></div>`);
+    try {
+      const r = await fetch('/api/clips/upload', { method:'POST', body: fd });
+      const d = await r.json();
+      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
+      if (el) el.outerHTML = clipCard({ id:d.clip_id, status:'indexing', summary:file.name, vibe_tags:[] });
+      pollClip(d.clip_id);
+    } catch (e) {
+      const el = document.querySelector(`.clip[data-id="${tmpId}"]`);
+      if (el) el.outerHTML = clipCard({ id:tmpId, status:'rejected', rejection_reason:'upload failed', vibe_tags:[] });
+    }
+  });
+}
+const uz = document.getElementById('upzone'), fi = document.getElementById('file');
+uz.onclick = () => fi.click();
+fi.onchange = () => { if (fi.files.length) uploadFiles(fi.files); fi.value = ''; };
+uz.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
+uz.ondragleave = () => uz.classList.remove('drag');
+uz.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+
+loadAudios();
+</script>
+</body>
+</html>

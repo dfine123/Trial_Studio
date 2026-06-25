@@ -1,15 +1,19 @@
 """FastAPI app + routes (Phase 0): health, upload, and read endpoints."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
 import shutil
+import threading
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
@@ -87,6 +91,42 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Trial Studio — Indexing", version="0.0.1", lifespan=lifespan)
+app.mount("/assets", StaticFiles(directory=_WEB_DIR), name="assets")
+
+
+# ── treelz.ai auth (local single-user demo gate) ──────────────
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+def _auth_token(user: str) -> str:
+    sig = hmac.new(settings.treelz_secret.encode(), user.encode(), hashlib.sha256).hexdigest()
+    return f"{user}.{sig}"
+
+
+def _is_authed(request: Request) -> bool:
+    tok = request.cookies.get("treelz_session") or ""
+    if "." not in tok:
+        return False
+    user, sig = tok.rsplit(".", 1)
+    expected = hmac.new(settings.treelz_secret.encode(), user.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
+
+@app.post("/api/login")
+def api_login(req: LoginRequest, response: Response):
+    if req.username == settings.treelz_user and req.password == settings.treelz_password:
+        response.set_cookie("treelz_session", _auth_token(req.username),
+                            httponly=True, max_age=2592000, samesite="lax")
+        return {"ok": True}
+    raise HTTPException(status_code=401, detail="wrong username or password")
+
+
+@app.post("/api/logout")
+def api_logout(response: Response):
+    response.delete_cookie("treelz_session")
+    return {"ok": True}
 
 
 @app.get("/health")
@@ -141,10 +181,88 @@ def get_clip(clip_id: uuid.UUID):
         return schemas.ClipDetail.model_validate(clip)
 
 
-# ── Web app (Phase 2) ─────────────────────────────────────────
+# ── Clip library + upload (treelz.ai) ─────────────────────────
+@app.get("/api/clips/library")
+def api_clips_library():
+    """All clips with tags + status, newest first — for the Clip Library view."""
+    with SessionLocal() as s:
+        rows = s.scalars(
+            select(Clip).options(selectinload(Clip.segments)).order_by(Clip.created_at.desc())
+        ).all()
+        return [
+            {
+                "id": str(c.id),
+                "status": c.status,
+                "duration": round(c.duration, 1) if c.duration else None,
+                "summary": c.summary,
+                "vibe_tags": c.vibe_tags or [],
+                "setting": c.setting,
+                "time_of_day": c.time_of_day,
+                "camera_movement": c.camera_movement,
+                "rejection_reason": c.rejection_reason,
+                "segments": len(c.segments),
+                "filename": os.path.basename(c.r2_key) if c.r2_key else None,
+            }
+            for c in rows
+        ]
+
+
+@app.post("/api/clips/upload")
+async def api_clips_upload(file: UploadFile = File(...)):
+    """Upload a clip -> save locally -> index in a background thread (run_pipeline). The UI polls
+    /api/clips/{id}/status to drive the indexing progress bar."""
+    user_id = ensure_default_user()
+    clip_id = uuid.uuid4()
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
+    os.makedirs("var/uploads", exist_ok=True)
+    dest = os.path.abspath(os.path.join("var/uploads", f"{clip_id}{ext}"))
+    with open(dest, "wb") as out:
+        shutil.copyfileobj(file.file, out)
+    with SessionLocal() as s:
+        s.add(Clip(id=clip_id, user_id=user_id, r2_key=dest, status="uploaded"))
+        s.commit()
+
+    def _index() -> None:
+        try:
+            from app.indexing.pipeline import run_pipeline  # heavy (cv2 + TL) — import in the thread
+            run_pipeline(clip_id, source_path=dest)
+        except Exception as exc:  # noqa: BLE001 — record the failure on the clip, never crash
+            with SessionLocal() as s:
+                c = s.get(Clip, clip_id)
+                if c is not None and c.status != "indexed":
+                    c.status = "rejected"
+                    c.rejection_reason = str(exc)[:300]
+                    s.commit()
+
+    threading.Thread(target=_index, daemon=True).start()
+    return {"clip_id": str(clip_id), "status": "uploaded", "filename": file.filename}
+
+
+@app.get("/api/clips/{clip_id}/status")
+def api_clip_status(clip_id: uuid.UUID):
+    with SessionLocal() as s:
+        c = s.get(Clip, clip_id)
+        if c is None:
+            raise HTTPException(status_code=404, detail="clip not found")
+        return {
+            "id": str(c.id), "status": c.status, "vibe_tags": c.vibe_tags or [],
+            "setting": c.setting, "time_of_day": c.time_of_day, "summary": c.summary,
+            "duration": round(c.duration, 1) if c.duration else None,
+            "rejection_reason": c.rejection_reason,
+        }
+
+
+# ── treelz.ai web app ─────────────────────────────────────────
+@app.get("/login")
+def login_page():
+    return FileResponse(os.path.join(_WEB_DIR, "login.html"))
+
+
 @app.get("/")
-def home():
-    return FileResponse(os.path.join(_WEB_DIR, "index.html"))
+def home(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "app.html"))
 
 
 @app.get("/api/audios")
@@ -242,7 +360,9 @@ def api_reels_validate(req: ValidateRequest):
 
 # ── Caption grading (reward-model data capture) ───────────────
 @app.get("/grade")
-def grade_page():
+def grade_page(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(_WEB_DIR, "grade.html"))
 
 

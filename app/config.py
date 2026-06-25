@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     # /mnt/c/Users/Streaming/My Drive/Reels — validated reels are copied here and Drive uploads them.
     reel_export_dir: str = "/mnt/c/Users/Streaming/Validated Reels"
 
+    # ── treelz.ai front-end (local demo auth) ─────────────────
+    treelz_user: str = "dfine"
+    treelz_password: str = "cool123"
+    treelz_secret: str = "treelz-local-dev-secret"   # signs the session cookie; override via env in prod
+
     @property
     def sqlalchemy_url(self) -> str:
         """Normalize a bare Postgres URL (e.g. Railway's) to the psycopg driver."""
