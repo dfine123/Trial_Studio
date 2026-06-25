@@ -35,6 +35,7 @@ _REELS_DIR = "var/reels"
 _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
 # Serialize clip indexing (OpenCV is memory-heavy) so a batch upload can't OOM-crash the instance.
 _INDEX_SEM = threading.Semaphore(1)
+_DEBUG_JOBS: dict = {}  # last /api/debug/generate-start job, polled by /api/debug/generate-result
 
 
 class GenerateRequest(BaseModel):
@@ -463,6 +464,60 @@ def api_debug_generate_test():
     out["hung_after_220s"] = t.is_alive()
     out.update(box)
     return out
+
+
+@app.get("/api/debug/generate-start")
+def api_debug_generate_start():
+    """Kick off ONE generate_reel in the BACKGROUND and return instantly, so Railway's edge can't
+    time out the long request (that timeout is the likely bug). Then poll /api/debug/generate-result."""
+    import threading
+    import time
+    import traceback as _tb
+
+    with SessionLocal() as s:
+        indexed = s.scalar(select(func.count()).select_from(Clip).where(Clip.status == "indexed"))
+        audio = s.scalar(select(Audio).order_by(func.random()).limit(1))
+        sample = s.scalar(select(Clip).where(Clip.status == "indexed").limit(1))
+    if audio is None:
+        return {"error": "no audio seeded"}
+    audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key)) if audio.r2_key else ""
+    job: dict = {
+        "state": "running",
+        "clips_indexed": indexed,
+        "audio": audio.description,
+        "audio_exists": bool(audio_path and os.path.exists(audio_path)),
+        "sample_source_exists": bool(sample and sample.r2_key and os.path.exists(sample.r2_key)),
+        "caption_provider": settings.caption_provider,
+        "anthropic_key_set": bool(settings.anthropic_api_key),
+        "openai_key_set": bool(settings.openai_api_key),
+    }
+    _DEBUG_JOBS["last"] = job
+    os.makedirs(_REELS_DIR, exist_ok=True)
+    out_path = os.path.join(_REELS_DIR, f"dbg_{uuid.uuid4().hex}.mp4")
+
+    def _run() -> None:
+        from app.generate.generator import generate_reel
+        t0 = time.monotonic()
+        try:
+            r = generate_reel(audio_path=audio_path, niche="", out_path=out_path,
+                              audio_desc=audio.description, audio_bpm=audio.bpm,
+                              audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags)
+            job["state"] = "done"
+            job["result"] = list(r.keys()) if isinstance(r, dict) else str(r)[:200]
+        except Exception as exc:  # noqa: BLE001
+            job["state"] = "error"
+            job["exception"] = repr(exc)
+            job["traceback"] = _tb.format_exc().splitlines()[-30:]
+        job["seconds"] = round(time.monotonic() - t0, 1)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"started": True, **job}
+
+
+@app.get("/api/debug/generate-result")
+def api_debug_generate_result():
+    """Poll the last /api/debug/generate-start job: state running|done|error, + result/exception/seconds."""
+    return _DEBUG_JOBS.get("last", {"state": "none — hit /api/debug/generate-start first"})
 
 
 # ── treelz.ai web app ─────────────────────────────────────────
