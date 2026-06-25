@@ -360,19 +360,50 @@ def api_move_clip(clip_id: uuid.UUID, req: ClipMove):
 
 @app.delete("/api/clips/{clip_id}")
 def api_delete_clip(clip_id: uuid.UUID):
-    """Delete a clip + its segments (cascade), best-effort removing the uploaded file."""
+    """Delete a clip + its segments (cascade), best-effort removing the uploaded file + thumb."""
     with SessionLocal() as s:
         c = s.get(Clip, clip_id)
         if c is not None:
             path = c.r2_key
             s.delete(c)
             s.commit()
-            if path and os.path.isabs(path) and os.path.exists(path):  # only our uploads, not sample basenames
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+            # remove our uploaded video (absolute paths only, never sample basenames) + the cached thumb
+            stale = [os.path.join("var", "thumbs", f"{clip_id}.jpg")]
+            if path and os.path.isabs(path):
+                stale.append(path)
+            for p in stale:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
     return {"ok": True}
+
+
+@app.get("/api/clips/{clip_id}/thumb")
+def api_clip_thumb(clip_id: uuid.UUID):
+    """Lazy poster-frame thumbnail — ffmpeg extracts one frame the first time, cached on the volume."""
+    import subprocess
+
+    thumb_dir = os.path.join("var", "thumbs")
+    thumb_path = os.path.join(thumb_dir, f"{clip_id}.jpg")
+    if not os.path.exists(thumb_path):
+        os.makedirs(thumb_dir, exist_ok=True)
+        with SessionLocal() as s:
+            c = s.get(Clip, clip_id)
+            src = c.r2_key if c else None
+        if not src or not os.path.exists(src):
+            raise HTTPException(status_code=404, detail="no source video")
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-ss", "0.3", "-i", src, "-frames:v", "1",
+                 "-vf", "scale=360:-2", "-q:v", "4", thumb_path],
+                check=True, capture_output=True, timeout=30,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=404, detail="thumbnail unavailable") from exc
+    return FileResponse(thumb_path, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/debug/index-test")
