@@ -83,6 +83,8 @@ def ensure_default_user() -> uuid.UUID:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # NOTE: table creation happens in start.sh (before uvicorn) for fresh DBs (Railway); locally
+    # the tables already exist, so we don't touch the schema here (it can stall startup).
     try:
         app.state.default_user_id = ensure_default_user()
     except Exception:  # noqa: BLE001 — don't block startup if DB isn't ready yet

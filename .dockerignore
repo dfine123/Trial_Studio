@@ -2,18 +2,24 @@
 .venv/
 venv/
 __pycache__/
+**/__pycache__/
 *.pyc
 .pytest_cache/
 .mypy_cache/
+node_modules/
 
 # secrets — never bake into the image (Railway injects env vars)
 .env
 .env.*
 !.env.example
 
-# local-only media + scratch
-samples/
+# writable data lives on the Railway volume, not the image
+var/
 uploads/
 tmp/
 scratch/
 *.log
+
+# bundle ONLY the audio — the video samples are large and unneeded in the cloud
+samples/*
+!samples/audio/

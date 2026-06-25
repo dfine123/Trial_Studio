@@ -58,9 +58,9 @@ class Settings(BaseSettings):
     min_fps: float = 29.9                         # QC: reject if fps < this
 
     # ── Validated-reel export (Google Drive for Desktop sync) ─
-    # Set REEL_EXPORT_DIR to your Drive-synced folder as a WSL path, e.g.
-    # /mnt/c/Users/Streaming/My Drive/Reels — validated reels are copied here and Drive uploads them.
-    reel_export_dir: str = "/mnt/c/Users/Streaming/Validated Reels"
+    # Defaults to a folder on the persistent volume (var/validated); set REEL_EXPORT_DIR to a
+    # Drive-synced folder later for auto-upload. Portable across local + Railway.
+    reel_export_dir: str = "var/validated"
 
     # ── treelz.ai front-end (local demo auth) ─────────────────
     treelz_user: str = "dfine"

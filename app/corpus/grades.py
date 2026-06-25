@@ -13,7 +13,7 @@ import time
 
 from app.config import settings
 
-GRADES_PATH = os.path.join("corpus", "grades.jsonl")
+GRADES_PATH = os.path.join("var", "grades.jsonl")  # on the persistent volume (seeded from corpus/ on first boot)
 _LOCK = threading.Lock()  # serialize read-modify-write so rapid grading can't lose/corrupt records
 
 
