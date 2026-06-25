@@ -106,13 +106,13 @@ def render_caption_png(
     out_path: str,
     width: int | None = None,
     height: int | None = None,
-    font_size: int = 60,
+    font_size: int = 56,
     min_font: int = 44,
     weight: int = 800,
     stroke_frac: float = 0.067,
     y_frac: float = 0.30,
     margin_frac: float = 0.86,
-    max_lines: int = 5,
+    max_lines: int = 4,
 ) -> str:
     width = width or settings.reel_width
     height = height or settings.reel_height
