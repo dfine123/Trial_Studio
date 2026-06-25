@@ -243,11 +243,17 @@ async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None =
         s.commit()
 
     def _index() -> None:
+        print(f"[idx-thread] {clip_id} thread running, importing pipeline…", flush=True)
         try:
             from app.indexing.pipeline import run_pipeline  # heavy (cv2 + TL) — import in the thread
+            print(f"[idx-thread] {clip_id} pipeline imported, acquiring slot…", flush=True)
             with _INDEX_SEM:  # one clip indexes at a time — bounds memory so a batch can't OOM
+                print(f"[idx-thread] {clip_id} slot acquired, indexing…", flush=True)
                 run_pipeline(clip_id, source_path=dest)
         except Exception as exc:  # noqa: BLE001 — record the failure on the clip, never crash
+            import traceback
+            print(f"[idx-thread] {clip_id} EXCEPTION: {exc}", flush=True)
+            traceback.print_exc()
             with SessionLocal() as s:
                 c = s.get(Clip, clip_id)
                 if c is not None and c.status != "indexed":
