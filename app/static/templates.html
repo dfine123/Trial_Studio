@@ -68,10 +68,14 @@
   .seg label { margin-top:0; }
   .status { margin-top:14px; color:var(--muted); font-size:13.5px; min-height:20px; }
   /* template list */
-  .tpl { display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:12px 13px; margin-bottom:10px; }
+  .tpl { background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:12px 13px; margin-bottom:10px; }
+  .tpl-head { display:flex; align-items:flex-start; gap:10px; } .tpl-acts { display:flex; gap:8px; margin-top:10px; }
   .tpl .nm { font-weight:600; font-size:13.5px; } .tpl .mt { color:var(--faint); font-size:12px; }
   .tpl .x { margin-left:auto; color:var(--faint); font-size:16px; cursor:pointer; background:none; border:0; padding:2px 6px; border-radius:6px; }
   .tpl .x:hover { color:var(--bad); background:var(--bad-bg); }
+  .tpl .gen { font-size:11.5px; font-weight:600; padding:6px 11px; border-radius:7px; cursor:pointer; transition:var(--t); white-space:nowrap; background:var(--blue); border:0; color:#fff; }
+  .tpl .gen:hover { background:var(--blue-bright); } .tpl .rd:disabled, .tpl .gen:disabled { opacity:.6; }
+  .capline { font-size:12.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:5px; } .capline b { color:var(--blue-bright); margin-right:5px; text-transform:uppercase; font-size:10.5px; }
   .tpl .rd { background:none; border:1px solid var(--border-2); color:var(--muted); font-size:11.5px; font-weight:600; padding:5px 9px; border-radius:7px; cursor:pointer; transition:var(--t); white-space:nowrap; }
   .tpl .rd:hover { color:var(--blue-bright); border-color:var(--blue); background:var(--blue-soft); } .tpl .rd:disabled { opacity:.6; }
   .empty { color:var(--faint); font-size:13px; }
@@ -128,6 +132,7 @@
       <p class="sub">Authored once, applied to any creator.</p>
       <div id="tpls"><p class="empty">Loading…</p></div>
       <div id="enrichOut"></div>
+      <div id="genOut"></div>
     </aside>
   </div>
   <div id="toasts"></div>
@@ -253,9 +258,10 @@ async function loadTemplates(){
   const box = document.getElementById('tpls');
   try {
     const ts = await (await fetch('/api/templates')).json();
-    box.innerHTML = ts.length ? ts.map(t=>`<div class="tpl"><div style="flex:1; min-width:0"><div class="nm">${t.name}</div><div class="mt">${t.segments} segment${t.segments===1?'':'s'}</div></div><button class="rd" data-enrich="${t.id}" title="Read its formula + variability">🧠 Read</button><button class="x" data-del="${t.id}">✕</button></div>`).join('') : '<p class="empty">No templates yet — build one on the left.</p>';
-    box.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{ await fetch('/api/templates/'+b.dataset.del,{method:'DELETE'}); loadTemplates(); document.getElementById('enrichOut').innerHTML=''; toast('Template deleted'); });
+    box.innerHTML = ts.length ? ts.map(t=>`<div class="tpl"><div class="tpl-head"><div style="flex:1; min-width:0"><div class="nm">${t.name}</div><div class="mt">${t.segments} segment${t.segments===1?'':'s'}</div></div><button class="x" data-del="${t.id}">✕</button></div><div class="tpl-acts"><button class="rd" data-enrich="${t.id}" title="Read its formula + variability">🧠 Read</button><button class="gen" data-gen="${t.id}">▶ Generate</button></div></div>`).join('') : '<p class="empty">No templates yet — build one on the left.</p>';
+    box.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{ await fetch('/api/templates/'+b.dataset.del,{method:'DELETE'}); loadTemplates(); document.getElementById('enrichOut').innerHTML=''; document.getElementById('genOut').innerHTML=''; toast('Template deleted'); });
     box.querySelectorAll('[data-enrich]').forEach(b=> b.onclick = ()=> enrich(b.dataset.enrich, b));
+    box.querySelectorAll('[data-gen]').forEach(b=> b.onclick = ()=> genReel(b.dataset.gen, b));
   } catch(_) { box.innerHTML = '<p class="empty">Could not load templates.</p>'; }
 }
 async function enrich(id, btn){
@@ -265,6 +271,20 @@ async function enrich(id, btn){
     if(!r.ok) throw new Error((await r.text()).slice(0,160));
     renderFormula((await r.json()).formula); toast('Read its formula');
   } catch(e){ toast('Read failed: '+e.message,'err'); }
+  btn.disabled = false; btn.textContent = prev;
+}
+async function genReel(id, btn){
+  const prev = btn.textContent; btn.disabled = true; btn.textContent = 'Generating…';
+  const out = document.getElementById('genOut');
+  out.innerHTML = '<p class="empty">Matching clips → writing captions → rendering… (~1 min)</p>';
+  try {
+    const r = await fetch('/api/templates/'+id+'/instantiate', { method:'POST' });
+    if(!r.ok) throw new Error((await r.text()).slice(0,220));
+    const d = await r.json();
+    const caps = Object.entries(d.captions||{}).map(([k,v])=>`<div class="capline"><b>${k}</b>${(v||'').replace(/\n+/g,' / ')}</div>`).join('');
+    out.innerHTML = `<div class="fcard"><video controls loop playsinline src="${d.reel_url}" style="width:100%; border-radius:10px; background:#000; max-height:520px"></video><div style="margin-top:11px">${caps}</div><div class="mt" style="margin-top:8px">${d.segments} segments · ${d.duration}s · <a href="${d.reel_url}" download style="color:var(--blue-bright); text-decoration:none">⬇ download</a></div></div>`;
+    toast('Reel generated');
+  } catch(e){ out.innerHTML = `<p class="empty" style="color:var(--bad)">${e.message}</p>`; toast('Generate failed','err'); }
   btn.disabled = false; btn.textContent = prev;
 }
 function renderFormula(f){

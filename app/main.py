@@ -778,6 +778,31 @@ def api_template_enrich(template_id: uuid.UUID):
     return {"formula": fo}
 
 
+@app.post("/api/templates/{template_id}/instantiate")
+def api_template_instantiate(template_id: uuid.UUID):
+    """Apply a template to the creator's clips -> render a multi-segment reel (match -> regenerate
+    captions under the variability rules -> compose). Aborts with a clear message if unfillable."""
+    with SessionLocal() as s:
+        t = s.get(Template, template_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="template not found")
+        spec = dict(t.spec or {})
+        audio = s.get(Audio, t.audio_id) if t.audio_id else None
+    audio_path = _audio_path(audio)
+    if audio_path is None:
+        raise HTTPException(status_code=400, detail="template has no usable audio — re-pick one in the studio")
+    os.makedirs(_REELS_DIR, exist_ok=True)
+    name = f"{uuid.uuid4().hex}.mp4"
+    out = os.path.join(_REELS_DIR, name)
+    from app.templates.instantiate import instantiate_template
+    try:
+        res = instantiate_template(spec, audio_path, out)
+    except Exception as exc:  # noqa: BLE001 — the abort/usability message is user-facing
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"reel_url": f"/reels/{name}", "captions": res["captions"],
+            "segments": res["segments"], "duration": res["duration"]}
+
+
 def _slug(text: str, maxlen: int = 60) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return s[:maxlen].strip("-") or "reel"
