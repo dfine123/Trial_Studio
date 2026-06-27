@@ -228,7 +228,10 @@ def generate_reel(
         # BEST-OF-3: three INDEPENDENT caption generations (distinct anchors, run in parallel), then
         # the chooser layer picks the single one to post. Best-of-N -> higher per-reel quality.
         candidates = generate_independent(k=3, notes=note, audio_energy=energy)
-        caption_text = choose_best(candidates) or (candidates[0] if candidates else "no caption")
+        if not candidates:   # empty voice (e.g. a new profile with no corpus yet) -> fail clearly
+            raise RuntimeError("this profile has no voice yet — add caption references to its corpus "
+                               "before generating (the active profile's corpus is empty)")
+        caption_text = choose_best(candidates) or candidates[0]
 
     # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
     # so the whole library gets exercised instead of the same few flashy ones.

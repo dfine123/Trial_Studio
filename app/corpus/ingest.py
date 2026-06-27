@@ -16,8 +16,9 @@ import sys
 
 from anthropic import Anthropic
 
+from app import profiles
 from app.config import settings
-from app.corpus.store import CORPUS_PATH, load_refs
+from app.corpus.store import load_refs
 
 _LABEL_SYS = """You are cataloguing a short-form post (a screenshot) into a caption corpus used to train a caption engine in this creator's voice. Read the on-screen caption verbatim and analyze WHY it works.
 
@@ -90,7 +91,7 @@ def ingest_folder(folder: str, append: bool = True, archive: bool = True) -> lis
             rec.setdefault("source", "screenshot_auto")
             existing.add(caption)
             if append:
-                with open(CORPUS_PATH, "a", encoding="utf-8") as f:
+                with open(profiles.corpus_path(), "a", encoding="utf-8") as f:   # ACTIVE profile's corpus
                     f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             new.append(rec)
             next_id += 1

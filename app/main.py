@@ -303,7 +303,7 @@ def api_clip_status(clip_id: uuid.UUID):
 def _folder_subtree_ids(folder_id: uuid.UUID) -> set:
     """folder_id + all descendant folder ids — so generating from a folder includes its sub-folders."""
     with SessionLocal() as s:
-        rows = s.scalars(select(ClipFolder)).all()
+        rows = s.scalars(select(ClipFolder).where(ClipFolder.user_id == profiles.active_id())).all()
     children: dict = {}
     for f in rows:
         children.setdefault(f.parent_id, []).append(f.id)
@@ -321,7 +321,8 @@ def _clip_ids_in_folder(folder_id: uuid.UUID) -> list[str]:
     """Indexed clip ids in a folder + all its sub-folders (for folder-scoped generation)."""
     ids = _folder_subtree_ids(folder_id)
     with SessionLocal() as s:
-        clips = s.scalars(select(Clip).where(Clip.folder_id.in_(ids), Clip.status == "indexed")).all()
+        clips = s.scalars(select(Clip).where(
+            Clip.folder_id.in_(ids), Clip.user_id == profiles.active_id(), Clip.status == "indexed")).all()
     return [str(c.id) for c in clips]
 
 
@@ -473,6 +474,7 @@ def api_debug_index_test(clip_id: str | None = None):
         else:
             clip = s.scalar(
                 select(Clip)
+                .where(Clip.user_id == profiles.active_id())
                 .where(Clip.status.in_(["uploaded", "indexing", "rejected"]))
                 .order_by(Clip.created_at.desc())
             )
@@ -507,9 +509,11 @@ def api_debug_generate_test():
 
     out: dict = {}
     with SessionLocal() as s:
-        out["clips_total"] = s.scalar(select(func.count()).select_from(Clip))
-        out["clips_indexed"] = s.scalar(select(func.count()).select_from(Clip).where(Clip.status == "indexed"))
-        sample = s.scalar(select(Clip).where(Clip.status == "indexed").limit(1))
+        _pid = profiles.active_id()
+        out["clips_total"] = s.scalar(select(func.count()).select_from(Clip).where(Clip.user_id == _pid))
+        out["clips_indexed"] = s.scalar(select(func.count()).select_from(Clip)
+                                        .where(Clip.status == "indexed", Clip.user_id == _pid))
+        sample = s.scalar(select(Clip).where(Clip.status == "indexed", Clip.user_id == _pid).limit(1))
         out["sample_clip_source"] = sample.r2_key if sample else None
         out["sample_source_exists"] = bool(sample and sample.r2_key and os.path.exists(sample.r2_key))
         audio = s.scalar(select(Audio).order_by(func.random()).limit(1))
@@ -557,9 +561,11 @@ def api_debug_generate_start():
     import traceback as _tb
 
     with SessionLocal() as s:
-        indexed = s.scalar(select(func.count()).select_from(Clip).where(Clip.status == "indexed"))
+        _pid = profiles.active_id()
+        indexed = s.scalar(select(func.count()).select_from(Clip)
+                           .where(Clip.status == "indexed", Clip.user_id == _pid))
         audio = s.scalar(select(Audio).order_by(func.random()).limit(1))
-        sample = s.scalar(select(Clip).where(Clip.status == "indexed").limit(1))
+        sample = s.scalar(select(Clip).where(Clip.status == "indexed", Clip.user_id == _pid).limit(1))
     if audio is None:
         return {"error": "no audio seeded"}
     audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key)) if audio.r2_key else ""

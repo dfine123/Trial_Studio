@@ -53,12 +53,17 @@ def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file("grad
 
 
 def _seed_profile_voice(pid: uuid.UUID) -> None:
-    """One-time: copy the pre-profiles global voice files into this profile's dir (if not already there)."""
+    """One-time ONLY: copy the pre-profiles global voice files into this profile's dir. A `.seeded`
+    marker makes it idempotent so a later-missing voice file is never re-seeded from stale globals."""
     d = profile_dir(pid)
+    marker = os.path.join(d, ".seeded")
+    if os.path.exists(marker):
+        return
     for name, legacy in _LEGACY.items():
         dst = os.path.join(d, name)
         if not os.path.exists(dst) and os.path.exists(legacy):
             shutil.copyfile(legacy, dst)
+    open(marker, "w").close()
 
 
 def ensure_default_profile() -> uuid.UUID:
@@ -80,15 +85,22 @@ def ensure_default_profile() -> uuid.UUID:
 
 
 def active_id() -> uuid.UUID:
-    """The profile everything is scoped to right now (persisted), or the default profile."""
+    """The profile everything is scoped to right now (persisted), or the default profile. Self-heals
+    if the persisted id was deleted out-of-band (e.g. a crash mid-delete) -> falls back to default."""
     global _default_id
     if _default_id is None:
         ensure_default_profile()
     try:
         with open(_ACTIVE_PATH, encoding="utf-8") as f:
-            return uuid.UUID(json.load(f)["id"])
+            pid = uuid.UUID(json.load(f)["id"])
     except Exception:  # noqa: BLE001 — missing/corrupt -> fall back to the default profile
         return _default_id
+    if pid == _default_id:
+        return pid                              # common path: no DB round-trip
+    with SessionLocal() as s:
+        if s.get(User, pid) is not None:
+            return pid
+    return _default_id                          # persisted profile was deleted -> heal to default
 
 
 def set_active(pid: uuid.UUID) -> None:
@@ -122,8 +134,7 @@ def delete_profile(pid: uuid.UUID) -> None:
     """Remove a profile (and its scoped clips/folders cascade via FK). Refuses the last one; resets
     active to the default if the deleted one was active. Voice dir is left on disk (cheap, harmless)."""
     with SessionLocal() as s:
-        n = s.scalar(select(User).order_by(User.created_at).limit(1))  # keep at least one
-        count = len(s.scalars(select(User)).all())
+        count = len(s.scalars(select(User)).all())   # guard: never delete the last profile
         u = s.get(User, pid)
         if u is None:
             return
