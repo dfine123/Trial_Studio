@@ -43,6 +43,17 @@ class CaptionSlot(BaseModel):
     y_frac: float | None = None
 
 
+class SlotVariability(BaseModel):
+    """Per-caption-slot model of HOW MUCH this caption can change when re-skinned — inferred by the
+    LLM from the author's hints, NOT a fixed level. Tight slots vary only when conditions warrant
+    ('if the stars align'); loose slots are fill-in-the-blanks rewritten per creator."""
+    slot_id: str
+    locked_structure: str = ""          # what MUST stay the same
+    variables: list[str] = Field(default_factory=list)   # the swappable parts (e.g. the keyword, the (insert))
+    vary_when: str = ""                 # the CONDITION under which to actually vary
+    flexibility: str = "medium"         # low | medium | high — quick signal for the regenerator
+
+
 class FormulaObject(BaseModel):
     """The LLM's free-form interpretation of THIS specific template. No assumed structure."""
     title: str = ""
@@ -50,6 +61,7 @@ class FormulaObject(BaseModel):
     caption_logic: str = ""            # NL: how the captions relate across segments — if they do at all
     exemplar_arc: list[str] = Field(default_factory=list)   # the authored captions in order (a pattern, never copied)
     reskin_rules: str = ""             # how to regenerate for a new creator: invariant vs swappable
+    slots: list[SlotVariability] = Field(default_factory=list)   # per-slot variability model (the intelligence)
     marks_hash: str = ""               # sha1 of the recipe marks this formula was enriched from (drift guard)
 
 

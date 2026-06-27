@@ -754,6 +754,30 @@ def api_template_delete(template_id: uuid.UUID):
     return {"ok": True}
 
 
+@app.post("/api/templates/{template_id}/enrich")
+def api_template_enrich(template_id: uuid.UUID):
+    """Run the LLM interpreter on a template -> a variability-aware Formula Object (per-slot: what's
+    locked vs variable + under what conditions). Persist it on spec.formula and return it."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.templates.interpret import interpret_template
+    with SessionLocal() as s:
+        t = s.get(Template, template_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="template not found")
+        spec = dict(t.spec or {})
+        fo = interpret_template(spec)
+        if not fo:
+            raise HTTPException(status_code=502, detail="interpretation failed — try again")
+        prev = spec.get("formula") or {}
+        fo.setdefault("exemplar_arc", prev.get("exemplar_arc", []))
+        spec["formula"] = fo
+        t.spec = spec
+        flag_modified(t, "spec")
+        s.commit()
+    return {"formula": fo}
+
+
 def _slug(text: str, maxlen: int = 60) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return s[:maxlen].strip("-") or "reel"
