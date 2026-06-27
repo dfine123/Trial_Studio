@@ -14,7 +14,9 @@ _SYS = """You assign a creator's CLIPS to the SEGMENTS of a short-form video tem
 
 For VARIETY across generations: when several clips fit a segment comparably well, DON'T always pick the single obvious one — prefer a clip NOT in the RECENTLY-USED list, so repeated generations of the same template don't reuse the exact same footage.
 
-Return ONLY JSON, no prose: {"assignments": {"<segment_index>": "<clip_id>"}, "ok": true|false, "warning": "<what can't be filled, or null>"}"""
+Also, for EACH segment, give up to 3 ALTERNATE clip_ids (ranked, best first) that ALSO fit that segment. These are used to FILL TIME if the primary clip is too short to cover the segment — so they should be the next-best clips of the same KIND. Alternates may repeat across segments; that's fine.
+
+Return ONLY JSON, no prose: {"assignments": {"<segment_index>": "<clip_id>"}, "alternates": {"<segment_index>": ["<clip_id>", ...]}, "ok": true|false, "warning": "<what can't be filled, or null>"}"""
 
 
 def match_clips(segments: list[dict], clips: list[dict], recent: list[str] | None = None) -> dict:
@@ -38,6 +40,7 @@ def match_clips(segments: list[dict], clips: list[dict], recent: list[str] | Non
     try:
         d = json.loads(out[start:end + 1])
         d.setdefault("assignments", {})
+        d["alternates"] = {str(k): (v or []) for k, v in (d.get("alternates") or {}).items()}  # null -> []
         d.setdefault("ok", bool(d["assignments"]))
         return d
     except json.JSONDecodeError:

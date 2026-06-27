@@ -69,7 +69,7 @@ class TemplateSpec(BaseModel):
     segments: list[SegmentSpec]
     caption_slots: list[CaptionSlot] = Field(default_factory=list)
     formula: FormulaObject = Field(default_factory=FormulaObject)
-    min_seg_len: float = 1.0           # below this a segment is too short to read; refuse
+    min_seg_len: float = Field(default=1.0, gt=0.0)   # below this a segment is too short to read; refuse
 
     @model_validator(mode="after")
     def _check(self) -> "TemplateSpec":
