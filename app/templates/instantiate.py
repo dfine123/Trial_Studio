@@ -27,9 +27,11 @@ _log = logging.getLogger(__name__)
 
 
 def creator_clips() -> list[dict]:
-    """The creator's indexed clips as match-ready digests (read from the existing indexing)."""
+    """The ACTIVE profile's indexed clips as match-ready digests (read from the existing indexing)."""
+    from app import profiles
     with SessionLocal() as s:
-        rows = s.scalars(select(Clip).where(Clip.status == "indexed")).all()
+        rows = s.scalars(select(Clip).where(
+            Clip.status == "indexed", Clip.user_id == profiles.active_id())).all()
         return [{"id": str(c.id), "summary": c.summary, "setting": c.setting,
                  "vibe": c.vibe_tags or [], "src": c.r2_key, "duration": c.duration} for c in rows]
 

@@ -116,12 +116,13 @@ def _resolve_sources(chosen: list[dict], clip_dur: dict[str, float]) -> dict[str
 
 
 def _load_segments(clip_ids: list[str] | None = None):
-    """Return (segments, clip_durations, clip_meta) for indexed clips (optionally filtered)."""
+    """Return (segments, clip_durations, clip_meta) for the ACTIVE profile's indexed clips."""
+    from app import profiles
     with SessionLocal() as s:
         q = (
             select(Segment, Clip)
             .join(Clip, Segment.clip_id == Clip.id)
-            .where(Clip.status == "indexed")
+            .where(Clip.status == "indexed", Clip.user_id == profiles.active_id())
         )
         if clip_ids:
             q = q.where(Clip.id.in_(clip_ids))

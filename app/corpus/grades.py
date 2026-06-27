@@ -13,26 +13,33 @@ import time
 
 from app.config import settings
 
-GRADES_PATH = os.path.join("var", "grades.jsonl")  # on the persistent volume (seeded from corpus/ on first boot)
+GRADES_PATH = os.path.join("var", "grades.jsonl")  # legacy location (pre-profiles); migrated per profile
 _LOCK = threading.Lock()  # serialize read-modify-write so rapid grading can't lose/corrupt records
 
 
+def _grades_path() -> str:
+    from app import profiles   # lazy: avoid an import cycle at module load — grading is per ACTIVE PROFILE
+    return profiles.grades_path()
+
+
 def _load_raw() -> list[dict]:
-    if not os.path.exists(GRADES_PATH):
+    path = _grades_path()
+    if not os.path.exists(path):
         return []
-    with open(GRADES_PATH, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
 def _rewrite(records: list[dict]) -> None:
     """Atomic rewrite: write a temp file then os.replace, so the grades file is never left partial."""
-    os.makedirs(os.path.dirname(GRADES_PATH), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(GRADES_PATH) or ".", suffix=".tmp")
+    path = _grades_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             for r in records:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        os.replace(tmp, GRADES_PATH)
+        os.replace(tmp, path)
     except BaseException:
         if os.path.exists(tmp):
             os.remove(tmp)

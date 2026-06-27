@@ -202,11 +202,26 @@
   /* ---------- grade ---------- */
   .gradewrap { padding:0; max-width:none; }
   iframe { width:100%; height:100vh; border:0; display:block; }
+  /* ---------- profile switcher ---------- */
+  .profwrap { padding:2px 2px 12px; }
+  .proflabel { display:block; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:var(--faint); margin:0 0 6px 4px; }
+  .profrow { display:flex; gap:6px; }
+  .profsel { flex:1; min-width:0; background:var(--surface-2); color:var(--ink); border:1px solid var(--border); border-radius:9px; padding:8px 10px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:var(--t); }
+  .profsel:hover { border-color:var(--border-2); }
+  .profnew { flex:none; width:34px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border); border-radius:9px; font-size:17px; line-height:1; cursor:pointer; transition:var(--t); }
+  .profnew:hover { border-color:var(--blue); color:var(--blue-bright); background:var(--blue-soft); }
 </style>
 </head>
 <body>
   <nav class="side">
     <div class="brand"><img src="/assets/treelz-logo.svg" alt="treelz.ai" /></div>
+    <div class="profwrap">
+      <label class="proflabel">Profile</label>
+      <div class="profrow">
+        <select id="profileSel" class="profsel"></select>
+        <button id="profileNew" class="profnew" title="New profile — its own clips, folders & voice">+</button>
+      </div>
+    </div>
     <button class="nav on" data-view="studio">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L18.7 9.7 13.9 11.6 12 16.4 10.1 11.6 5.3 9.7 10.1 7.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Studio</button>
     <button class="nav" data-view="library">
@@ -228,7 +243,7 @@
             <div class="voice-info"><div class="voice-name">Spence</div><div class="voice-tag">absurdist · very-online</div></div>
             <svg class="voice-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
           </div>
-          <div class="voice-card ghost"><div class="voice-av gh">+</div><div class="voice-info"><div class="voice-name">More voices</div><div class="voice-tag">coming soon</div></div></div>
+          <div class="voice-card ghost" id="addProfileCard" style="cursor:pointer;opacity:.8"><div class="voice-av gh">+</div><div class="voice-info"><div class="voice-name">New profile</div><div class="voice-tag">its own clips &amp; voice</div></div></div>
         </div>
         <div class="form-grid">
           <div class="field"><label>Audio</label><select id="audio"></select></div>
@@ -545,7 +560,33 @@ document.getElementById('gen').onclick = async () => {
   btn.disabled = false;
 };
 
-loadAudios(); loadFolders();
+// ---------- profiles (the active creator: own clips, folders, voice) ----------
+let PROFILES = [];
+async function loadProfiles() {
+  try { PROFILES = await (await fetch('/api/profiles')).json(); } catch (_) { PROFILES = []; }
+  const sel = document.getElementById('profileSel');
+  sel.innerHTML = PROFILES.map(p => `<option value="${p.id}"${p.active ? ' selected' : ''}>${p.name}</option>`).join('');
+  const active = PROFILES.find(p => p.active) || PROFILES[0];
+  if (active) {
+    const vc = document.querySelector('.voice-card[data-voice]');
+    if (vc) { vc.querySelector('.voice-name').textContent = active.name; vc.querySelector('.voice-av').textContent = (active.name || '?').slice(0, 1).toUpperCase(); }
+  }
+}
+async function switchProfile(id) {
+  await fetch('/api/profiles/active', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
+  location.reload();   // re-scope everything (clips, folders, generation, voice) to the new profile
+}
+async function newProfile() {
+  const name = await modal({ title: 'New profile', input: { placeholder: 'Creator name / handle' }, confirmText: 'Create' });
+  if (!name) return;
+  const p = await (await fetch('/api/profiles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) })).json();
+  if (p && p.id) switchProfile(p.id);
+}
+document.getElementById('profileSel').onchange = (e) => switchProfile(e.target.value);
+document.getElementById('profileNew').onclick = newProfile;
+const _apc = document.getElementById('addProfileCard'); if (_apc) _apc.onclick = newProfile;
+
+loadProfiles(); loadAudios(); loadFolders();
 </script>
 </body>
 </html>

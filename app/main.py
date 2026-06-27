@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
-from app import schemas
+from app import profiles, schemas
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import Audio, Clip, ClipFolder, Template, User
@@ -95,16 +95,19 @@ class ClipMove(BaseModel):
     folder_id: uuid.UUID | None = None
 
 
+class ProfileCreate(BaseModel):
+    name: str
+    niche: str | None = None
+
+
+class ProfileActivate(BaseModel):
+    id: uuid.UUID
+
+
 def ensure_default_user() -> uuid.UUID:
-    """Seed one default user (no auth in V1; everything keys off user_id)."""
-    with SessionLocal() as s:
-        u = s.scalar(select(User).order_by(User.created_at).limit(1))
-        if u is None:
-            u = User(handle="default", description="default V1 user")
-            s.add(u)
-            s.commit()
-            s.refresh(u)
-        return u.id
+    """The default profile id (first user = the 'Spence' profile, voice seeded). Used for SHARED
+    writes (audio/template); clip/folder writes use the ACTIVE profile instead."""
+    return profiles.ensure_default_profile()
 
 
 @asynccontextmanager
@@ -173,7 +176,7 @@ def health() -> dict:
 @app.post("/clips", response_model=schemas.ClipCreated, status_code=201)
 async def create_clip(file: UploadFile = File(...)):
     """Accept a video, store to R2 (user-scoped), enqueue async indexing, return the clip id."""
-    user_id = ensure_default_user()
+    user_id = profiles.active_id()
     clip_id = uuid.uuid4()
     ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
     key = f"users/{user_id}/clips/{clip_id}/source{ext}"
@@ -194,7 +197,8 @@ async def create_clip(file: UploadFile = File(...)):
 @app.get("/clips", response_model=list[schemas.ClipListItem])
 def list_clips():
     with SessionLocal() as s:
-        rows = s.scalars(select(Clip).order_by(Clip.created_at.desc())).all()
+        rows = s.scalars(select(Clip).where(Clip.user_id == profiles.active_id())
+                         .order_by(Clip.created_at.desc())).all()
         return [schemas.ClipListItem.model_validate(r) for r in rows]
 
 
@@ -215,7 +219,8 @@ def api_clips_library(folder_id: str | None = None):
     """Clips with tags + status, newest first. folder_id filters the view: a folder id shows clips
     DIRECTLY in it, 'none' shows unfiled clips, omitted shows all."""
     with SessionLocal() as s:
-        q = select(Clip).options(selectinload(Clip.segments)).order_by(Clip.created_at.desc())
+        q = (select(Clip).options(selectinload(Clip.segments))
+             .where(Clip.user_id == profiles.active_id()).order_by(Clip.created_at.desc()))
         if folder_id == "none":
             q = q.where(Clip.folder_id.is_(None))
         elif folder_id:
@@ -244,7 +249,7 @@ def api_clips_library(folder_id: str | None = None):
 async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None = Form(None)):
     """Upload a clip -> save locally -> index in a background thread (run_pipeline). The UI polls
     /api/clips/{id}/status to drive the indexing progress bar. Optionally filed into a folder."""
-    user_id = ensure_default_user()
+    user_id = profiles.active_id()
     clip_id = uuid.uuid4()
     ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
     os.makedirs("var/uploads", exist_ok=True)
@@ -323,10 +328,13 @@ def _clip_ids_in_folder(folder_id: uuid.UUID) -> list[str]:
 @app.get("/api/folders")
 def api_folders():
     """All folders (flat: id, name, parent_id, direct clip count). The UI builds the tree."""
+    act = profiles.active_id()
     with SessionLocal() as s:
-        folders = s.scalars(select(ClipFolder).order_by(ClipFolder.name)).all()
+        folders = s.scalars(select(ClipFolder).where(ClipFolder.user_id == act)
+                            .order_by(ClipFolder.name)).all()
         counts: dict = {}
-        for (fid,) in s.execute(select(Clip.folder_id).where(Clip.folder_id.isnot(None))).all():
+        for (fid,) in s.execute(select(Clip.folder_id)
+                                .where(Clip.folder_id.isnot(None), Clip.user_id == act)).all():
             counts[fid] = counts.get(fid, 0) + 1
         return [
             {"id": str(f.id), "name": f.name,
@@ -339,7 +347,7 @@ def api_folders():
 @app.post("/api/folders")
 def api_create_folder(req: FolderCreate):
     with SessionLocal() as s:
-        f = ClipFolder(user_id=ensure_default_user(),
+        f = ClipFolder(user_id=profiles.active_id(),
                        name=(req.name or "Untitled").strip()[:255] or "Untitled",
                        parent_id=req.parent_id)
         s.add(f)
@@ -357,6 +365,36 @@ def api_delete_folder(folder_id: uuid.UUID):
         if f is not None:
             s.delete(f)
             s.commit()
+    return {"ok": True}
+
+
+# ── Profiles (the platform's core unit: each profile = a creator with its OWN clips/folders/voice;
+#    templates + the audio library are shared) ──────────────────
+@app.get("/api/profiles")
+def api_profiles():
+    return profiles.list_profiles()
+
+
+@app.post("/api/profiles")
+def api_profile_create(req: ProfileCreate):
+    return profiles.create_profile(req.name, req.niche)
+
+
+@app.post("/api/profiles/active")
+def api_profile_activate(req: ProfileActivate):
+    with SessionLocal() as s:
+        if s.get(User, req.id) is None:
+            raise HTTPException(status_code=404, detail="profile not found")
+    profiles.set_active(req.id)
+    return {"ok": True, "active": str(req.id)}
+
+
+@app.delete("/api/profiles/{profile_id}")
+def api_profile_delete(profile_id: uuid.UUID):
+    try:
+        profiles.delete_profile(profile_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True}
 
 

@@ -19,6 +19,7 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 
+from app import profiles
 from app.caption.llm import complete_json
 from app.caption.refine import refine
 from app.corpus.genlog import log_generated, recent_generated
@@ -30,8 +31,7 @@ _GAMBLING_TERMS = (
     "the over", "betting", "a bet", "rimmed out", "put $", "down bad on this hand", "the hand",
     "card declined", "deposit", "hit me", "hitting is", "ante", "roulette", "scratch off", "scratch ticket",
 )
-_REF_USAGE_PATH = os.path.join("var", "ref_usage.json")
-_REF_SCORES_PATH = os.path.join("var", "ref_scores.json")
+# ref usage/scores are voice files -> resolved per ACTIVE PROFILE via app.profiles (not global)
 
 
 def _is_gambling(r: dict) -> bool:
@@ -54,11 +54,12 @@ def _load_json(path: str) -> dict:
 
 
 def _save_ref_usage(usage: dict) -> None:
-    os.makedirs("var", exist_ok=True)
-    tmp = _REF_USAGE_PATH + ".tmp"
+    path = profiles.ref_usage_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(usage, f)
-    os.replace(tmp, _REF_USAGE_PATH)
+    os.replace(tmp, path)
 
 
 _SYS = """You ARE this creator — a young, terminally-online guy whose entire brain is getting rich. You're somewhere between broke and made-it, always on the come-up, and you run everything through money, status, and the grind. You talk in lowercase internet slang (bro, ahh, fym, 🥷, "broke ahh", "lock in", "we eating"), and your humor is blunt, degenerate, very-online — crude bits, flexing, anti-simp, hustle delusion, and the occasional degenerate gambling confession (ONE flavor, not your whole personality).
@@ -81,8 +82,8 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
     """n DISTINCT reference anchors. Rotates least-used-first for coverage, then weights by the
     GRADE signal: chronically-killed refs drop out, proven winners recur sooner. Distinct trait per
     batch for tonal spread, gambling soft-capped."""
-    usage = _load_json(_REF_USAGE_PATH)
-    scores = _load_json(_REF_SCORES_PATH)
+    usage = _load_json(profiles.ref_usage_path())
+    scores = _load_json(profiles.ref_scores_path())
 
     def _stat(r: dict) -> tuple[int, int, int]:
         s = scores.get(r.get("ref_id") or "", {})

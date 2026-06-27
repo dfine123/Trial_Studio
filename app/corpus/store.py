@@ -10,10 +10,13 @@ import json
 import os
 from collections import Counter, defaultdict
 
-CORPUS_PATH = os.path.join("corpus", "references.jsonl")
+CORPUS_PATH = os.path.join("corpus", "references.jsonl")   # legacy seed location (pre-profiles)
 
 
-def load_refs(path: str = CORPUS_PATH) -> list[dict]:
+def load_refs(path: str | None = None) -> list[dict]:
+    if path is None:
+        from app import profiles   # lazy: avoid an import cycle at module load
+        path = profiles.corpus_path()
     refs: list[dict] = []
     if not os.path.exists(path):
         return refs
