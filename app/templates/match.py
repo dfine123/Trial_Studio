@@ -12,12 +12,14 @@ from app.caption.llm import complete_json
 
 _SYS = """You assign a creator's CLIPS to the SEGMENTS of a short-form video template. Each segment wants a certain KIND of clip — described in the author's own words, which MAY include a fallback ("can audible to X if not there"). For EACH segment, pick the single best-fitting clip_id from the creator's library, honoring the fallback when the ideal kind isn't present. Each clip is used at most ONCE (don't reuse a clip across segments unless there is genuinely no alternative). Judge fit from each clip's summary / setting / vibe. If a segment has NO acceptable clip even with its fallback, set ok=false and name it.
 
+For VARIETY across generations: when several clips fit a segment comparably well, DON'T always pick the single obvious one — prefer a clip NOT in the RECENTLY-USED list, so repeated generations of the same template don't reuse the exact same footage.
+
 Return ONLY JSON, no prose: {"assignments": {"<segment_index>": "<clip_id>"}, "ok": true|false, "warning": "<what can't be filled, or null>"}"""
 
 
-def match_clips(segments: list[dict], clips: list[dict]) -> dict:
-    """segments: [{index, clip_type}]; clips: [{id, summary, setting, vibe}].
-    Returns {assignments: {seg_index(str): clip_id}, ok: bool, warning: str|None}."""
+def match_clips(segments: list[dict], clips: list[dict], recent: list[str] | None = None) -> dict:
+    """segments: [{index, clip_type}]; clips: [{id, summary, setting, vibe}]; recent: clip_ids used
+    lately (deprioritized for variety). Returns {assignments: {seg_index(str): clip_id}, ok, warning}."""
     if not clips:
         return {"assignments": {}, "ok": False, "warning": "this creator has no indexed clips"}
     seg_lines = [f"Segment {s['index']}: wants — {s.get('clip_type') or 'any clip'}" for s in segments]
@@ -27,6 +29,8 @@ def match_clips(segments: list[dict], clips: list[dict]) -> dict:
         for c in clips
     ]
     user = "SEGMENTS:\n" + "\n".join(seg_lines) + "\n\nCREATOR CLIPS:\n" + "\n".join(clip_lines)
+    if recent:
+        user += "\n\nRECENTLY USED (prefer fresher clips when the fit is comparable): " + ", ".join(recent[:12])
     out = complete_json(_SYS, user, effort="medium", max_tokens=900)
     start, end = out.find("{"), out.rfind("}")
     if start == -1:

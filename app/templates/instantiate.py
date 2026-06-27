@@ -6,7 +6,9 @@ multi-segment reel. Aborts with a clear message if the creator's library can't f
 """
 from __future__ import annotations
 
+import json
 import os
+import random
 import uuid
 
 from sqlalchemy import select
@@ -33,6 +35,28 @@ def _resolve_src(clip: dict | None) -> str | None:
     return src if (src and os.path.exists(src)) else None
 
 
+_USAGE_PATH = "var/template_clip_usage.json"
+
+
+def _load_usage() -> dict:
+    try:
+        with open(_USAGE_PATH) as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _log_usage(clip_ids: list[str]) -> None:
+    u = _load_usage()
+    for cid in clip_ids:
+        u[cid] = u.get(cid, 0) + 1
+    os.makedirs("var", exist_ok=True)
+    tmp = _USAGE_PATH + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(u, fh)
+    os.replace(tmp, _USAGE_PATH)
+
+
 def instantiate_template(spec: dict, audio_path: str, out_path: str, clips: list[dict] | None = None) -> dict:
     """Render a reel by applying `spec` (a TemplateSpec dict) to a creator's clips."""
     formula = spec.get("formula") or {}
@@ -44,15 +68,19 @@ def instantiate_template(spec: dict, audio_path: str, out_path: str, clips: list
     slots = {c["id"]: c for c in spec.get("caption_slots", [])}
     if clips is None:
         clips = creator_clips()
+    random.shuffle(clips)                                   # vary the order the matcher sees each run
+    usage = _load_usage()
+    recent = [cid for cid, _ in sorted(usage.items(), key=lambda kv: -kv[1])][:8]   # most-used -> deprioritize
 
     # 1. match the creator's clips to the segment clip-types (honors authored fallbacks; may abort)
     seg_for_match = [{"index": s["index"], "clip_type": (s.get("clip_criteria") or {}).get("clip_type")}
                      for s in segments if s.get("source_type", "creator_clip") == "creator_clip"]
-    m = match_clips(seg_for_match, clips)
+    m = match_clips(seg_for_match, clips, recent=recent)
     if not m.get("ok"):
         raise RuntimeError("can't apply this template to this creator — "
                            + (m.get("warning") or "a segment can't be filled by these clips"))
     assign = {str(k): v for k, v in m["assignments"].items()}
+    _log_usage([v for v in assign.values() if v])           # spread footage usage across generations
     by_id = {c["id"]: c for c in clips}
 
     # 2. regenerate the captions under the variability rules
