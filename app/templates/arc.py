@@ -1,27 +1,42 @@
-"""Regenerate a template's captions for a specific creator — respecting per-slot VARIABILITY.
+"""Regenerate a template's captions for a specific creator — IN THE CREATOR'S VOICE, respecting
+per-slot VARIABILITY.
 
-This is where "tight templates stay tight, loose templates flex" actually happens: it reads the
-Formula Object's per-slot rules (locked_structure / variables / vary_when / flexibility) and only
-varies a part when its condition is met by the matched clips. Honors cross-slot constraints (e.g. a
-payoff that must echo a keyword chosen earlier). The exemplar is a PATTERN, never copied verbatim.
+Two things have to be true at once: the template's FORMAT must survive (a "watch me / bet" stays a
+"watch me / bet"), and the words must sound unmistakably like THIS creator (Spence — terminally-online,
+money-brained, the twist), not a neutral motivational voice. So we graft the comedy engine's actual
+voice embodiment (persona + real reference captions) onto the template-filling task: the template is
+the SKELETON, the creator's voice is the SKIN. Per-slot rules decide where the voice gets to flex —
+locked_structure stays, high-flexibility variables get the full voice treatment.
 """
 from __future__ import annotations
 
 import json
+import random
 
+from app.caption.engine import _SYS as _VOICE_SYS
 from app.caption.llm import complete_json
+from app.corpus.store import load_refs
 
-_SYS = """You write the captions for a video made by applying a TEMPLATE to a specific creator's clips. You are given the template's FORMULA, the per-slot VARIABILITY rules, each slot's EXAMPLE caption, and the matched CLIP for each segment.
+_TEMPLATE_RULES = """---
+
+NOW: you are not free-writing a standalone joke. You're filling the captions for a TEMPLATE this creator is applying to their own clips. The template is the SKELETON — a proven format with a fixed shape — and YOUR VOICE is the skin. You're given the FORMULA, the per-slot VARIABILITY rules, each slot's EXAMPLE caption, and the matched CLIP for each segment.
 
 For EACH caption slot, write the FINAL on-screen caption:
-- Output ONLY the words that appear ON SCREEN. NEVER include author notes, premise descriptions, or explanations of how it works (drop anything like "premise is someone saying...").
-- Respect locked_structure exactly — it stays.
-- Vary a "variable" part ONLY when its vary_when condition is met by the clips; otherwise keep it like the exemplar. flexibility=low → stay very close to the exemplar; medium → adapt lightly; high → rewrite the variable freely.
-- When you fill a variable, write what the ARC IS SELLING in the template's VOICE — NOT a literal description of the clip. For a "you can't [do X]" style doubt, X must be a real ambition/come-up someone actually gets doubted on (making it, getting rich, blowing up, leaving the 9-5), and the payoff must visibly disprove it. BAD: "you cant make money by doing pushups" or "running on the beach" — that just narrates the setup clip. GOOD: "you cant make money posting videos" / "you'll never make it out of here". Write the sharpest, most postable version a real person would say.
-- Honor cross-slot constraints (e.g. a payoff keyword that must match an earlier slot).
-- Match the voice, casing, length, and emoji of the exemplar. Never copy the exemplar verbatim.
+- Output ONLY the words that appear ON SCREEN. NEVER include author notes or premise descriptions (drop anything like "premise is someone saying...").
+- locked_structure stays EXACTLY — it is the format's spine, do not rewrite or "improve" it.
+- Vary a "variable" part ONLY when its vary_when condition is met by the clips. flexibility=low → stay very close to the exemplar (barely touch it); medium → adapt lightly; high → rewrite the variable freely IN YOUR VOICE.
+- The VARIABLE is where your voice lives. Fill it so it's unmistakably YOU — hyper-specific, money-brained, very-online, with the twist — NOT a literal description of the clip. For a "you can't [do X]" doubt, X is a real come-up a broke-but-pre-rich guy actually gets doubted on, said your way. BAD: "you cant make money by doing pushups" / "running on the beach" — that just narrates the clip and has zero voice. GOOD: something sharp, specific, and postable that sounds like your real captions above.
+- Honor cross-slot constraints (e.g. a payoff that must echo a keyword chosen in an earlier slot).
+- Keep the casing, length, and energy of the exemplar. Never copy the exemplar verbatim.
 
 Return ONLY JSON, no prose: {"captions": {"<slot_id>": "<caption text>"}}"""
+
+
+def _voice_sys() -> str:
+    """Spence's voice embodiment (persona + a sample of his real captions) + the template rules."""
+    refs = [(r.get("caption") or "").strip() for r in load_refs() if (r.get("caption") or "").strip()]
+    random.shuffle(refs)
+    return _VOICE_SYS.format(references="\n\n".join(refs[:24])) + "\n\n" + _TEMPLATE_RULES
 
 
 def _clean_exemplar(ex: str | None) -> str:
@@ -32,7 +47,7 @@ def _clean_exemplar(ex: str | None) -> str:
 
 def regenerate_captions(formula: dict, segments: list[dict]) -> dict:
     """formula: the Formula Object (incl. .slots). segments: [{index, slot_id, exemplar, clip_summary, clip_vibe}].
-    Returns {slot_id: caption_text}."""
+    Returns {slot_id: caption_text}, written in the creator's voice."""
     if not segments:
         return {}
     slots_meta = {s.get("slot_id"): s for s in formula.get("slots", [])}
@@ -53,7 +68,7 @@ def regenerate_captions(formula: dict, segments: list[dict]) -> dict:
             f"| vary_when={sm.get('vary_when', '')!r} | flexibility={sm.get('flexibility', 'medium')}\n"
             f"    matched clip: {(seg.get('clip_summary') or '').strip()[:160]} (vibe: {vibe})"
         )
-    out = complete_json(_SYS, "\n".join(parts), effort="medium", max_tokens=900)
+    out = complete_json(_voice_sys(), "\n".join(parts), effort="high", max_tokens=900)
     start, end = out.find("{"), out.rfind("}")
     if start == -1:
         return {}
