@@ -156,3 +156,25 @@ class Audio(Base):
     ig_audio_url: Mapped[str | None] = mapped_column(String(1024))  # null until V2
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Template(Base):
+    """A reusable progression template: a beat-segmented recipe + an LLM-authored Formula Object.
+
+    Authored once (profile-agnostic) in the CapCut studio; instantiated per creator by re-matching
+    their clips to the segment tiers and REGENERATING the caption arc in the template's voice. The
+    template is never replayed mechanically — `spec.formula` is the inspectable why/how the LLM
+    reasons over. `spec` is the dual record validated by `app.templates.spec.TemplateSpec`.
+    """
+    __tablename__ = "templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    audio_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("audios.id", ondelete="SET NULL"), nullable=True
+    )
+    spec: Mapped[dict] = mapped_column(JSONB)   # dual record: segments + caption_slots + formula + constraints
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

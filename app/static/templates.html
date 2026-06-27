@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>treelz · Template Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0b0e13; --surface:#141922; --surface-2:#1a202b; --elevate:#1f2733; --border:#222b38; --border-2:#303b4b;
+    --ink:#e9eef6; --ink-soft:#c4ccd9; --muted:#8a94a7; --faint:#5c6675;
+    --blue:#4d8bff; --blue-bright:#73a4ff; --blue-deep:#2f63d6; --blue-soft:rgba(77,139,255,.13); --blue-line:rgba(77,139,255,.34); --blue-glow:rgba(77,139,255,.45);
+    --good:#46c98a; --good-bg:rgba(70,201,138,.13); --bad:#fa6d83; --bad-bg:rgba(250,109,131,.13);
+    --r:14px; --r-sm:10px; --shadow:0 8px 28px -10px rgba(0,0,0,.55); --t:.16s;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--ink); font-family:'Inter',system-ui,sans-serif; font-size:14px; line-height:1.5;
+    background:radial-gradient(1300px 680px at 82% -12%, #131c2b 0%, #0b0e13 58%); -webkit-font-smoothing:antialiased; }
+  ::-webkit-scrollbar { width:11px; height:11px; } ::-webkit-scrollbar-thumb { background:#222b38; border:3px solid transparent; background-clip:content-box; border-radius:10px; }
+  header { display:flex; align-items:center; gap:14px; padding:18px 30px; border-bottom:1px solid var(--border); }
+  header img { width:30px; height:30px; border-radius:7px; }
+  header b { font-size:17px; font-weight:700; letter-spacing:-.3px; } header b span { color:var(--blue); }
+  header .crumb { color:var(--faint); font-size:14px; } header .crumb b { color:var(--muted); font-weight:600; font-size:14px; }
+  .back { margin-left:auto; color:var(--muted); text-decoration:none; font-size:13.5px; font-weight:550; padding:8px 14px; border:1px solid var(--border); border-radius:9px; transition:var(--t); }
+  .back:hover { color:var(--ink); border-color:var(--border-2); background:var(--surface); }
+  .wrap { display:grid; grid-template-columns:1fr 320px; gap:24px; max-width:1480px; margin:0 auto; padding:28px 30px 80px; }
+  @media (max-width:1080px){ .wrap { grid-template-columns:1fr; } }
+  h2 { font-size:22px; font-weight:700; letter-spacing:-.4px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 22px; font-size:14px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:20px; box-shadow:var(--shadow); margin-bottom:18px; }
+  label { display:block; font-size:12.5px; font-weight:550; color:var(--muted); margin:0 0 7px; }
+  input, select, textarea { width:100%; background:var(--surface-2); color:var(--ink); font-family:inherit; border:1px solid var(--border); border-radius:var(--r-sm); padding:11px 12px; font-size:14px; transition:var(--t); }
+  textarea { resize:vertical; min-height:46px; line-height:1.45; }
+  select { appearance:none; cursor:pointer; padding-right:36px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a94a7' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
+  .row { display:flex; gap:12px; align-items:flex-end; }
+  /* timeline */
+  audio { width:100%; margin:14px 0 10px; height:36px; }
+  .tl { position:relative; height:64px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; user-select:none; }
+  .tl-seg { position:absolute; top:0; bottom:0; border-right:2px solid var(--blue); display:flex; align-items:flex-start; }
+  .tl-seg:last-child { border-right:0; }
+  .tl-seg.alt { background:rgba(255,255,255,.018); }
+  .tl-seg .lab { font-size:10px; font-weight:700; color:var(--blue-bright); padding:4px 6px; opacity:.9; }
+  .tl-beat { position:absolute; top:50%; transform:translateY(-50%); width:1px; height:10px; background:#33405288; }
+  .tl-drop { position:absolute; top:0; bottom:0; width:2px; background:var(--good); opacity:.7; }
+  .tl-play { position:absolute; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 6px rgba(255,255,255,.6); pointer-events:none; }
+  .tl-controls { display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .btn { font-family:inherit; font-weight:600; font-size:13.5px; border:1px solid var(--border-2); background:var(--surface-2); color:var(--ink-soft); padding:9px 14px; border-radius:9px; cursor:pointer; transition:var(--t); }
+  .btn:hover { border-color:var(--blue); color:var(--blue-bright); background:var(--blue-soft); }
+  .btn.primary { background:linear-gradient(180deg,var(--blue),var(--blue-deep)); color:#fff; border:0; box-shadow:0 8px 22px -10px var(--blue-glow); }
+  .btn.primary:hover { background:linear-gradient(180deg,var(--blue-bright),var(--blue)); }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .tcur { color:var(--faint); font-size:12.5px; font-variant-numeric:tabular-nums; margin-left:auto; }
+  .hint { color:var(--faint); font-size:12.5px; margin-top:10px; }
+  /* segment cards */
+  .seg { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:14px; margin-top:12px; }
+  .seg-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .seg-idx { width:24px; height:24px; border-radius:7px; background:var(--blue-soft); color:var(--blue-bright); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none; }
+  .seg-time { color:var(--faint); font-size:12px; font-variant-numeric:tabular-nums; }
+  .seg-rm { margin-left:auto; background:none; border:0; color:var(--faint); font-size:13px; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .seg-rm:hover { color:var(--bad); background:var(--bad-bg); }
+  .seg-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .seg-grid .full { grid-column:1 / -1; }
+  .seg label { margin-top:0; }
+  .status { margin-top:14px; color:var(--muted); font-size:13.5px; min-height:20px; }
+  /* template list */
+  .tpl { display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:12px 13px; margin-bottom:10px; }
+  .tpl .nm { font-weight:600; font-size:13.5px; } .tpl .mt { color:var(--faint); font-size:12px; }
+  .tpl .x { margin-left:auto; color:var(--faint); font-size:16px; cursor:pointer; background:none; border:0; padding:2px 6px; border-radius:6px; }
+  .tpl .x:hover { color:var(--bad); background:var(--bad-bg); }
+  .empty { color:var(--faint); font-size:13px; }
+  #toasts { position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:10px; z-index:50; }
+  .toast { background:var(--elevate); border:1px solid var(--border-2); border-radius:11px; padding:11px 15px; font-size:13.5px; box-shadow:0 14px 36px -10px rgba(0,0,0,.65); transform:translateX(130%); transition:transform .35s cubic-bezier(.16,1,.3,1); }
+  .toast.show { transform:none; } .toast.err { border-color:rgba(250,109,131,.32); color:var(--bad); }
+</style>
+</head>
+<body>
+  <header>
+    <img src="/assets/treelz-logo.svg" alt="" />
+    <b>treelz<span>.ai</span></b>
+    <span class="crumb">· <b>Template Studio</b></span>
+    <a class="back" href="/">← Back to studio</a>
+  </header>
+  <div class="wrap">
+    <section>
+      <h2>Build a template</h2>
+      <p class="sub">Pick an audio, scrub to each point where the video should change, and split. Describe the kind of clip and (optionally) an example caption per segment — the engine reads the whole thing and re-skins it onto any creator. Some segments have captions, some don't; it's yours to shape.</p>
+      <div class="card">
+        <div class="row">
+          <div style="flex:1"><label>Template name</label><input id="name" placeholder="e.g. relatable → flex" /></div>
+          <div style="flex:1"><label>Audio</label><select id="audio"><option value="">— pick an audio —</option></select></div>
+        </div>
+        <audio id="player" controls preload="metadata"></audio>
+        <div class="tl" id="tl"><div class="tl-play" id="play" style="left:0"></div></div>
+        <div class="tl-controls">
+          <button class="btn" id="splitBtn" disabled>＋ Split at playhead</button>
+          <span class="hint" style="margin:0">click the timeline to scrub · splits snap to the beat</span>
+          <span class="tcur" id="tcur">0:00 / 0:00</span>
+        </div>
+      </div>
+      <div id="segs"></div>
+      <button class="btn primary" id="save" style="margin-top:8px" disabled>Save template</button>
+      <div class="status" id="status"></div>
+    </section>
+    <aside>
+      <h2 style="font-size:18px">Templates</h2>
+      <p class="sub">Authored once, applied to any creator.</p>
+      <div id="tpls"><p class="empty">Loading…</p></div>
+    </aside>
+  </div>
+  <div id="toasts"></div>
+<script>
+function toast(msg, type='ok'){ let b=document.getElementById('toasts'); const t=document.createElement('div'); t.className='toast '+type; t.textContent=msg; b.appendChild(t); requestAnimationFrame(()=>t.classList.add('show')); setTimeout(()=>{t.classList.remove('show'); setTimeout(()=>t.remove(),360);},3000); }
+function fmt(s){ s=Math.max(0,s||0); return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'); }
+
+const MIN = 1.0;            // min segment length (seconds) — matches TemplateSpec.min_seg_len
+let AUDIOS = [], cur = null, segs = [];
+const player = document.getElementById('player');
+const tl = document.getElementById('tl'), playEl = document.getElementById('play');
+const splitBtn = document.getElementById('splitBtn'), saveBtn = document.getElementById('save');
+
+async function loadAudios(){
+  try { AUDIOS = await (await fetch('/api/audios')).json(); } catch(_) { AUDIOS = []; }
+  document.getElementById('audio').innerHTML = '<option value="">— pick an audio —</option>' +
+    AUDIOS.map(a=>`<option value="${a.id}">${a.description} · ${Math.round(a.bpm)} BPM · ${(a.duration||0).toFixed(1)}s</option>`).join('');
+}
+document.getElementById('audio').onchange = e => pickAudio(e.target.value);
+async function pickAudio(id){
+  if(!id){ cur=null; segs=[]; player.removeAttribute('src'); render(); return; }
+  try { cur = await (await fetch('/api/audio/'+id+'/beats')).json(); }
+  catch(_) { toast('could not load audio','err'); return; }
+  player.src = cur.file_url;
+  const dur = cur.duration || 0;
+  segs = [{ t_in:0, t_out:dur, clip_type:'', caption:'', role:'' }];
+  splitBtn.disabled = false; saveBtn.disabled = false;
+  render();
+}
+function snapBeat(t){
+  if(!cur || !cur.beat_map || !cur.beat_map.length) return t;
+  let best=cur.beat_map[0], bd=Math.abs(t-best);
+  for(const b of cur.beat_map){ const d=Math.abs(t-b); if(d<bd){ bd=d; best=b; } }
+  return best;
+}
+splitBtn.onclick = ()=> splitAt(player.currentTime);
+function splitAt(t){
+  if(!cur) return;
+  t = snapBeat(t);
+  const i = segs.findIndex(s => t > s.t_in + MIN - 1e-3 && t < s.t_out - MIN + 1e-3);
+  if(i < 0){ toast(`too close to an edge — segments must be ≥ ${MIN}s`,'err'); return; }
+  const s = segs[i];
+  segs.splice(i+1, 0, { t_in:t, t_out:s.t_out, clip_type:'', caption:'', role:'' });
+  s.t_out = t;
+  render();
+}
+function mergeAt(i){ if(i<=0) return; segs[i-1].t_out = segs[i].t_out; segs.splice(i,1); render(); }
+
+tl.onclick = e => {
+  if(!cur || !cur.duration) return;
+  const r = tl.getBoundingClientRect();
+  player.currentTime = Math.max(0, Math.min(cur.duration, (e.clientX - r.left) / r.width * cur.duration));
+};
+
+function render(){
+  const dur = (cur && cur.duration) || 0;
+  // timeline strip
+  [...tl.querySelectorAll('.tl-seg,.tl-beat,.tl-drop')].forEach(n=>n.remove());
+  if(dur > 0){
+    if(cur.beat_map) cur.beat_map.forEach(b=>{ const d=document.createElement('div'); d.className='tl-beat'; d.style.left=(b/dur*100)+'%'; tl.appendChild(d); });
+    if(cur.beat_drop_ts){ const d=document.createElement('div'); d.className='tl-drop'; d.style.left=(cur.beat_drop_ts/dur*100)+'%'; tl.appendChild(d); }
+    segs.forEach((s,i)=>{ const d=document.createElement('div'); d.className='tl-seg'+(i%2?' alt':''); d.style.left=(s.t_in/dur*100)+'%'; d.style.width=((s.t_out-s.t_in)/dur*100)+'%'; d.innerHTML=`<span class="lab">${i+1}</span>`; tl.appendChild(d); });
+  }
+  // segment cards
+  const wrap = document.getElementById('segs');
+  wrap.innerHTML = segs.map((s,i)=>`<div class="seg" data-i="${i}">
+    <div class="seg-head"><span class="seg-idx">${i+1}</span><span class="seg-time">${s.t_in.toFixed(2)}s – ${s.t_out.toFixed(2)}s · ${(s.t_out-s.t_in).toFixed(2)}s</span>${i>0?`<button class="seg-rm" data-rm="${i}">✕ remove split</button>`:''}</div>
+    <div class="seg-grid">
+      <div class="full"><label>What clip goes here?</label><input data-f="clip_type" data-i="${i}" value="${(s.clip_type||'').replace(/"/g,'&quot;')}" placeholder="e.g. older candid · the flex · gym mirror · the reveal" /></div>
+      <div class="full"><label>Example caption — optional</label><textarea data-f="caption" data-i="${i}" placeholder="leave blank for no caption on this beat">${s.caption||''}</textarea></div>
+      <div class="full"><label>Note — optional (what this beat does)</label><input data-f="role" data-i="${i}" value="${(s.role||'').replace(/"/g,'&quot;')}" placeholder="e.g. the hook · the turn · the payoff" /></div>
+    </div></div>`).join('');
+  wrap.querySelectorAll('[data-f]').forEach(el=> el.oninput = ()=>{ segs[+el.dataset.i][el.dataset.f] = el.value; if(el.dataset.f==='caption'){} });
+  wrap.querySelectorAll('[data-rm]').forEach(b=> b.onclick = ()=> mergeAt(+b.dataset.rm));
+}
+function tick(){
+  const dur = (cur && cur.duration) || 0;
+  if(dur>0){ playEl.style.left = (Math.min(player.currentTime,dur)/dur*100)+'%'; document.getElementById('tcur').textContent = fmt(player.currentTime)+' / '+fmt(dur); }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+saveBtn.onclick = async ()=>{
+  if(!cur){ toast('pick an audio first','err'); return; }
+  const spec = { segments:[], caption_slots:[], min_seg_len:MIN };
+  segs.forEach((s,i)=>{
+    const seg = { index:i, t_in:+s.t_in.toFixed(3), t_out:+s.t_out.toFixed(3), source_type:'creator_clip',
+                  clip_criteria:{ clip_type:(s.clip_type||'').trim() }, transition:'cut' };
+    if((s.caption||'').trim()){ const sid='s'+i; seg.caption_slot_id=sid;
+      spec.caption_slots.push({ id:sid, segment_index:i, exemplar:(s.caption||'').trim(), role:(s.role||'').trim()||null }); }
+    spec.segments.push(seg);
+  });
+  spec.formula = { exemplar_arc: spec.caption_slots.map(c=>c.exemplar) };
+  const body = { name: (document.getElementById('name').value||'').trim() || 'Untitled', audio_id: cur.id, spec };
+  saveBtn.disabled = true;
+  try {
+    const r = await fetch('/api/templates', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+    if(!r.ok) throw new Error((await r.text()).slice(0,200));
+    toast('Template saved'); document.getElementById('name').value=''; loadTemplates();
+  } catch(e){ toast('Save failed: '+e.message,'err'); }
+  saveBtn.disabled = false;
+};
+
+async function loadTemplates(){
+  const box = document.getElementById('tpls');
+  try {
+    const ts = await (await fetch('/api/templates')).json();
+    box.innerHTML = ts.length ? ts.map(t=>`<div class="tpl"><div><div class="nm">${t.name}</div><div class="mt">${t.segments} segment${t.segments===1?'':'s'}</div></div><button class="x" data-del="${t.id}">✕</button></div>`).join('') : '<p class="empty">No templates yet — build one on the left.</p>';
+    box.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{ await fetch('/api/templates/'+b.dataset.del,{method:'DELETE'}); loadTemplates(); toast('Template deleted'); });
+  } catch(_) { box.innerHTML = '<p class="empty">Could not load templates.</p>'; }
+}
+
+loadAudios(); loadTemplates(); render();
+</script>
+</body>
+</html>

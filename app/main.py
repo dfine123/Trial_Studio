@@ -21,7 +21,8 @@ from sqlalchemy.orm import selectinload
 from app import schemas
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import Audio, Clip, ClipFolder, User
+from app.models import Audio, Clip, ClipFolder, Template, User
+from app.templates.spec import TemplateSpec
 from app.storage import r2
 from app.workers.tasks import enqueue_index
 from app.corpus import grades as grade_store
@@ -42,6 +43,12 @@ class GenerateRequest(BaseModel):
     audio_id: uuid.UUID | None = None
     notes: str | None = None
     folder_id: uuid.UUID | None = None   # restrict generation to this folder (+ its sub-folders)
+
+
+class TemplateCreate(BaseModel):
+    name: str
+    audio_id: uuid.UUID | None = None
+    spec: dict
 
 
 class CapGenRequest(BaseModel):
@@ -557,6 +564,13 @@ def login_page():
     return FileResponse(os.path.join(_WEB_DIR, "login.html"))
 
 
+@app.get("/templates")
+def templates_page(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "templates.html"))
+
+
 @app.get("/")
 def home(request: Request):
     if not _is_authed(request):
@@ -626,6 +640,83 @@ def get_reel(name: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="reel not found")
     return FileResponse(path, media_type="video/mp4")
+
+
+# ── Template Studio ───────────────────────────────────────────
+@app.get("/api/audio/{audio_id}/file")
+def api_audio_file(audio_id: uuid.UUID):
+    """Serve the raw audio file so the studio timeline can play + scrub it."""
+    with SessionLocal() as s:
+        a = s.get(Audio, audio_id)
+    if a is None or not a.r2_key:
+        raise HTTPException(status_code=404, detail="audio not found")
+    path = os.path.join("samples", "audio", os.path.basename(a.r2_key))
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="audio file missing")
+    return FileResponse(path, media_type="audio/mpeg")
+
+
+@app.get("/api/audio/{audio_id}/beats")
+def api_audio_beats(audio_id: uuid.UUID):
+    """Beat grid + bpm + energy for the template-studio timeline (snap segment marks to beats)."""
+    with SessionLocal() as s:
+        a = s.get(Audio, audio_id)
+        if a is None:
+            raise HTTPException(status_code=404, detail="audio not found")
+        return {
+            "id": str(a.id), "description": a.description,
+            "bpm": a.bpm or 0.0, "duration": a.duration or 0.0,
+            "beat_map": a.beat_map or [], "energy_arc": a.energy_arc,
+            "beat_drop_ts": a.beat_drop_ts, "file_url": f"/api/audio/{a.id}/file",
+        }
+
+
+@app.get("/api/templates")
+def api_templates():
+    with SessionLocal() as s:
+        rows = s.scalars(select(Template).order_by(Template.created_at.desc())).all()
+        return [
+            {"id": str(t.id), "name": t.name, "audio_id": str(t.audio_id) if t.audio_id else None,
+             "segments": len((t.spec or {}).get("segments", [])),
+             "created_at": t.created_at.isoformat() if t.created_at else None}
+            for t in rows
+        ]
+
+
+@app.get("/api/templates/{template_id}")
+def api_template_get(template_id: uuid.UUID):
+    with SessionLocal() as s:
+        t = s.get(Template, template_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="template not found")
+        return {"id": str(t.id), "name": t.name,
+                "audio_id": str(t.audio_id) if t.audio_id else None, "spec": t.spec}
+
+
+@app.post("/api/templates")
+def api_template_create(req: TemplateCreate):
+    """Persist a template authored in the studio. Validates the free-form dual-record spec."""
+    try:
+        spec = TemplateSpec.model_validate(req.spec)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"invalid template spec: {exc}") from exc
+    with SessionLocal() as s:
+        t = Template(user_id=ensure_default_user(), name=(req.name or "Untitled").strip()[:255] or "Untitled",
+                     audio_id=req.audio_id, spec=spec.model_dump())
+        s.add(t)
+        s.commit()
+        s.refresh(t)
+        return {"id": str(t.id), "name": t.name}
+
+
+@app.delete("/api/templates/{template_id}")
+def api_template_delete(template_id: uuid.UUID):
+    with SessionLocal() as s:
+        t = s.get(Template, template_id)
+        if t is not None:
+            s.delete(t)
+            s.commit()
+    return {"ok": True}
 
 
 def _slug(text: str, maxlen: int = 60) -> str:
