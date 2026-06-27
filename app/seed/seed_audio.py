@@ -142,12 +142,17 @@ def seed() -> None:
             s.commit()
             print(f"SEEDED {name}: bpm={bp.bpm} dur={bp.duration}s beats={len(bp.beat_map)} structure={cfg['structure']}")
 
-        # drop any stale audios not in the current curated set
-        stale = s.scalars(select(Audio).where(Audio.r2_key.notin_(seeded_keys))).all()
+        # drop any stale SEED audios not in the current curated set. CRITICAL: only ever touch seed
+        # rows (r2_key under the starter prefix) — NEVER user uploads (whose r2_key is a var/ path),
+        # or every redeploy wipes uploaded audios and orphans the templates that point at them.
+        seed_prefix = "audios/starter/"
+        stale = s.scalars(
+            select(Audio).where(Audio.r2_key.like(seed_prefix + "%"), Audio.r2_key.notin_(seeded_keys))
+        ).all()
         if stale:
-            s.execute(delete(Audio).where(Audio.r2_key.notin_(seeded_keys)))
+            s.execute(delete(Audio).where(Audio.r2_key.like(seed_prefix + "%"), Audio.r2_key.notin_(seeded_keys)))
             s.commit()
-            print(f"removed {len(stale)} stale audio rows")
+            print(f"removed {len(stale)} stale seed audio rows")
 
 
 if __name__ == "__main__":

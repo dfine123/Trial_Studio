@@ -70,6 +70,7 @@
   /* template list */
   .tpl { background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:12px 13px; margin-bottom:10px; }
   .tpl-head { display:flex; align-items:flex-start; gap:10px; } .tpl-acts { display:flex; gap:8px; margin-top:10px; }
+  .tpl-aud { margin-top:9px; } .tplaud { font-size:12px; padding:7px 9px; padding-right:30px; background-position:right 9px center; }
   .tpl .nm { font-weight:600; font-size:13.5px; } .tpl .mt { color:var(--faint); font-size:12px; }
   .tpl .x { margin-left:auto; color:var(--faint); font-size:16px; cursor:pointer; background:none; border:0; padding:2px 6px; border-radius:6px; }
   .tpl .x:hover { color:var(--bad); background:var(--bad-bg); }
@@ -254,14 +255,23 @@ saveBtn.onclick = async ()=>{
   saveBtn.disabled = false;
 };
 
+function audOpts(sel){
+  return '<option value="">— pick the audio —</option>' + AUDIOS.map(a=>`<option value="${a.id}"${String(a.id)===String(sel)?' selected':''}>${a.description}</option>`).join('');
+}
+async function setTplAudio(id, audioId){
+  if(!audioId) return;
+  await fetch('/api/templates/'+id, { method:'PUT', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: audioId }) });
+  toast('Audio linked');
+}
 async function loadTemplates(){
   const box = document.getElementById('tpls');
   try {
     const ts = await (await fetch('/api/templates')).json();
-    box.innerHTML = ts.length ? ts.map(t=>`<div class="tpl"><div class="tpl-head"><div style="flex:1; min-width:0"><div class="nm">${t.name}</div><div class="mt">${t.segments} segment${t.segments===1?'':'s'}</div></div><button class="x" data-del="${t.id}">✕</button></div><div class="tpl-acts"><button class="rd" data-enrich="${t.id}" title="Read its formula + variability">🧠 Read</button><button class="gen" data-gen="${t.id}">▶ Generate</button></div></div>`).join('') : '<p class="empty">No templates yet — build one on the left.</p>';
+    box.innerHTML = ts.length ? ts.map(t=>`<div class="tpl"><div class="tpl-head"><div style="flex:1; min-width:0"><div class="nm">${t.name}</div><div class="mt">${t.segments} segment${t.segments===1?'':'s'}</div></div><button class="x" data-del="${t.id}">✕</button></div><div class="tpl-aud"><select class="tplaud" data-tpl="${t.id}">${audOpts(t.audio_id)}</select></div><div class="tpl-acts"><button class="rd" data-enrich="${t.id}" title="Read its formula + variability">🧠 Read</button><button class="gen" data-gen="${t.id}">▶ Generate</button></div></div>`).join('') : '<p class="empty">No templates yet — build one on the left.</p>';
     box.querySelectorAll('[data-del]').forEach(b=> b.onclick = async ()=>{ await fetch('/api/templates/'+b.dataset.del,{method:'DELETE'}); loadTemplates(); document.getElementById('enrichOut').innerHTML=''; document.getElementById('genOut').innerHTML=''; toast('Template deleted'); });
     box.querySelectorAll('[data-enrich]').forEach(b=> b.onclick = ()=> enrich(b.dataset.enrich, b));
     box.querySelectorAll('[data-gen]').forEach(b=> b.onclick = ()=> genReel(b.dataset.gen, b));
+    box.querySelectorAll('.tplaud').forEach(sel=> sel.onchange = ()=> setTplAudio(sel.dataset.tpl, sel.value));
   } catch(_) { box.innerHTML = '<p class="empty">Could not load templates.</p>'; }
 }
 async function enrich(id, btn){
@@ -301,7 +311,7 @@ function renderFormula(f){
     <div class="fp"><span class="k">re-skin</span>${f.reskin_rules||''}</div>${slots}</div>`;
 }
 
-loadAudios(); loadTemplates(); render();
+loadAudios().then(loadTemplates); render();
 </script>
 </body>
 </html>

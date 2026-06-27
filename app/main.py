@@ -51,6 +51,12 @@ class TemplateCreate(BaseModel):
     spec: dict
 
 
+class TemplateUpdate(BaseModel):
+    name: str | None = None
+    audio_id: uuid.UUID | None = None
+    spec: dict | None = None
+
+
 class CapGenRequest(BaseModel):
     notes: str | None = None
     n: int = 8
@@ -742,6 +748,28 @@ def api_template_create(req: TemplateCreate):
         s.commit()
         s.refresh(t)
         return {"id": str(t.id), "name": t.name}
+
+
+@app.put("/api/templates/{template_id}")
+def api_template_update(template_id: uuid.UUID, req: TemplateUpdate):
+    """Update a template — used to re-link an audio (or rename / replace the spec)."""
+    from sqlalchemy.orm.attributes import flag_modified
+    with SessionLocal() as s:
+        t = s.get(Template, template_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="template not found")
+        if req.name is not None:
+            t.name = (req.name.strip()[:255] or t.name)
+        if req.audio_id is not None:
+            t.audio_id = req.audio_id
+        if req.spec is not None:
+            try:
+                t.spec = TemplateSpec.model_validate(req.spec).model_dump()
+                flag_modified(t, "spec")
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail=f"invalid template spec: {exc}") from exc
+        s.commit()
+    return {"ok": True}
 
 
 @app.delete("/api/templates/{template_id}")
