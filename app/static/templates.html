@@ -92,7 +92,13 @@
       <div class="card">
         <div class="row">
           <div style="flex:1"><label>Template name</label><input id="name" placeholder="e.g. relatable → flex" /></div>
-          <div style="flex:1"><label>Audio</label><select id="audio"><option value="">— pick an audio —</option></select></div>
+          <div style="flex:1"><label>Audio</label>
+            <div style="display:flex; gap:8px">
+              <select id="audio" style="flex:1"><option value="">— pick an audio —</option></select>
+              <button class="btn" type="button" id="upBtn" title="Upload your own audio">⬆ Upload</button>
+            </div>
+            <input type="file" id="audioFile" accept="audio/*" style="display:none" />
+          </div>
         </div>
         <audio id="player" controls preload="metadata"></audio>
         <div class="tl" id="tl"><div class="tl-play" id="play" style="left:0"></div></div>
@@ -129,6 +135,24 @@ async function loadAudios(){
     AUDIOS.map(a=>`<option value="${a.id}">${a.description} · ${Math.round(a.bpm)} BPM · ${(a.duration||0).toFixed(1)}s</option>`).join('');
 }
 document.getElementById('audio').onchange = e => pickAudio(e.target.value);
+const upBtn = document.getElementById('upBtn'), audioFile = document.getElementById('audioFile');
+upBtn.onclick = () => audioFile.click();
+audioFile.onchange = async () => {
+  if (!audioFile.files.length) return;
+  const f = audioFile.files[0]; audioFile.value = '';
+  const fd = new FormData(); fd.append('file', f);
+  const prev = upBtn.textContent; upBtn.disabled = true; upBtn.textContent = 'Analyzing…';
+  try {
+    const r = await fetch('/api/audios/upload', { method:'POST', body: fd });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    const d = await r.json();
+    await loadAudios();
+    document.getElementById('audio').value = d.id;
+    pickAudio(d.id);
+    toast(`Uploaded "${d.description}" · ${d.beats} beats`);
+  } catch (e) { toast('Upload failed: ' + e.message, 'err'); }
+  upBtn.disabled = false; upBtn.textContent = prev;
+};
 async function pickAudio(id){
   if(!id){ cur=null; segs=[]; player.removeAttribute('src'); render(); return; }
   try { cur = await (await fetch('/api/audio/'+id+'/beats')).json(); }

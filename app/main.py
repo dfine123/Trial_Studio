@@ -601,9 +601,9 @@ def api_generate(req: GenerateRequest):
     if audio is None or not audio.r2_key:
         raise HTTPException(status_code=404, detail="no audio in library — run the seed")
 
-    audio_path = os.path.join("samples", "audio", os.path.basename(audio.r2_key))
-    if not os.path.exists(audio_path):
-        raise HTTPException(status_code=404, detail=f"audio file missing locally: {audio_path}")
+    audio_path = _audio_path(audio)
+    if audio_path is None:
+        raise HTTPException(status_code=404, detail="audio file missing")
 
     os.makedirs(_REELS_DIR, exist_ok=True)
     name = f"{uuid.uuid4().hex}.mp4"
@@ -643,17 +643,52 @@ def get_reel(name: str):
 
 
 # ── Template Studio ───────────────────────────────────────────
+def _audio_path(a) -> str | None:
+    """Resolve an Audio's file: an uploaded absolute path (var/uploads/audio), else samples/audio."""
+    if not a or not a.r2_key:
+        return None
+    if os.path.isabs(a.r2_key) and os.path.exists(a.r2_key):
+        return a.r2_key
+    p = os.path.join("samples", "audio", os.path.basename(a.r2_key))
+    return p if os.path.exists(p) else None
+
+
 @app.get("/api/audio/{audio_id}/file")
 def api_audio_file(audio_id: uuid.UUID):
     """Serve the raw audio file so the studio timeline can play + scrub it."""
     with SessionLocal() as s:
         a = s.get(Audio, audio_id)
-    if a is None or not a.r2_key:
-        raise HTTPException(status_code=404, detail="audio not found")
-    path = os.path.join("samples", "audio", os.path.basename(a.r2_key))
-    if not os.path.exists(path):
+    path = _audio_path(a)
+    if path is None:
         raise HTTPException(status_code=404, detail="audio file missing")
     return FileResponse(path, media_type="audio/mpeg")
+
+
+@app.post("/api/audios/upload")
+async def api_audio_upload(file: UploadFile = File(...), description: str | None = Form(None)):
+    """Upload an audio -> analyze its beat grid (librosa) -> store. Powers the template-studio timeline."""
+    os.makedirs("var/uploads/audio", exist_ok=True)
+    aid = uuid.uuid4()
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".mp3"
+    dest = os.path.abspath(os.path.join("var/uploads/audio", f"{aid}{ext}"))
+    with open(dest, "wb") as out:
+        shutil.copyfileobj(file.file, out)
+    bpm = duration = None
+    beat_map: list = []
+    try:
+        from app.audio import profile  # lazy: librosa is heavy
+        bp = profile.analyze(dest)
+        bpm, duration, beat_map = bp.bpm, bp.duration, bp.beat_map
+    except Exception:  # noqa: BLE001 — keep the audio even if beat analysis fails (no grid -> free placement)
+        pass
+    desc = (description or "").strip() or os.path.splitext(file.filename or "audio")[0]
+    with SessionLocal() as s:
+        a = Audio(id=aid, user_id=ensure_default_user(), r2_key=dest, source="upload",
+                  description=desc[:255], bpm=bpm, duration=duration, beat_map=beat_map)
+        s.add(a)
+        s.commit()
+    return {"id": str(aid), "description": desc, "bpm": bpm or 0.0,
+            "duration": duration or 0.0, "beats": len(beat_map or [])}
 
 
 @app.get("/api/audio/{audio_id}/beats")
