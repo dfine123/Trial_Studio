@@ -204,6 +204,7 @@ def generate_reel(
     audio_vibe: list[str] | None = None,
     caption_text: str | None = None,
     caption_vibe: list[str] | None = None,
+    no_caption: bool = False,
     sources: dict[str, str] | None = None,
     clip_ids: list[str] | None = None,
     work_png: str = "tmp/reel_caption.png",
@@ -216,8 +217,10 @@ def generate_reel(
     if not segs:
         raise RuntimeError("no indexed segments available to build a reel")
 
-    # CAPTION FIRST — the caption is the post (a standalone joke).
-    if caption_text is None:
+    # CAPTION FIRST — the caption is the post (a standalone joke). Skipped for blank-caption reels.
+    if no_caption:
+        caption_text = ""
+    elif caption_text is None:
         from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
         from app.caption.chooser import choose_best
 
@@ -234,8 +237,9 @@ def generate_reel(
         caption_text = choose_best(candidates) or candidates[0]
 
     # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
-    # so the whole library gets exercised instead of the same few flashy ones.
-    ranked = _match_clips_to_caption(caption_text, clip_meta)
+    # so the whole library gets exercised instead of the same few flashy ones. Blank reels have no
+    # caption to react to, so variety leads alone.
+    ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta)
     preferred = set(ranked[: max(3, len(ranked) // 2)])
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
                              preferred_clip_ids=preferred, usage=_load_clip_usage())
@@ -249,8 +253,11 @@ def generate_reel(
         for c in chosen
     ]
 
-    render_caption_png(caption_text, work_png)
-    compose_reel(shots, work_png, audio_path, out_path, reel_dur)
+    cap_png = None
+    if not no_caption:
+        render_caption_png(caption_text, work_png)
+        cap_png = work_png
+    compose_reel(shots, cap_png, audio_path, out_path, reel_dur)
 
     return {"output": out_path, "caption": caption_text, "matched_clips": ranked[:3],
             "duration": round(reel_dur, 2), "shots": len(shots), "sequence": chosen}

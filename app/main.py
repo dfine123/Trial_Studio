@@ -43,6 +43,7 @@ class GenerateRequest(BaseModel):
     audio_id: uuid.UUID | None = None
     notes: str | None = None
     folder_id: uuid.UUID | None = None   # restrict generation to this folder (+ its sub-folders)
+    no_caption: bool = False             # blank-caption reel: beat-cut clips + audio, no text overlay
 
 
 class TemplateCreate(BaseModel):
@@ -672,7 +673,7 @@ def api_generate(req: GenerateRequest):
         res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
                             audio_desc=audio.description, audio_bpm=audio.bpm,
                             audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
-                            clip_ids=clip_ids)
+                            clip_ids=clip_ids, no_caption=req.no_caption)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 

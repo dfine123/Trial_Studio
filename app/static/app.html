@@ -210,6 +210,14 @@
   .profsel:hover { border-color:var(--border-2); }
   .profnew { flex:none; width:34px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border); border-radius:9px; font-size:17px; line-height:1; cursor:pointer; transition:var(--t); }
   .profnew:hover { border-color:var(--blue); color:var(--blue-bright); background:var(--blue-soft); }
+  /* ---------- blank-caption toggle ---------- */
+  .blanktoggle { display:flex; align-items:center; gap:10px; margin:4px 0 16px; cursor:pointer; font-size:13.5px; font-weight:550; color:var(--ink); user-select:none; width:fit-content; }
+  .blanktoggle input { position:absolute; opacity:0; width:0; height:0; }
+  .bt-track { width:38px; height:22px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border-2); position:relative; transition:var(--t); flex:none; }
+  .bt-thumb { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:var(--t); }
+  .blanktoggle input:checked + .bt-track { background:var(--blue); border-color:var(--blue); }
+  .blanktoggle input:checked + .bt-track .bt-thumb { left:18px; background:#fff; }
+  .bt-sub { color:var(--faint); font-weight:450; }
 </style>
 </head>
 <body>
@@ -251,6 +259,7 @@
           <div class="field"><label>Notes — optional nudge to the caption topic / vibe</label><input id="notes" placeholder="e.g. crypto wins, gym, late nights…" /></div>
           <div class="field"><label>How many reels</label><div class="stepper"><button type="button" class="step" data-d="-1">−</button><input id="count" type="number" min="1" max="12" value="1" /><button type="button" class="step" data-d="1">+</button></div></div>
         </div>
+        <label class="blanktoggle"><input type="checkbox" id="blankcap" /><span class="bt-track"><span class="bt-thumb"></span></span>Blank captions<span class="bt-sub">— skip the text overlay</span></label>
         <button class="cta" id="gen">Generate reels</button>
         <div class="status" id="gstatus"></div>
       </div>
@@ -519,7 +528,7 @@ function fillReelCard(card, d, label) {
     <div class="meta"><div class="reel-label">Caption</div><div class="cap"></div>
       <div class="reel-stats">🎵 ${label||''} · ${d.duration}s · ${d.shots} shots</div>
       <div class="actions"><button class="val">✓ Validate → Drive</button><a class="dl" href="${d.reel_url}" download>↓ Download .mp4</a></div></div>`;
-  card.querySelector('.cap').textContent = d.caption;
+  card.querySelector('.cap').textContent = d.caption || '— blank · no caption —';
   wireValidate(card.querySelector('.val'), d);
 }
 document.getElementById('gen').onclick = async () => {
@@ -528,6 +537,7 @@ document.getElementById('gen').onclick = async () => {
   const sel = document.getElementById('audio').value;
   const notes = document.getElementById('notes').value || null;
   const folder_id = document.getElementById('genfolder').value || null;
+  const noCaption = document.getElementById('blankcap').checked;
   const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
   const audioFor = (i) => sel === 'mix' ? ((shuffled[(i-1) % shuffled.length] || {}).id) : sel;
   const batch = document.createElement('div'); batch.className = 'results';
@@ -545,7 +555,7 @@ document.getElementById('gen').onclick = async () => {
     const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
     st.innerHTML = `<span class="spin"></span>Generating ${i+1} of ${n}… (~2–3 min each)`;
     try {
-      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes, folder_id }) });
+      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes, folder_id, no_caption: noCaption }) });
       if (!r.ok) throw new Error((await r.text()).slice(0,200));
       ctl.done(); fillReelCard(cards[i], await r.json(), label); done++;
     } catch (e) {
