@@ -5,8 +5,8 @@ Coverage: each batch slot is anchored to a DISTINCT real reference, rotated leas
 the whole corpus so every FORMAT gets covered and nothing repeats until cycled.
 
 CLOSED LOOP (the "naturally avoid / naturally amplify" layer): every graded caption is attributed
-back to the reference/format it came from (tmp/attribute_grades.sh -> var/ref_scores.json: per-ref
-keep/kill/best). `_pick_anchors` then weights the rotation by that signal — chronically-killed
+back to its anchor reference (app/corpus/attribute.py -> per-profile ref_scores.json: per-ref
+keep/kill/best, in-process + exact). `_pick_anchors` then weights the rotation by that signal — chronically-killed
 formats (e.g. crime-term wordplay the user keeps killing "gay") drop OUT of rotation, proven winners
 recur more. The user's grading reshapes which formats the engine reaches for. No in-context kill-
 steering (selection only), no hard-coded format bans, no judge. Falls back to pure rotation when
@@ -14,6 +14,7 @@ scores are absent.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -172,6 +173,11 @@ def _anchor_render(label: str, a: dict) -> str:
     return f"{label}: {cap}" + (f"\n   WHY IT LANDS: {why}" if why else "")
 
 
+def _cid(text: str) -> str:
+    """Stable content-id for a caption (provenance + dedup): first 12 hex of sha1(text)."""
+    return hashlib.sha1((text or "").encode("utf-8")).hexdigest()[:12]
+
+
 def generate(
     audio_vibe: list[str] | None = None,
     audio_purpose: list[str] | None = None,
@@ -214,9 +220,13 @@ def generate(
     out = []
     for i, c in enumerate(cands[:n]):
         if isinstance(c, dict) and (c.get("text") or "").strip():
-            c["anchor_ref"] = anchors[i].get("ref_id") if i < len(anchors) else None
+            rid = anchors[i].get("ref_id") if i < len(anchors) else None
+            c["anchor_ref"] = rid                       # back-compat (singular)
+            c["anchor_refs"] = [rid] if rid else []     # provenance -> exact grade attribution
             out.append(c)
-    out = refine(out)  # preserves anchor_ref (dict(c)) + order/count
+    out = refine(out)  # subtractive edit; preserves provenance fields (dict(c)) + order/count
+    for c in out:
+        c["caption_id"] = _cid(c.get("text") or "")     # hash the FINAL (post-refine) text
     log_generated([c.get("text", "") for c in out])
     return out
 

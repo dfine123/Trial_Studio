@@ -25,6 +25,7 @@ from app.models import Audio, Clip, ClipFolder, Template, User
 from app.templates.spec import TemplateSpec
 from app.storage import r2
 from app.workers.tasks import enqueue_index
+from app.corpus import attribute
 from app.corpus import grades as grade_store
 
 _DEFAULT_NICHE = (
@@ -975,6 +976,10 @@ def api_captions_generate(req: CapGenRequest):
 @app.post("/api/captions/grade")
 def api_captions_grade(req: GradeRequest):
     grade_store.record_verdict(req.caption, req.verdict, req.context, req.note)
+    try:                                # close the loop: credit the anchor ref(s), per active profile
+        attribute.credit_verdict(req.context, req.verdict)
+    except Exception:                   # noqa: BLE001 — attribution must never break grading
+        pass
     return {"ok": True}
 
 
@@ -987,6 +992,10 @@ def api_captions_pairwise(req: PairRequest):
 @app.post("/api/captions/best")
 def api_captions_best(req: BestRequest):
     grade_store.record_best(req.winner, req.batch, req.context)
+    try:                                # the chosen caption's anchor ref(s) get a 'best' credit
+        attribute.credit_best(req.context)
+    except Exception:                   # noqa: BLE001 — attribution must never break grading
+        pass
     return {"ok": True}
 
 
