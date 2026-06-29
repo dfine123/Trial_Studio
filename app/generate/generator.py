@@ -221,16 +221,21 @@ def generate_reel(
     if no_caption:
         caption_text = ""
     elif caption_text is None:
-        from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
+        from app import profiles
         from app.caption.chooser import choose_best
 
         bpm = audio_bpm or bp.bpm
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
         # Keep notes MINIMAL — piling niche/audio/vibe context into the prompt degrades the engine.
         note = (niche or "").strip() or None
-        # BEST-OF-3: three INDEPENDENT caption generations (distinct anchors, run in parallel), then
-        # the chooser layer picks the single one to post. Best-of-N -> higher per-reel quality.
-        candidates = generate_independent(k=3, notes=note, audio_energy=energy)
+        # BEST-OF-3: three caption generations, then the chooser picks the one to post. v2 = principle-
+        # driven (diverse moves), v1 = anchor-rotation — per the active profile's engine flag.
+        if profiles.uses_v2():
+            from app.caption.principle import generate_v2
+            candidates = [c["text"] for c in generate_v2(k=3, notes=note)]
+        else:
+            from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
+            candidates = generate_independent(k=3, notes=note, audio_energy=energy)
         if not candidates:   # empty voice (e.g. a new profile with no corpus yet) -> fail clearly
             raise RuntimeError("this profile has no voice yet — add caption references to its corpus "
                                "before generating (the active profile's corpus is empty)")

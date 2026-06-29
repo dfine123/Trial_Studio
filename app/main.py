@@ -115,6 +115,10 @@ class BootstrapRequest(BaseModel):
     reset: bool = False                     # drop the previous bootstrap seed before re-seeding
 
 
+class EngineUpdate(BaseModel):
+    v2: bool                                # principle-driven (v2) generation for this profile
+
+
 def ensure_default_user() -> uuid.UUID:
     """The default profile id (first user = the 'Spence' profile, voice seeded). Used for SHARED
     writes (audio/template); clip/folder writes use the ACTIVE profile instead."""
@@ -440,6 +444,16 @@ def api_bootstrap_voice(profile_id: uuid.UUID, req: BootstrapRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"bootstrap failed: {exc}") from exc
     return {"ok": True, "added": n}
+
+
+@app.post("/api/profiles/{profile_id}/engine")
+def api_profile_engine(profile_id: uuid.UUID, req: EngineUpdate):
+    """Toggle principle-driven (v2) generation for a profile — lets us roll it out one creator at a time."""
+    with SessionLocal() as s:
+        if s.get(User, profile_id) is None:
+            raise HTTPException(status_code=404, detail="profile not found")
+    profiles.set_v2(profile_id, req.v2)
+    return {"ok": True, "v2": req.v2}
 
 
 @app.post("/api/clips/{clip_id}/move")
@@ -964,10 +978,14 @@ def grade_page(request: Request):
 
 @app.post("/api/captions/generate")
 def api_captions_generate(req: CapGenRequest):
-    from app.caption.engine import generate  # lazy import (pulls anthropic + corpus)
-
     try:
-        cands = generate(notes=req.notes, n=req.n)
+        if profiles.uses_v2():               # principle-driven (v2) for opted-in profiles (Check)
+            from app.caption.principle import generate_v2
+            cands = [{"text": c["text"], "move": c.get("move"), "mode": c.get("move")}
+                     for c in generate_v2(k=req.n, notes=req.notes)]
+        else:
+            from app.caption.engine import generate  # lazy import (pulls anthropic + corpus)
+            cands = generate(notes=req.notes, n=req.n)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
     return {"candidates": cands}
