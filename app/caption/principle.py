@@ -84,17 +84,24 @@ def generate_v2(k: int = 8, notes: str | None = None) -> list[dict]:
         f"Don't echo these recent lines, and don't reuse their STRUCTURES:\n{avoid}\n\n"
         'ONLY JSON: {"premises": [{"move": "<move>", "subject": "<which subject>", "angle": "<the specific fresh angle>"}]}'
     )
-    out = complete_json(sys, ideate_user, effort="high", max_tokens=2000)
-    s, e = out.find("{"), out.rfind("}")
-    if s == -1:
-        return []
-    try:
-        premises = json.loads(out[s:e + 1]).get("premises", [])[:k]
-    except json.JSONDecodeError:
-        return []
-    premises = [p for p in premises if isinstance(p, dict) and (p.get("angle") or "").strip()]
-    if not premises:
-        return []
+    def _angle(p: dict) -> str:                          # tolerate key-name drift from the model
+        return (p.get("angle") or p.get("idea") or p.get("premise") or p.get("text") or "").strip()
+
+    premises: list[dict] = []
+    for _ in range(3):                                   # the ideate JSON sometimes comes back unparseable; retry
+        out = complete_json(sys, ideate_user, effort="high", max_tokens=2000)
+        s, e = out.find("{"), out.rfind("}")
+        if s != -1:
+            try:
+                raw = json.loads(out[s:e + 1]).get("premises", [])
+                premises = [{"move": p.get("move", "?"), "subject": p.get("subject", ""), "angle": _angle(p)}
+                            for p in raw[:k] if isinstance(p, dict) and _angle(p)]
+            except json.JSONDecodeError:
+                premises = []
+        if premises:
+            break
+    if not premises:                                     # never ship an empty batch — craft straight from moves
+        premises = [{"move": m, "subject": "", "angle": f"a fresh, surprising {m} bit"} for m, _ in moves[:k]]
 
     # STAGE 2 — CRAFT: invent the sharpest line for each premise, in voice (twist + precision + voice)
     def craft(p: dict) -> dict | None:
