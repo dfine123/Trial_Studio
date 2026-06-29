@@ -199,11 +199,13 @@ def generate(
     note = (notes or "").strip()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "Here are " + str(n) + " of your own real captions, each with WHY IT LANDS — the mechanism that "
-        "makes it hit. For EACH anchor, write a NEW line in YOUR voice that lands the SAME WAY (same mechanism, "
-        "same sharpness) on a genuinely FRESH subject. Transpose the WHY — do NOT re-skin the sentence or rewrite "
-        "its joke. It has to sound unmistakably like YOU — the captions above ARE your voice and the bar — never "
-        "cleaned up, corporate, or poetic. Match the anchor's exact hyper-specificity:\n\n"
+        + "Here are " + str(n) + " of your own sharp captions, each with WHY IT LANDS — these set your VOICE, "
+        "your range, and the BAR. Write " + str(n) + " NEW captions, one sparked by each (in order), and let them "
+        "come NATURALLY. Hit that same bar, but DON'T force a shape: keep a format's structure ONLY when the "
+        "structure IS the joke and it lands genuinely fresh — otherwise just write the sharpest thing in your "
+        "voice and let the form follow the idea. A mechanical fill-in-the-blank of the template is dead — scrap it "
+        "and write the one you'd post unprompted. Keep your exact hyper-specificity; never generic, corporate, or "
+        "poetic. Make the " + str(n) + " as VARIED from each other as your references are:\n\n"
         + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
@@ -250,10 +252,11 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     def one(anchor: dict) -> str | None:
         user = (
             (f"Lean (soft): {note}\n\n" if note else "")
-            + "Here's one of your own real captions, with WHY IT LANDS — the mechanism that makes it hit. "
-            "Write a NEW line in YOUR voice that lands the SAME WAY (same mechanism, same sharpness) on a "
-            "genuinely fresh subject. Transpose the WHY; do NOT re-skin the sentence or rewrite its joke. Sound "
-            "unmistakably like YOU — the captions above ARE your voice and the bar — never corporate or poetic:\n\n"
+            + "Here's one of your sharp captions, with WHY IT LANDS — it sets your voice and your bar. Write a "
+            "NEW caption that hits at that same bar, but let it come NATURALLY: keep its shape ONLY when that "
+            "shape IS the joke and it lands genuinely fresh — otherwise just write the sharpest thing in your "
+            "voice and let the form follow. A mechanical fill-in of the template is dead. Keep your exact "
+            "specificity; never generic, corporate, or poetic:\n\n"
             + _anchor_render("ANCHOR", anchor) + "\n\n"
             f"(Don't rehash these exact recent lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
