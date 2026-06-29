@@ -27,19 +27,30 @@ from app.corpus.store import load_refs
 
 # The MOVES — the mechanisms distilled from the corpus (the principles, not templates). Voice-neutral:
 # the persona supplies the voice, the move supplies the structure of the twist.
+# MOVES are MECHANISMS, not templates. Each names HOW the twist works — never a fixed sentence shape.
+# The phrasings in parentheses are ONE example each; the engine must invent a fresh STRUCTURE every time
+# (the failure mode is a move collapsing to one signature scaffold that repeats across batches).
 MOVES = [
-    ("iykyk_decode", "A line that reads clean/innocent but DECODES to something filthy, dark, or unhinged — the gap between the surface read and the real meaning IS the joke."),
-    ("precise_equivalence", "'X is like Y' where the two map EXACTLY (usually both dressing a deficit up as an asset, or both secretly the same thing). The wit is the precision of the mapping, never the shape."),
-    ("possessive_escalation", "A deadpan jealous/possessive take escalated one absurd step too far, delivered like it's totally reasonable ('you let your girl ___, I don't even like mine ___')."),
-    ("hater_callout", "Call out the haters/doubters by predicting the EXACT pathetic way they'd downplay a win ('🥷s hate so much you could ___ and they'd still say ___'). Their cope is the punchline."),
-    ("anti_simp_redirect", "Set up a 'good man does X for her' line, then redirect the credit/payoff to someone else (her ex, the other guy) so the simp ends up with nothing."),
-    ("small_op_flex", "Pretend to be a bigger operation than you are, then reveal it's just you and bro ('let me loop in the team' — it's one guy on a call)."),
-    ("anti_mediocrity_dread", "A sharp jab at settling/mediocrity that lands as DREAD, not a poster — someone could step into your life and do it better; the 9-5 framed like a horror movie. Motivating by making comfort scary."),
-    ("deadpan_villain", "A flatly-stated, indefensible villain take delivered like it's obviously correct, no remorse ('raise her rent', 'he wasn't there when I was down')."),
-    ("antideep_parody", "Parody fake-deep guru/proverb energy — either take a 'profound' line somewhere stupid, or state a deepity that's actually nonsense ('I'd rather be broke and rich than sad and happy')."),
-    ("crude_to_motivating", "Open with a crude/degenerate analogy and TWIST it into something genuinely (or absurdly) motivating ('be more like a crackhead — they get up and make it happen no matter what')."),
-    ("relatable_self_own", "A relatable observation that flips into a self-own or a brutal truth about the bit everyone secretly does ('idk where i'd be without her — prob further in life')."),
-    ("specific_bro_truth", "A deadpan, HYPER-SPECIFIC truth (never a platitude) that hits because it's exactly right — sincere but sharp, the opposite of a motivational poster ('the cold water doesn't get warmer the longer you wait')."),
+    ("iykyk_decode", "A clean, wholesome-sounding surface that DECODES to something filthy/dark/unhinged — the gap is the joke. Vary the reveal hard: NEVER default to 'Meant I…'. Sometimes the decode is one swapped word, sometimes the reader just realizes it, sometimes it's buried mid-sentence."),
+    ("precise_equivalence", "Two things that map EXACTLY (both dressing a deficit as an asset, or secretly identical). The precision is the wit. Vary the frame: do NOT always open 'X is like / the same as Y' — sometimes lead with the punchline, or a question, or state it flat."),
+    ("possessive_escalation", "Jealousy escalated one absurd step PAST reason, deadpan — and it must read ABSURD-funny, never genuinely insecure/controlling (Check is unbothered). Vary the shape; do NOT default to 'you let your girl X? mine Y'. Use sparingly (~1 per batch max)."),
+    ("hater_callout", "Predict the EXACT pathetic cope a hater uses to downplay a real win — confident and unbothered, never bitter. Vary the framing: do NOT always open 'ninjas hate so much you could ___'; sometimes lead with the cope, sometimes a scene. Don't lean on a car/money win every time."),
+    ("anti_simp_redirect", "Set up 'a real man does X for her' then redirect the payoff to someone else. Find FRESH redirects — do NOT keep landing on 'the next guy inherits the finished product / Carfax'."),
+    ("anti_mediocrity_dread", "A sharp, true jab at settling that lands as DREAD — comfort made scary (the eulogy, the unchanged group chat, the retirement body). Motivation is IMPLIED by the dread; never a 'you should'."),
+    ("deadpan_villain", "A flatly-stated, indefensible villain take delivered like it's obviously correct — zero remorse, zero self-pity, unbothered and dark-funny. Code the villainy on loyalty / effort / attention / time — NOT money or legacy (inheritance, new car, come-up); avoid any new-money / poster edge."),
+    ("antideep_parody", "MOCK fake-deep guru/poster energy: quote a proverb, then undercut it with a funny-petty or absurd reality. NEVER a sad/down-bad reality (Check never spirals). VARY the undercut HARD — do NOT always land on 'refreshing a story / view count / follower count'. Rotate the very-online compulsion: doomscrolling, re-reading his own sent text, screenshotting to the gc, leaving then deleting a comment, watching his own story to see who's at the top — and change the proverb every time. The point is to make fun of posters, not be one."),
+    ("absurd_image_motivating", "An absurd/degenerate IMAGE (an animal, a lowlife, a scene) that IMPLIES resilience or a truth — then STOP. NO 'be the X bro', NO 'you should', NO direct-address sermon. The image is the entire bit; the motivation is felt, never stated."),
+    ("relatable_self_own", "A relatable observation that flips into a self-own or a brutal truth about the bit everyone secretly does — self-aware but still cool, never down-bad."),
+    ("specific_bro_truth", "A deadpan, HYPER-SPECIFIC truth about the boys / loyalty / group-chat life / dating dynamics (never a platitude) — the kind the whole group chat quote-tweets. Favor BEHAVIORAL tells (the 'knew bro got dumped — the typing dots came back after months' kind), NOT read-receipt / location / view-count surveillance (overused). Vary the structure each time. UNDERUSED; reach for it often."),
+    ("unbothered_standards", "An effortless status/taste/standards flex that is NEVER about money or a job — what he won't tolerate, the company he keeps, what he doesn't chase or explain, the calm of not caring. Cool, not try-hard."),
+]
+
+# Force breadth — the failure mode is ~60% girls/dating. Spread premises across these; girls capped low.
+SUBJECTS = [
+    "your boys / loyalty / the group chat", "status / confidence / standards / taste",
+    "ambition vs settling / mediocrity", "online life / clout / the timeline",
+    "haters / doubters", "family / where you came from", "deadpan everyday-life observations",
+    "girls / dating (AT MOST a third of the batch — do not let this dominate)",
 ]
 
 
@@ -60,15 +71,18 @@ def generate_v2(k: int = 8, notes: str | None = None) -> list[dict]:
     # STAGE 1 — IDEATE: K diverse premises, each a different move on a fresh subject (range + creativity)
     ideate_user = (
         (f"Lean (soft, optional): {note}\n\n" if note else "")
-        + "Here are your MOVES — the mechanisms behind your best captions. They're a TOOLKIT, not templates:\n"
+        + "Your MOVES — the MECHANISMS behind your best captions (a toolkit, NOT templates; each can take any shape):\n"
         + _moves_block(moves)
-        + f"\n\nBrainstorm {k} fresh caption PREMISES for new posts. Each premise applies a DIFFERENT move to a "
-        "fresh, specific subject from your world (girls, your boys, dating, loyalty, status, the come-up, online "
-        "life, work, family — whatever's real to you). Spread WIDE across both moves and subjects — no two alike. "
-        "A premise is a one-line seed: which move + the specific angle. NOT a finished caption. Reach for angles "
-        "that could become ABSOLUTE BANGERS — surprising, true, sharp; the kind that get screenshotted.\n\n"
-        f"Don't echo these recent ones:\n{avoid}\n\n"
-        'ONLY JSON: {"premises": [{"move": "<move name>", "angle": "<the specific fresh angle>"}]}'
+        + "\n\nSUBJECTS to spread across (mandatory — do NOT let girls/dating dominate):\n"
+        + "\n".join(f"- {s}" for s in SUBJECTS)
+        + f"\n\nBrainstorm {k} fresh caption PREMISES for new posts. Rules:\n"
+        "- Each premise = a DIFFERENT move on a DIFFERENT subject. Spread WIDE across BOTH — AT MOST a third about girls/dating.\n"
+        "- AT MOST ONE premise may resolve on a read-receipt / 'on read' / view-count / story-view beat — that anxiety is overused; reach for other behaviors and tells.\n"
+        "- A premise is a one-line seed (which move + subject + the specific angle), NOT a finished caption.\n"
+        "- Reach for ABSOLUTE BANGERS — surprising, true, sharp, screenshot-worthy.\n"
+        "- Pick angles that will force DIFFERENT sentence shapes — not eight variations of one structure.\n\n"
+        f"Don't echo these recent lines, and don't reuse their STRUCTURES:\n{avoid}\n\n"
+        'ONLY JSON: {"premises": [{"move": "<move>", "subject": "<which subject>", "angle": "<the specific fresh angle>"}]}'
     )
     out = complete_json(sys, ideate_user, effort="high", max_tokens=2000)
     s, e = out.find("{"), out.rfind("}")
@@ -85,10 +99,13 @@ def generate_v2(k: int = 8, notes: str | None = None) -> list[dict]:
     # STAGE 2 — CRAFT: invent the sharpest line for each premise, in voice (twist + precision + voice)
     def craft(p: dict) -> dict | None:
         user = (
-            f"Premise to execute — move: {p.get('move', '?')} | angle: {p.get('angle')}\n\n"
-            "Write the SINGLE sharpest caption that executes THIS move on THIS angle, unmistakably in your "
-            "voice. Nail the twist precisely, deadpan, hyper-specific. INVENT the exact line from scratch — do "
-            "NOT reuse or rephrase any example you've seen; this has to feel new. Make it land as a banger.\n\n"
+            f"Premise — move: {p.get('move', '?')} | subject: {p.get('subject', '?')} | angle: {p.get('angle')}\n\n"
+            "Write the SINGLE sharpest caption that executes THIS move on THIS angle, unmistakably in your voice. "
+            "Nail the twist precisely, deadpan, hyper-specific.\n"
+            "- INVENT a fresh STRUCTURE. Do NOT use a stock scaffold ('you let your girl…', 'ninjas hate so much you "
+            "could…', 'X is like Y', 'Meant I…', 'be the ___ bro'). Vary the sentence shape so no two captions feel like the same joke.\n"
+            "- If it's motivating, IMPLY it — never a 'you should' / direct-address sermon.\n"
+            "- Never broke, never business/job/client cosplay, never insecure or down-bad.\n\n"
             'ONLY JSON: {"text": "the caption (\\n for line breaks)"}'
         )
         t = complete_json(sys, user, effort="high", max_tokens=900)
