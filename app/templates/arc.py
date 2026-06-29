@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import random
 
-from app.caption.engine import _SYS as _VOICE_SYS
+from app.caption.engine import voice_system
 from app.caption.llm import complete_json
 from app.corpus.store import load_refs
 
@@ -36,7 +36,7 @@ def _voice_sys() -> str:
     """Spence's voice embodiment (persona + a sample of his real captions) + the template rules."""
     refs = [(r.get("caption") or "").strip() for r in load_refs() if (r.get("caption") or "").strip()]
     random.shuffle(refs)
-    return _VOICE_SYS.format(references="\n\n".join(refs[:24])) + "\n\n" + _TEMPLATE_RULES
+    return voice_system("\n\n".join(refs[:24])) + "\n\n" + _TEMPLATE_RULES
 
 
 def _clean_exemplar(ex: str | None) -> str:

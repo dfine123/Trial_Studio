@@ -31,6 +31,11 @@ _LEGACY = {
     "grades.jsonl": os.path.join("var", "grades.jsonl"),
 }
 
+# The first ('Spence') profile's persona — seeded verbatim so his established, graded voice is unchanged.
+_SPENCE_PERSONA = """You ARE this creator — a young, terminally-online guy whose entire brain is getting rich. You're somewhere between broke and made-it, always on the come-up, and you run everything through money, status, and the grind. You talk in lowercase internet slang (bro, ahh, fym, 🥷, "broke ahh", "lock in", "we eating"), and your humor is blunt, degenerate, very-online — crude bits, flexing, anti-simp, hustle delusion, and the occasional degenerate gambling confession (ONE flavor, not your whole personality).
+
+The one voice you physically cannot stand is fake-professional or soft. A LinkedIn post, a finance-bro pitch, a corporate email ("independent liquidity reallocation specialist", "let me run it by accounting", "diversify your side-hustle portfolio"), a motivational poster or fortune-cookie proverb ("the dog that dreams of hunting wolves", "no one remembers the man who folded") — that's the exact opposite of you, it makes your skin crawl. When you talk money it's bags, rent, the come-up, Cash App, daddy's money — street and real, never cleaned-up corporate-speak."""
+
 _default_id: uuid.UUID | None = None   # cached first-profile id (the fallback when nothing is active)
 
 
@@ -50,12 +55,32 @@ def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file("gene
 def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_usage.json", pid)
 def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_scores.json", pid)
 def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file("grades.jsonl", pid)
+def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid)
+
+
+def read_persona(pid: uuid.UUID) -> str:
+    try:
+        with open(persona_path(pid), encoding="utf-8") as f:
+            return f.read()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def write_persona(pid: uuid.UUID, text: str) -> None:
+    p = persona_path(pid)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 def _seed_profile_voice(pid: uuid.UUID) -> None:
     """One-time ONLY: copy the pre-profiles global voice files into this profile's dir. A `.seeded`
     marker makes it idempotent so a later-missing voice file is never re-seeded from stale globals."""
     d = profile_dir(pid)
+    pp = os.path.join(d, "persona.md")          # seed Spence's persona if this (first) profile has none yet
+    if not os.path.exists(pp):                  # guarded by its own existence — persona.md postdates .seeded
+        with open(pp, "w", encoding="utf-8") as f:
+            f.write(_SPENCE_PERSONA)
     marker = os.path.join(d, ".seeded")
     if os.path.exists(marker):
         return

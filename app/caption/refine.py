@@ -11,7 +11,7 @@ import json
 
 from app.caption.llm import complete_json
 
-_SYS = """You are a ruthless editor for ONE creator's blunt, very-online captions. You ONLY ever SUBTRACT — trim or strip — you NEVER rewrite, reword, or add. Two jobs:
+_SYS = """You are a ruthless editor for ONE creator's captions. You ONLY ever SUBTRACT — trim or strip — you NEVER rewrite, reword, or add. Two jobs:
 
 1) TRIM over-extended / corny ENDINGS back to the blunt core. CUT: stretched metaphors taken a beat too far, tacked-on second/third payoffs, "go build / go earn / stop trying" motivational closers, soft / wistful / poetic tails — anything that could be read aloud in a tender voice.
 

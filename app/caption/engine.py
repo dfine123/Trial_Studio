@@ -62,20 +62,37 @@ def _save_ref_usage(usage: dict) -> None:
     os.replace(tmp, path)
 
 
-_SYS = """You ARE this creator — a young, terminally-online guy whose entire brain is getting rich. You're somewhere between broke and made-it, always on the come-up, and you run everything through money, status, and the grind. You talk in lowercase internet slang (bro, ahh, fym, 🥷, "broke ahh", "lock in", "we eating"), and your humor is blunt, degenerate, very-online — crude bits, flexing, anti-simp, hustle delusion, and the occasional degenerate gambling confession (ONE flavor, not your whole personality).
+# The VOICE has two layers. The shared FORMAT base (bridge + mechanics below) is the SAME for every
+# profile — it's the core that makes any caption (and the template format) land. The PERSONA (who this
+# creator IS) is PER-PROFILE: read from the active profile's persona.md, with the profile's own corpus
+# as the references. So a new creator gets the same format base IN THEIR voice — never Spence's.
+_BRIDGE = "\n\nBelow are your REAL captions — this is the voice, the range, AND the bar:\n\n{references}\n\n"
 
-The one voice you physically cannot stand is fake-professional or soft. A LinkedIn post, a finance-bro pitch, a corporate email ("independent liquidity reallocation specialist", "let me run it by accounting", "diversify your side-hustle portfolio"), a motivational poster or fortune-cookie proverb ("the dog that dreams of hunting wolves", "no one remembers the man who folded") — that's the exact opposite of you, it makes your skin crawl. When you talk money it's bags, rent, the come-up, Cash App, daddy's money — street and real, never cleaned-up corporate-speak.
+_MECHANICS = """What every one of your captions shares — the FORMAT instincts (feel them, don't check them off):
+- THE TWIST. The setup primes one read; the line flips to another — the GAP is the joke. It can be a decode, a reframe, a bait-and-switch, or a self-own — but the whole line exists to land that turn.
+- PRECISION. The twist maps EXACTLY — the two halves line up perfectly. Approximate or almost-funny is dead.
+- DEADPAN CONFIDENCE. Stated flat, like it's obvious, even when it's unhinged.
+- HYPER-SPECIFIC + VERY-ONLINE. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague.
+- ALWAYS SHARP — never generic, never corporate, never a motivational poster. Even a sincere line is a SPECIFIC truth or a parody, never a platitude."""
 
-Below are your REAL captions — this is the voice, the range, AND the bar:
+_DEFAULT_PERSONA = """You ARE this creator. The captions below are your real posts — your voice, your range, and the bar. Write only in that exact voice: the same register, slang, rhythm, and attitude. Never corporate, poetic, or generic."""
 
-{references}
 
-What every one of these shares (your instincts — feel them, don't check them off):
-- THE TWIST. The setup primes one thing; the line flips to another — the GAP is the joke. A homophone decode ("Iran this, Iran that" -> "I ran up a bag"), a reframe ("we ain't broke, we pre-rich"), a bait-and-switch ("I bet you have hoes / ahh so close, I have a gambling problem"), a self-own ("you're broke because you don't work, I'm broke because I make bad financial decisions — we are not the same").
-- PRECISION. The twist maps EXACTLY. "A fat chick saying she has big boobs is like an unemployed dude saying he has a day off" lands because the two map perfectly. Approximate or almost-funny is dead.
-- DEADPAN CONFIDENCE. Stated flat, like it's obvious, even when it's unhinged ("be more like a crackhead").
-- HYPER-SPECIFIC + VERY-ONLINE. Real specifics (vbucks, Adin Ross, 1099 vs W-2, a $200 casino trip), real slang, emoji when it lands.
-- ALWAYS SHARP — never generic, never corporate, never a poster. Even your sincere lines are SPECIFIC truths or parody ("nobody is good at the start, nobody is bad after 1000 attempts")."""
+def persona() -> str:
+    """The ACTIVE profile's authored persona embodiment (who this creator IS), or a neutral default."""
+    try:
+        with open(profiles.persona_path(), encoding="utf-8") as f:
+            t = f.read().strip()
+        if t:
+            return t
+    except Exception:  # noqa: BLE001
+        pass
+    return _DEFAULT_PERSONA
+
+
+def voice_system(ref_block: str) -> str:
+    """Compose the system prompt: per-profile PERSONA + the profile's references + the shared FORMAT base."""
+    return persona() + _BRIDGE.format(references=ref_block) + _MECHANICS
 
 
 def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
@@ -172,14 +189,14 @@ def generate(
         + "Here are " + str(n) + " of your own real captions — each one a DIFFERENT format you use. "
         "For EACH anchor, say something NEW in YOUR voice using that same format: the same structure, "
         "rhythm, and twist — but a fresh subject (never a rewrite of its joke). It has to sound "
-        "unmistakably like YOU — lowercase, slangy, blunt, money-brained, very-online — never cleaned "
-        "up, corporate, or poetic. Match the anchor's exact sharpness and hyper-specificity:\n\n"
+        "unmistakably like YOU — the captions above ARE your voice and the bar — never cleaned up, "
+        "corporate, or poetic. Match the anchor's exact sharpness and hyper-specificity:\n\n"
         + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
         '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
     )
-    text = complete_json(_SYS.format(references=ref_block), user, effort="high", max_tokens=4000)
+    text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=4000)
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         return []
@@ -218,14 +235,14 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             (f"Lean (soft): {note}\n\n" if note else "")
             + "Here's one of your own real captions — a format you use. Say something NEW in YOUR "
             "voice using that exact format: same structure, rhythm, and twist — but a fresh subject "
-            "(never a rewrite of its joke). Sound unmistakably like YOU — lowercase, slangy, blunt, "
-            "money-brained, very-online — never corporate or poetic. Match its sharpness and "
+            "(never a rewrite of its joke). Sound unmistakably like YOU — the captions above ARE your "
+            "voice and the bar — never corporate or poetic. Match its sharpness and "
             "hyper-specificity:\n\n"
             f"ANCHOR: {(anchor.get('caption') or '').strip()}\n\n"
             f"(Don't rehash these exact recent lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
-        text = complete_json(_SYS.format(references=ref_block), user, effort="high", max_tokens=1500)
+        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500)
         s, e = text.find("{"), text.rfind("}")
         if s == -1 or e == -1:
             return None

@@ -105,6 +105,10 @@ class ProfileActivate(BaseModel):
     id: uuid.UUID
 
 
+class PersonaUpdate(BaseModel):
+    persona: str
+
+
 def ensure_default_user() -> uuid.UUID:
     """The default profile id (first user = the 'Spence' profile, voice seeded). Used for SHARED
     writes (audio/template); clip/folder writes use the ACTIVE profile instead."""
@@ -397,6 +401,21 @@ def api_profile_delete(profile_id: uuid.UUID):
         profiles.delete_profile(profile_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@app.get("/api/profiles/{profile_id}/persona")
+def api_profile_persona_get(profile_id: uuid.UUID):
+    """The profile's authored VOICE persona (the per-profile half; the format base is shared in code)."""
+    return {"persona": profiles.read_persona(profile_id)}
+
+
+@app.post("/api/profiles/{profile_id}/persona")
+def api_profile_persona_set(profile_id: uuid.UUID, req: PersonaUpdate):
+    with SessionLocal() as s:
+        if s.get(User, profile_id) is None:
+            raise HTTPException(status_code=404, detail="profile not found")
+    profiles.write_persona(profile_id, req.persona)
     return {"ok": True}
 
 
