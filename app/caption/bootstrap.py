@@ -56,7 +56,11 @@ def bootstrap_from(target, source, limit: int = 40, reset: bool = False) -> int:
         chunk = src[i:i + 12]
         caps = reskin([r["caption"] for r in chunk], tp)
         for r, c in zip(chunk, caps):
-            new_refs.append({"caption": c, "source": "bootstrap", "persona_trait": r.get("persona_trait", "core")})
+            # Carry the source ref's why_it_works: the MECHANISM transfers through a reskin (same
+            # format/twist), so the explanation still applies — and L1 enrichment can use it.
+            new_refs.append({"caption": c, "source": "bootstrap",
+                             "why_it_works": (r.get("why_it_works") or "").strip(),
+                             "persona_trait": r.get("persona_trait", "core")})
 
     path = profiles.corpus_path(target)
     kept = load_refs(path)

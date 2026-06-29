@@ -58,20 +58,6 @@ def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file("grad
 def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid)
 
 
-def uses_v2(pid: uuid.UUID | None = None) -> bool:
-    """Whether this profile uses the principle-driven (v2) generation. Per-profile so we can roll it
-    out one creator at a time (Check first) without touching others' working engine."""
-    return os.path.exists(voice_file("engine_v2", pid))
-
-
-def set_v2(pid: uuid.UUID, on: bool) -> None:
-    p = voice_file("engine_v2", pid)
-    if on:
-        open(p, "w").close()
-    elif os.path.exists(p):
-        os.remove(p)
-
-
 def read_persona(pid: uuid.UUID) -> str:
     try:
         with open(persona_path(pid), encoding="utf-8") as f:

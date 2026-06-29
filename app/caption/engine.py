@@ -163,6 +163,15 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
     return anchors[:n]
 
 
+def _anchor_render(label: str, a: dict) -> str:
+    """Show the real caption AND the creator's own 'why it works' (the mechanism) so generation
+    transposes the MECHANISM to a fresh subject instead of re-skinning the surface sentence. Falls
+    back to caption-only when a ref has no why_it_works (e.g. a bootstrapped corpus)."""
+    cap = (a.get("caption") or "").strip()
+    why = (a.get("why_it_works") or "").strip()
+    return f"{label}: {cap}" + (f"\n   WHY IT LANDS: {why}" if why else "")
+
+
 def generate(
     audio_vibe: list[str] | None = None,
     audio_purpose: list[str] | None = None,
@@ -179,18 +188,16 @@ def generate(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
     )
     anchors = _pick_anchors(refs, n)
-    anchor_block = "\n\n".join(
-        f"ANCHOR {i + 1}: {(a.get('caption') or '').strip()}" for i, a in enumerate(anchors)
-    )
+    anchor_block = "\n\n".join(_anchor_render(f"ANCHOR {i + 1}", a) for i, a in enumerate(anchors))
     avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
     note = (notes or "").strip()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "Here are " + str(n) + " of your own real captions — each one a DIFFERENT format you use. "
-        "For EACH anchor, say something NEW in YOUR voice using that same format: the same structure, "
-        "rhythm, and twist — but a fresh subject (never a rewrite of its joke). It has to sound "
-        "unmistakably like YOU — the captions above ARE your voice and the bar — never cleaned up, "
-        "corporate, or poetic. Match the anchor's exact sharpness and hyper-specificity:\n\n"
+        + "Here are " + str(n) + " of your own real captions, each with WHY IT LANDS — the mechanism that "
+        "makes it hit. For EACH anchor, write a NEW line in YOUR voice that lands the SAME WAY (same mechanism, "
+        "same sharpness) on a genuinely FRESH subject. Transpose the WHY — do NOT re-skin the sentence or rewrite "
+        "its joke. It has to sound unmistakably like YOU — the captions above ARE your voice and the bar — never "
+        "cleaned up, corporate, or poetic. Match the anchor's exact hyper-specificity:\n\n"
         + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
@@ -233,12 +240,11 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     def one(anchor: dict) -> str | None:
         user = (
             (f"Lean (soft): {note}\n\n" if note else "")
-            + "Here's one of your own real captions — a format you use. Say something NEW in YOUR "
-            "voice using that exact format: same structure, rhythm, and twist — but a fresh subject "
-            "(never a rewrite of its joke). Sound unmistakably like YOU — the captions above ARE your "
-            "voice and the bar — never corporate or poetic. Match its sharpness and "
-            "hyper-specificity:\n\n"
-            f"ANCHOR: {(anchor.get('caption') or '').strip()}\n\n"
+            + "Here's one of your own real captions, with WHY IT LANDS — the mechanism that makes it hit. "
+            "Write a NEW line in YOUR voice that lands the SAME WAY (same mechanism, same sharpness) on a "
+            "genuinely fresh subject. Transpose the WHY; do NOT re-skin the sentence or rewrite its joke. Sound "
+            "unmistakably like YOU — the captions above ARE your voice and the bar — never corporate or poetic:\n\n"
+            + _anchor_render("ANCHOR", anchor) + "\n\n"
             f"(Don't rehash these exact recent lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
