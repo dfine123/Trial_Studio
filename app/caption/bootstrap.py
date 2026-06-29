@@ -15,11 +15,14 @@ from app import profiles
 from app.caption.llm import complete_json
 from app.corpus.store import load_refs
 
-_RESKIN_SYS = """You reskin short-form captions from one creator's voice into ANOTHER creator's voice. You're given the TARGET creator's persona, then a numbered list of SOURCE captions.
+_RESKIN_SYS = """You are LIGHTLY adapting captions from one creator's voice to a VERY SIMILAR creator's voice. The two are nearly the same — same degen, very-online, anti-simp humor — so MOST lines already fit the target and should come back exactly or almost exactly as they are.
 
-For EACH source caption: KEEP its exact format — the same structure, the same twist mechanism, the same rhythm and sharpness — but rewrite it fully in the TARGET's voice and world. Change the subject/framing so it's unmistakably the TARGET (their topics, their angle), and DROP anything that doesn't fit them (e.g. being broke, gambling, self-pity). It must NOT read as a copy of the source's subject — same FORMAT, new line in the target's voice. Keep it hyper-specific and very-online. ONE caption per source, same count, same order.
+For EACH source caption, do the MINIMUM:
+- If it already fits the target, return it UNCHANGED. Most will: girls, your boys, dating, status, loyalty, relatable bro takes all fit him directly — leave them alone.
+- ONLY edit the specific part that doesn't fit: drop self-pity / him calling HIMSELF broke (he is NOT broke), drop gambling, soften anything that clashes with an easy, unbothered, confident vibe. Change just that part; keep the rest verbatim.
+- Do NOT swap a subject that works (NEVER flip "your girl" to "your boy"). Do NOT force his job, business, money, clients, or "closing" into a line. Do NOT rewrite a clean joke just to make it "different." Same format, same subject — surgical edits only, where genuinely needed.
 
-Return ONLY JSON: {"captions": ["<reskinned 1>", "<reskinned 2>", ...]}"""
+Keep the count and order. Return ONLY JSON: {"captions": ["<adapted 1>", "<adapted 2>", ...]}"""
 
 
 def reskin(source_captions: list[str], target_persona: str) -> list[str]:
@@ -38,9 +41,10 @@ def reskin(source_captions: list[str], target_persona: str) -> list[str]:
         return []
 
 
-def bootstrap_from(target, source, limit: int = 40) -> int:
-    """Reskin up to `limit` of the source profile's (non-gambling) refs into the target's voice and
-    APPEND them to the target's corpus. Returns how many were added."""
+def bootstrap_from(target, source, limit: int = 40, reset: bool = False) -> int:
+    """Reskin up to `limit` of the source profile's (non-gambling) refs into the target's voice. With
+    reset=True the target's previous BOOTSTRAP refs are dropped first (real/ingested refs are kept);
+    otherwise it appends. Returns how many were added."""
     from app.caption.engine import _is_gambling   # lazy: avoid pulling the engine at module import
 
     src = [r for r in load_refs(profiles.corpus_path(source))
@@ -52,14 +56,15 @@ def bootstrap_from(target, source, limit: int = 40) -> int:
         chunk = src[i:i + 12]
         caps = reskin([r["caption"] for r in chunk], tp)
         for r, c in zip(chunk, caps):
-            new_refs.append({"caption": c, "persona_trait": r.get("persona_trait", "core")})
+            new_refs.append({"caption": c, "source": "bootstrap", "persona_trait": r.get("persona_trait", "core")})
 
     path = profiles.corpus_path(target)
-    start = len(load_refs(path)) + 1                 # continue ref-ids (append, never clobber real refs)
+    kept = load_refs(path)
+    if reset:
+        kept = [r for r in kept if r.get("source") != "bootstrap"]   # drop the old seed, keep real refs
+    combined = kept + new_refs
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        for j, nr in enumerate(new_refs):
-            f.write(json.dumps({"ref_id": f"r{start + j:03d}", "caption": nr["caption"],
-                                "source": "bootstrap", "persona_trait": nr["persona_trait"]},
-                               ensure_ascii=False) + "\n")
+    with open(path, "w", encoding="utf-8") as f:     # rewrite + renumber (small file; avoids id clashes)
+        for j, r in enumerate(combined):
+            f.write(json.dumps({**r, "ref_id": f"r{j + 1:03d}"}, ensure_ascii=False) + "\n")
     return len(new_refs)

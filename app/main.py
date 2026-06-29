@@ -112,6 +112,7 @@ class PersonaUpdate(BaseModel):
 class BootstrapRequest(BaseModel):
     from_profile: uuid.UUID | None = None   # source voice to reskin (default: the Spence profile)
     limit: int = 40
+    reset: bool = False                     # drop the previous bootstrap seed before re-seeding
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -180,7 +181,8 @@ def health() -> dict:
     except Exception as exc:  # noqa: BLE001
         detail = str(exc)
     return {"status": "ok" if db_ok else "degraded", "service": "trial-studio-indexing",
-            "database": db_ok, "detail": detail}
+            "database": db_ok, "detail": detail,
+            "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:7]}
 
 
 @app.post("/clips", response_model=schemas.ClipCreated, status_code=201)
@@ -434,7 +436,7 @@ def api_bootstrap_voice(profile_id: uuid.UUID, req: BootstrapRequest):
     src = req.from_profile or profiles.ensure_default_profile()
     from app.caption.bootstrap import bootstrap_from
     try:
-        n = bootstrap_from(target=profile_id, source=src, limit=req.limit)
+        n = bootstrap_from(target=profile_id, source=src, limit=req.limit, reset=req.reset)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"bootstrap failed: {exc}") from exc
     return {"ok": True, "added": n}
