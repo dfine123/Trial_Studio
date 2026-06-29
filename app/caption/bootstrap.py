@@ -41,10 +41,11 @@ def reskin(source_captions: list[str], target_persona: str) -> list[str]:
         return []
 
 
-def bootstrap_from(target, source, limit: int = 40, reset: bool = False) -> int:
-    """Reskin up to `limit` of the source profile's (non-gambling) refs into the target's voice. With
-    reset=True the target's previous BOOTSTRAP refs are dropped first (real/ingested refs are kept);
-    otherwise it appends. Returns how many were added."""
+def bootstrap_from(target, source, limit: int = 200, reset: bool = False) -> int:
+    """Reskin the source profile's (non-gambling) refs into the target's voice. `limit` defaults high
+    enough to cover the WHOLE corpus — capping it silently drops proven formats from the new creator's
+    voice (a 40-cap once dropped 45 of 85 formats). With reset=True the target's previous BOOTSTRAP
+    refs are dropped first (real/ingested refs are kept); otherwise it appends. Returns how many were added."""
     from app.caption.engine import _is_gambling   # lazy: avoid pulling the engine at module import
 
     src = [r for r in load_refs(profiles.corpus_path(source))

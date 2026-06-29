@@ -112,7 +112,7 @@ class PersonaUpdate(BaseModel):
 
 class BootstrapRequest(BaseModel):
     from_profile: uuid.UUID | None = None   # source voice to reskin (default: the Spence profile)
-    limit: int = 40
+    limit: int = 200                        # default covers the FULL corpus — don't silently drop proven formats
     reset: bool = False                     # drop the previous bootstrap seed before re-seeding
 
 
