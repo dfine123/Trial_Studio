@@ -98,6 +98,12 @@ def best_captions() -> list[str]:
     return [r["winner"] for r in _load_raw() if r.get("type") == "best" and r.get("winner")]
 
 
+def off_voice_captions() -> list[str]:
+    """Captions graded 'not this creator's voice' — a SEPARATE signal from keep/kill (the line may be
+    fine, it just isn't them). Used to refine the persona/corpus, not to score the format."""
+    return [r["caption"] for r in _load_raw() if r.get("type") == "verdict" and r.get("verdict") == "off_voice"]
+
+
 def dedupe() -> list[dict]:
     """One-time cleanup of an existing file: one verdict per caption (last wins) + unique pairs."""
     out: list[dict] = []

@@ -29,6 +29,7 @@
   .keep { background:#23314a; color:#cfe0ff; } .kill { background:#3a2230; color:#ffd0d8; } .best { background:#33301f; color:#ffd76a; }
   .keep.on { background:#1f7a4d; color:#fff; } .kill.on { background:#7a2330; color:#fff; } .best.on { background:#caa42e; color:#1a1500; }
   .card.kept { border-color:#1f7a4d; } .card.killed { border-color:#7a2330; opacity:.6; } .card.bestmark { border-color:#ffd76a; }
+  .offv { background:#2b2740; color:#d6cdf2; } .offv.on { background:#5a4a8a; color:#fff; } .card.offvoice { border-color:#5a4a8a; opacity:.7; }
   .next { width:100%; padding:15px; font-size:16px; background:#2a2a34; color:#ececf0; margin-top:8px; }
   .next.ready { background:#5b6cff; color:#fff; box-shadow:0 0 0 3px rgba(91,108,255,.25); }
 </style>
@@ -38,7 +39,7 @@
   <h1>Grade</h1>
   <p class="sub">Generate a batch, react to each, then hit Next batch.</p>
   <p class="legend">
-    <b>keep</b> = you'd post it &nbsp;·&nbsp; <b>kill</b> = it missed (drop a note on <i>why</i> — that's the most useful part) &nbsp;·&nbsp;
+    <b>keep</b> = you'd post it &nbsp;·&nbsp; <b>kill</b> = it missed (drop a note on <i>why</i> — that's the most useful part) &nbsp;·&nbsp; <b>✗ not his voice</b> = the line's fine but it isn't him (kept separate from kill) &nbsp;·&nbsp;
     <b>⭐ best</b> = the single standout of the 8 — one tap, one record (the engine learns it beat the rest). Optional, one per batch.
   </p>
   <div class="bar">
@@ -61,7 +62,7 @@ async function refreshStats() {
   try {
     const s = await (await fetch('/api/captions/stats')).json();
     document.getElementById('stats').textContent =
-      `${s.total} grades · ${s.keeps} keep / ${s.kills} kill / ${s.best} best`;
+      `${s.total} grades · ${s.keeps} keep / ${s.kills} kill / ${s.off_voice||0} off-voice / ${s.best} best`;
   } catch (e) {}
 }
 function ctx(c) { return { anchor: c.anchor_ref || null, mode:c.mode, lever:c.primary_lever, notes: document.getElementById('notes').value || null }; }
@@ -93,24 +94,31 @@ function render() {
     const card = document.createElement('div'); card.className = 'card';
     card.innerHTML = `<div class="cap"></div><div class="meta">${(c.mode||'')} · ${(c.primary_lever||'')}</div>
       <input class="note" placeholder="optional note — why it hit, or specifically what missed" />
-      <div class="btns"><button class="keep">keep</button><button class="kill">kill</button><button class="best">⭐ best</button></div>`;
+      <div class="btns"><button class="keep">keep</button><button class="kill">kill</button><button class="offv">✗ not his voice</button><button class="best">⭐ best</button></div>`;
     card.querySelector('.cap').textContent = c.text;
     const noteEl = card.querySelector('.note');
-    const keepB = card.querySelector('.keep'), killB = card.querySelector('.kill'), bestB = card.querySelector('.best');
-    keepB.onclick = () => setVerdict(i, 'keep', card, noteEl, keepB, killB);
-    killB.onclick = () => setVerdict(i, 'kill', card, noteEl, keepB, killB);
+    const keepB = card.querySelector('.keep'), killB = card.querySelector('.kill'),
+          offvB = card.querySelector('.offv'), bestB = card.querySelector('.best');
+    const verdBtns = [keepB, killB, offvB];
+    keepB.onclick = () => setVerdict(i, 'keep', card, noteEl, verdBtns);
+    killB.onclick = () => setVerdict(i, 'kill', card, noteEl, verdBtns);
+    offvB.onclick = () => setVerdict(i, 'off_voice', card, noteEl, verdBtns);
     bestB.onclick = () => setBest(i, card, bestB);
   wrap.appendChild(card);
   });
 }
-async function setVerdict(i, verdict, card, noteEl, keepB, killB) {
+async function setVerdict(i, verdict, card, noteEl, btns) {
   if (busy[i] || verdicts[i] === verdict) return;          // ignore double-click + no-op re-click
-  busy[i] = true; keepB.disabled = killB.disabled = true;
+  busy[i] = true; btns.forEach(b => b.disabled = true);
   try { await post('/api/captions/grade', { caption: batch[i].text, verdict, note: noteEl.value || null, context: ctx(batch[i]) }); }
-  finally { busy[i] = false; keepB.disabled = killB.disabled = false; }
+  finally { busy[i] = false; btns.forEach(b => b.disabled = false); }
   verdicts[i] = verdict;
-  card.classList.toggle('kept', verdict === 'keep'); card.classList.toggle('killed', verdict === 'kill');
-  keepB.classList.toggle('on', verdict === 'keep'); killB.classList.toggle('on', verdict === 'kill');
+  card.classList.toggle('kept', verdict === 'keep');
+  card.classList.toggle('killed', verdict === 'kill');
+  card.classList.toggle('offvoice', verdict === 'off_voice');
+  card.querySelector('.keep').classList.toggle('on', verdict === 'keep');
+  card.querySelector('.kill').classList.toggle('on', verdict === 'kill');
+  card.querySelector('.offv').classList.toggle('on', verdict === 'off_voice');
   updateProgress(); refreshStats();
 }
 async function setBest(i, card, bestB) {

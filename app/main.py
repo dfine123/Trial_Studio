@@ -109,6 +109,11 @@ class PersonaUpdate(BaseModel):
     persona: str
 
 
+class BootstrapRequest(BaseModel):
+    from_profile: uuid.UUID | None = None   # source voice to reskin (default: the Spence profile)
+    limit: int = 40
+
+
 def ensure_default_user() -> uuid.UUID:
     """The default profile id (first user = the 'Spence' profile, voice seeded). Used for SHARED
     writes (audio/template); clip/folder writes use the ACTIVE profile instead."""
@@ -417,6 +422,22 @@ def api_profile_persona_set(profile_id: uuid.UUID, req: PersonaUpdate):
             raise HTTPException(status_code=404, detail="profile not found")
     profiles.write_persona(profile_id, req.persona)
     return {"ok": True}
+
+
+@app.post("/api/profiles/{profile_id}/bootstrap-voice")
+def api_bootstrap_voice(profile_id: uuid.UUID, req: BootstrapRequest):
+    """Cold-start a profile's voice corpus by reskinning a SOURCE profile's proven formats into this
+    profile's voice (per its persona). Append-only. Then it can generate + be graded into its own voice."""
+    with SessionLocal() as s:
+        if s.get(User, profile_id) is None:
+            raise HTTPException(status_code=404, detail="profile not found")
+    src = req.from_profile or profiles.ensure_default_profile()
+    from app.caption.bootstrap import bootstrap_from
+    try:
+        n = bootstrap_from(target=profile_id, source=src, limit=req.limit)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"bootstrap failed: {exc}") from exc
+    return {"ok": True, "added": n}
 
 
 @app.post("/api/clips/{clip_id}/move")
@@ -976,5 +997,6 @@ def api_captions_stats():
         "total": len(g),
         "keeps": sum(1 for x in verdicts if x.get("verdict") == "keep"),
         "kills": sum(1 for x in verdicts if x.get("verdict") == "kill"),
+        "off_voice": sum(1 for x in verdicts if x.get("verdict") == "off_voice"),
         "best": sum(1 for x in g if x.get("type") == "best"),
     }
