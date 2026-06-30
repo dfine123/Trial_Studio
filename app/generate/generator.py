@@ -218,6 +218,7 @@ def generate_reel(
         raise RuntimeError("no indexed segments available to build a reel")
 
     # CAPTION FIRST — the caption is the post (a standalone joke). Skipped for blank-caption reels.
+    caption_candidates: list[dict] = []   # the captions that were available (best-of-N), for production grading
     if no_caption:
         caption_text = ""
     elif caption_text is None:
@@ -229,11 +230,14 @@ def generate_reel(
         note = (niche or "").strip() or None
         # BEST-OF-3: three independent caption generations, then the chooser picks the one to post.
         from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
-        candidates = generate_independent(k=3, notes=note, audio_energy=energy)
-        if not candidates:   # empty voice (e.g. a new profile with no corpus yet) -> fail clearly
+        caption_candidates = generate_independent(k=3, notes=note, audio_energy=energy)
+        if not caption_candidates:   # empty voice (e.g. a new profile with no corpus yet) -> fail clearly
             raise RuntimeError("this profile has no voice yet — add caption references to its corpus "
                                "before generating (the active profile's corpus is empty)")
-        caption_text = choose_best(candidates) or candidates[0]
+        texts = [c["text"] for c in caption_candidates]
+        caption_text = choose_best(texts) or texts[0]
+        for c in caption_candidates:            # record which candidate the chooser picked to post
+            c["chosen"] = (c["text"] == caption_text)
 
     # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes
     # the best-fitting clip per slot, rotating among near-equal fits (by usage) so a small library still
@@ -258,5 +262,18 @@ def generate_reel(
         cap_png = work_png
     compose_reel(shots, cap_png, audio_path, out_path, reel_dur)
 
+    # distinct clips actually used + the chosen caption's provenance — for the production-grading record
+    clips_used, seen = [], set()
+    for c in chosen:
+        cid = c["clip_id"]
+        if cid not in seen:
+            seen.add(cid)
+            clips_used.append({"clip_id": cid, "summary": (clip_meta.get(cid) or {}).get("summary")})
+    chosen_cand = next((c for c in caption_candidates if c.get("chosen")), None)
+
     return {"output": out_path, "caption": caption_text, "matched_clips": ranked[:3],
-            "duration": round(reel_dur, 2), "shots": len(shots), "sequence": chosen}
+            "duration": round(reel_dur, 2), "shots": len(shots), "sequence": chosen,
+            "candidates": caption_candidates,
+            "caption_id": chosen_cand.get("caption_id") if chosen_cand else None,
+            "caption_anchor_refs": ([chosen_cand["anchor_ref"]] if chosen_cand and chosen_cand.get("anchor_ref") else []),
+            "clips": clips_used}

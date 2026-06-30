@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel grading — Trial Studio</title>
+<style>
+  :root { --bg:#0b0d10; --card:#15181d; --card2:#1b1f25; --line:#262b33; --txt:#e8eaed; --dim:#8b929c; --accent:#3b82f6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; position:sticky; top:0; background:var(--bg); z-index:5; }
+  header h1 { font-size:18px; margin:0; font-weight:700; }
+  header .count { color:var(--dim); font-size:14px; }
+  a.link { color:var(--dim); text-decoration:none; font-size:13px; }
+  a.link:hover { color:var(--txt); }
+  .wrap { max-width:1080px; margin:0 auto; padding:24px; display:flex; flex-direction:column; gap:22px; }
+  .reel { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:grid; grid-template-columns:290px 1fr; }
+  @media (max-width:760px){ .reel { grid-template-columns:1fr; } }
+  .reel video { width:100%; height:100%; max-height:520px; background:#000; object-fit:contain; }
+  .body { padding:20px; display:flex; flex-direction:column; gap:15px; }
+  .label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
+  .chosen { background:var(--card2); border-left:3px solid var(--accent); border-radius:8px; padding:12px 14px; white-space:pre-wrap; }
+  .alts { display:flex; flex-direction:column; gap:8px; }
+  .alt { background:#11141a; border:1px solid var(--line); border-radius:8px; padding:10px 12px; color:var(--dim); white-space:pre-wrap; font-size:14px; }
+  .meta { color:var(--dim); font-size:13px; }
+  .clips { display:flex; flex-wrap:wrap; gap:6px; }
+  .clip { background:#11141a; border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:12px; color:var(--dim); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rate { display:flex; align-items:center; gap:14px; }
+  .rate input[type=range]{ flex:1; accent-color:var(--accent); }
+  .rate .val { font-size:22px; font-weight:700; width:58px; text-align:center; }
+  textarea { width:100%; background:#11141a; border:1px solid var(--line); border-radius:8px; color:var(--txt); padding:12px; font:inherit; resize:vertical; min-height:84px; }
+  .actions { display:flex; gap:10px; align-items:center; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 18px; font-weight:600; cursor:pointer; font-size:14px; }
+  button.skip { background:transparent; border:1px solid var(--line); color:var(--dim); }
+  button:disabled { opacity:.5; cursor:default; }
+  .empty { text-align:center; color:var(--dim); padding:80px 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reel grading</h1>
+  <span class="count" id="count"></span>
+  <span style="flex:1"></span>
+  <a class="link" href="/grade">caption grading →</a>
+  <a class="link" href="/">← studio</a>
+</header>
+<div class="wrap" id="wrap"><div class="empty">Loading…</div></div>
+<script>
+const wrap = document.getElementById('wrap');
+const countEl = document.getElementById('count');
+let reels = [];
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtClips(clips){
+  return (clips||[]).map(c => `<span class="clip" title="${esc(c.summary||'')}">${esc((c.summary||c.clip_id||'clip').slice(0,46))}</span>`).join('') || '<span class="meta">—</span>';
+}
+function card(reel){
+  const cands = reel.candidates||[];
+  const chosen = cands.find(c=>c.chosen) || {text: reel.caption};
+  const alts = cands.filter(c=>!c.chosen);
+  const altHtml = alts.length
+    ? `<div><div class="label">Other candidates that were available</div><div class="alts">${alts.map(a=>`<div class="alt">${esc(a.text)}</div>`).join('')}</div></div>`
+    : '';
+  const el = document.createElement('div');
+  el.className = 'reel';
+  el.innerHTML = `
+    <video src="${reel.reel_url}" controls preload="metadata"></video>
+    <div class="body">
+      <div><div class="label">Posted caption</div><div class="chosen">${esc(chosen.text||'(blank caption)')}</div></div>
+      ${altHtml}
+      <div class="meta">&#127925; ${esc((reel.audio&&reel.audio.description)||'audio')}</div>
+      <div><div class="label">Clips used</div><div class="clips">${fmtClips(reel.clips)}</div></div>
+      <div><div class="label">Rating</div><div class="rate"><input type="range" min="1" max="10" value="7"><span class="val">7 / 10</span></div></div>
+      <textarea placeholder="Notes — what worked, what didn't, was a different candidate better, did the clips fit… (this is the main signal)"></textarea>
+      <div class="actions">
+        <button class="submit">Submit grade</button>
+        <button class="skip">Skip for now</button>
+      </div>
+    </div>`;
+  const range = el.querySelector('input[type=range]');
+  const val = el.querySelector('.val');
+  range.oninput = () => { val.textContent = range.value + ' / 10'; };
+  el.querySelector('.submit').onclick = async (e) => {
+    e.target.disabled = true;
+    const notes = el.querySelector('textarea').value;
+    try {
+      await fetch('/api/reels/grade', { method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ reel_id: reel.reel_id, rating: parseInt(range.value,10), notes }) });
+    } catch(_) {}
+    remove(reel.reel_id);
+  };
+  el.querySelector('.skip').onclick = () => remove(reel.reel_id);
+  return el;
+}
+function remove(id){ reels = reels.filter(r => r.reel_id !== id); render(); }
+function render(){
+  countEl.textContent = reels.length ? `${reels.length} reel${reels.length>1?'s':''} to grade` : '';
+  wrap.innerHTML = '';
+  if(!reels.length){ wrap.innerHTML = '<div class="empty">No reels waiting to be graded — generate some in the Studio, then come back.</div>'; return; }
+  reels.forEach(r => wrap.appendChild(card(r)));
+}
+async function load(){
+  try { reels = await (await fetch('/api/reels/pending')).json(); }
+  catch(_) { reels = []; }
+  render();
+}
+load();
+</script>
+</body>
+</html>

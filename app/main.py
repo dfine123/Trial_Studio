@@ -720,6 +720,21 @@ def api_generate(req: GenerateRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 
+    try:    # capture the production context for END-OUTPUT grading (chosen caption + candidates + clips + audio)
+        from app.corpus import reels
+        reels.append({
+            "reel_id": name.rsplit(".", 1)[0],
+            "reel_url": f"/reels/{name}",
+            "audio": {"id": str(audio.id), "description": audio.description},
+            "caption": res.get("caption"),
+            "caption_id": res.get("caption_id"),
+            "caption_anchor_refs": res.get("caption_anchor_refs") or [],
+            "candidates": res.get("candidates") or [],
+            "clips": res.get("clips") or [],
+        })
+    except Exception:   # noqa: BLE001 — recording must never break generation
+        pass
+
     return {
         "reel_url": f"/reels/{name}",
         "caption": res["caption"],
@@ -961,6 +976,44 @@ def grade_page(request: Request):
     if not _is_authed(request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(_WEB_DIR, "grade.html"))
+
+
+# ── Reel (end-output) grading: rate the finished reel + see the candidate captions it chose between ──
+@app.get("/grade-reels")
+def grade_reels_page(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "grade_reels.html"))
+
+
+@app.get("/api/reels/pending")
+def api_reels_pending():
+    from app.corpus import reels
+    return reels.pending()
+
+
+class ReelGrade(BaseModel):
+    reel_id: str
+    rating: int | None = None        # /10 quality rating on the finished reel
+    notes: str | None = None         # free-text feedback (the primary signal)
+
+
+@app.post("/api/reels/grade")
+def api_reels_grade(req: ReelGrade):
+    from app.corpus import reels
+    rec = reels.record_grade(req.reel_id, req.rating, (req.notes or "").strip() or None)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="reel not found")
+    try:    # map the /10 rating onto the CHOSEN caption's anchor(s) so it feeds the rotation loop
+        anchors = rec.get("caption_anchor_refs") or []
+        if anchors and isinstance(req.rating, int):
+            if req.rating >= 7:
+                attribute.credit_verdict({"anchor_refs": anchors}, "keep")
+            elif req.rating <= 4:
+                attribute.credit_verdict({"anchor_refs": anchors}, "kill")
+    except Exception:   # noqa: BLE001
+        pass
+    return {"ok": True}
 
 
 @app.post("/api/captions/generate")

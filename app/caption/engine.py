@@ -234,12 +234,14 @@ def generate(
     return out
 
 
-def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None) -> list[str]:
+def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None) -> list[dict]:
     """k INDEPENDENT single-caption generations for best-of-N selection (the reel chooser layer).
 
     Each candidate rides a DISTINCT anchor (one usage update, no race) and is generated in its OWN
     call — no shared batch, no avoid-list cross-suppression between the k — so each is the model's
-    own best single shot. Runs the k calls in parallel. Returns refined candidate texts.
+    own best single shot. Runs the k calls in parallel. Returns candidate dicts {text, anchor_ref,
+    caption_id} — the available captions, each tagged with the anchor it came from, so the reel can
+    record which captions it chose between (production grading + the closed loop).
     """
     refs = load_refs()
     anchors = _pick_anchors(refs, max(1, k))
@@ -250,7 +252,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
     note = (notes or "").strip()
 
-    def one(anchor: dict) -> str | None:
+    def one(anchor: dict) -> dict | None:
         user = (
             (f"Lean (soft): {note}\n\n" if note else "")
             + "Here's one of your sharp captions, with WHY IT LANDS — it sets your voice and your bar. Write a "
@@ -267,12 +269,15 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
         if s == -1 or e == -1:
             return None
         try:
-            return (json.loads(text[s:e + 1]).get("text") or "").strip() or None
+            t = (json.loads(text[s:e + 1]).get("text") or "").strip()
         except json.JSONDecodeError:
             return None
+        return {"text": t, "anchor_ref": anchor.get("ref_id")} if t else None
 
     with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
         raw = [c for c in ex.map(one, anchors) if c]
-    cands = [c.get("text", "") for c in refine([{"text": c} for c in raw]) if (c.get("text") or "").strip()]
-    log_generated(cands)
-    return cands
+    out = [c for c in refine(raw) if (c.get("text") or "").strip()]
+    for c in out:
+        c["caption_id"] = _cid(c.get("text") or "")
+    log_generated([c.get("text", "") for c in out])
+    return out

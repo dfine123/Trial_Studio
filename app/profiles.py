@@ -55,6 +55,7 @@ def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file("gene
 def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_usage.json", pid)
 def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_scores.json", pid)
 def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file("grades.jsonl", pid)
+def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file("reels.jsonl", pid)
 def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid)
 
 
