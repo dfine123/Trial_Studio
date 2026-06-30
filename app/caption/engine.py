@@ -72,6 +72,7 @@ _BRIDGE = "\n\nBelow are your REAL captions — this is the voice, the range, AN
 _MECHANICS = """What every one of your captions shares — the FORMAT instincts (feel them, don't check them off):
 - THE TWIST. The setup primes one read; the line flips to another — the GAP is the joke. It can be a decode, a reframe, a bait-and-switch, or a self-own — but the whole line exists to land that turn.
 - PRECISION. The twist maps EXACTLY — the two halves line up perfectly. Approximate or almost-funny is dead.
+- ECONOMY. The hit lands in the fewest words that carry it — one clean move, then stop. You trust the reader to get it: never explain the joke, pad the setup, or tack on a second and third payoff. Most of your best lines are dead-simple; length is earned ONLY when every beat does real work. If a line can be cut and still hits, it was too long.
 - DEADPAN CONFIDENCE. Stated flat, like it's obvious, even when it's unhinged.
 - HYPER-SPECIFIC + VERY-ONLINE. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague.
 - ALWAYS SHARP — never generic, never corporate, never a motivational poster. Even a sincere line is a SPECIFIC truth or a parody, never a platitude."""

@@ -235,13 +235,13 @@ def generate_reel(
                                "before generating (the active profile's corpus is empty)")
         caption_text = choose_best(candidates) or candidates[0]
 
-    # Clips react to the caption (soft), but VARIETY leads — least-used clips across reels win,
-    # so the whole library gets exercised instead of the same few flashy ones. Blank reels have no
-    # caption to react to, so variety leads alone.
+    # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes
+    # the best-fitting clip per slot, rotating among near-equal fits (by usage) so a small library still
+    # varies. Blank reels have no caption to fit, so selection falls back to pure least-used variety.
     ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta)
-    preferred = set(ranked[: max(3, len(ranked) // 2)])
+    fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
-                             preferred_clip_ids=preferred, usage=_load_clip_usage())
+                             fit_rank=fit_rank, usage=_load_clip_usage())
     _log_clip_usage([c["clip_id"] for c in chosen])
 
     if sources is None:

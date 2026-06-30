@@ -68,24 +68,26 @@ def select_segments(
     slots: list[Slot],
     segments: list[dict],
     caption_vibe_tags: list[str] | None = None,
-    preferred_clip_ids: set[str] | None = None,
+    fit_rank: dict[str, int] | None = None,
     usage: dict[str, int] | None = None,
     min_seg: float = 0.8,
 ) -> list[dict]:
-    """Assign a segment to each slot. VARIETY-FIRST: the least-used clips win — globally across
-    reels (via `usage`) and within this reel — so the whole library gets exercised instead of the
-    same few flashy clips. Caption match (`preferred_clip_ids`) + usability are soft tiebreakers,
-    a random tiebreak breaks exact ties, and consecutive shots avoid the same clip. Returns the
-    reel sequence."""
+    """Assign a segment to each slot. CAPTION-FIT LEADS: each clip scores = its caption-fit position
+    (`fit_rank`, 0 = best) plus a rotation penalty — a STRONG one for reuse WITHIN this reel (so shots
+    stay distinct) and a MILD one for cross-reel `usage` (so a small library still rotates instead of
+    repeating one hero clip). Lowest score wins, so fit dominates and freshness only breaks near-ties.
+    Vibe + usability + a random tiebreak settle the rest; consecutive shots avoid the same clip. With no
+    caption (blank reel) `fit_rank` is empty, so every clip ties on fit and selection is pure variety.
+    Returns the reel sequence."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
-    pref = preferred_clip_ids or set()
+    fit_rank = fit_rank or {}
     usage = usage or {}
+    worst_fit = (max(fit_rank.values()) + 1) if fit_rank else 0  # unranked clips sort after ranked ones
 
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
 
     chosen: list[dict] = []
-    seg_used: dict[str, int] = {}
     clip_used: dict[str, int] = {}
 
     for slot in slots:
@@ -97,16 +99,15 @@ def select_segments(
         ranked = sorted(
             [s for s in pool if s["clip_id"] != prev_clip] or pool,
             key=lambda s: (
-                -(usage.get(s["clip_id"], 0) + 3 * clip_used.get(s["clip_id"], 0)),  # least-used FIRST
-                1 if s["clip_id"] in pref else 0,      # caption match — soft tiebreaker
-                vibe_score(s),
-                s.get("usability_score") or 0.0,
-                random.random(),                       # break exact ties randomly
+                fit_rank.get(s["clip_id"], worst_fit)                            # caption fit LEADS (0 = best)
+                + 4.0 * clip_used.get(s["clip_id"], 0)                           # strong: keep shots distinct within a reel
+                + 0.5 * usage.get(s["clip_id"], 0),                              # mild: rotate across reels
+                -vibe_score(s),                                                  # audio-vibe match (higher better)
+                -(s.get("usability_score") or 0.0),                             # clip quality (higher better)
+                random.random(),                                                 # break exact ties
             ),
-            reverse=True,
         )
         seg = ranked[0]
-        seg_used[seg["id"]] = seg_used.get(seg["id"], 0) + 1
         clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
 
         seg_dur = seg.get("duration") or length
