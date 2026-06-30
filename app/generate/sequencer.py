@@ -12,6 +12,7 @@ coherence locking are Phase 3.
 """
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 
@@ -71,21 +72,32 @@ def select_segments(
     fit_rank: dict[str, int] | None = None,
     usage: dict[str, int] | None = None,
     min_seg: float = 0.8,
+    temperature: float = 2.0,
 ) -> list[dict]:
-    """Assign a segment to each slot. CAPTION-FIT LEADS: each clip scores = its caption-fit position
-    (`fit_rank`, 0 = best) plus a rotation penalty — a STRONG one for reuse WITHIN this reel (so shots
-    stay distinct) and a MILD one for cross-reel `usage` (so a small library still rotates instead of
-    repeating one hero clip). Lowest score wins, so fit dominates and freshness only breaks near-ties.
-    Vibe + usability + a random tiebreak settle the rest; consecutive shots avoid the same clip. With no
-    caption (blank reel) `fit_rank` is empty, so every clip ties on fit and selection is pure variety.
+    """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
+    its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
+    + a cross-reel `usage` penalty (rotation) − a small vibe/quality bonus. Instead of always taking the
+    lowest-cost clip, we SAMPLE one with probability ∝ exp(−cost/temperature): the best fit is the most
+    likely, but the next few fits each get a real share — so successive reels genuinely vary their footage
+    instead of the fit ranker (a single greedy call that structurally CAN'T create variety) landing on the
+    same hero clips every time. Higher `temperature` = more variety; clearly-bad-fit clips stay rare.
+    Consecutive shots avoid the same clip; blank reels (empty fit_rank) sample on pure freshness.
     Returns the reel sequence."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
     fit_rank = fit_rank or {}
     usage = usage or {}
-    worst_fit = (max(fit_rank.values()) + 1) if fit_rank else 0  # unranked clips sort after ranked ones
+    worst_fit = (max(fit_rank.values()) + 1) if fit_rank else 0  # unranked clips cost more than any ranked one
 
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
+
+    def cost(s: dict, clip_used: dict[str, int]) -> float:
+        cid = s["clip_id"]
+        return (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
+                + 4.0 * clip_used.get(cid, 0)                      # strong: distinct shots within a reel
+                + 1.5 * usage.get(cid, 0)                          # rotate across reels
+                - 0.7 * vibe_score(s)                              # audio-vibe bonus
+                - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
 
     chosen: list[dict] = []
     clip_used: dict[str, int] = {}
@@ -96,18 +108,11 @@ def select_segments(
         pool = [s for s in segments if (s.get("duration") or 0.0) >= length] or \
                [s for s in segments if (s.get("duration") or 0.0) >= min_seg] or list(segments)
         prev_clip = chosen[-1]["clip_id"] if chosen else None
-        ranked = sorted(
-            [s for s in pool if s["clip_id"] != prev_clip] or pool,
-            key=lambda s: (
-                fit_rank.get(s["clip_id"], worst_fit)                            # caption fit LEADS (0 = best)
-                + 4.0 * clip_used.get(s["clip_id"], 0)                           # strong: keep shots distinct within a reel
-                + 0.5 * usage.get(s["clip_id"], 0),                              # mild: rotate across reels
-                -vibe_score(s),                                                  # audio-vibe match (higher better)
-                -(s.get("usability_score") or 0.0),                             # clip quality (higher better)
-                random.random(),                                                 # break exact ties
-            ),
-        )
-        seg = ranked[0]
+        cands = [s for s in pool if s["clip_id"] != prev_clip] or pool
+        costs = [cost(s, clip_used) for s in cands]
+        lo = min(costs)
+        weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
+        seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced
         clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
 
         seg_dur = seg.get("duration") or length
