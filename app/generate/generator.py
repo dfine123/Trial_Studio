@@ -193,6 +193,40 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict, max_clips: int =
     return ranked
 
 
+_AUDIO_MATCH_SYS = """You pick the AUDIO that best backs a short-form caption for a 9:16 reel — the track's vibe should AMPLIFY the caption's tone. A blunt / deadpan / contemptuous line wants blunt, hard, aggressive audio; an absurd flex or a hype brag wants upbeat / celebratory; a reflective or sincere line wants slower / atmospheric. Match the ENERGY and the ATTITUDE, not the topic.
+
+Return ONLY JSON, no prose: {"best": <0-based index of the best-fitting audio>}"""
+
+
+def match_audio(caption: str, audio_descs: list[str]) -> int:
+    """Index of the audio whose vibe best amplifies the caption. Falls back to 0 on error / one choice."""
+    if len(audio_descs) <= 1:
+        return 0
+    listing = "\n".join(f"[{i}] {d}" for i, d in enumerate(audio_descs))
+    try:
+        out = complete_json(_AUDIO_MATCH_SYS, f"CAPTION:\n{caption}\n\nAUDIOS:\n{listing}", effort="low", max_tokens=100)
+        s, e = out.find("{"), out.rfind("}")
+        bi = int(json.loads(out[s:e + 1]).get("best", 0))
+        return bi if 0 <= bi < len(audio_descs) else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str, list[dict]]:
+    """Best-of-3 caption for a reel (audio-agnostic). Returns (chosen_text, candidates) with the chosen
+    one flagged — shared by generate_reel and the audio-first matching path."""
+    from app.caption.chooser import choose_best
+    from app.caption.engine import generate_independent
+    cands = generate_independent(k=3, notes=(niche or None), audio_energy=energy)
+    if not cands:
+        raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
+    texts = [c["text"] for c in cands]
+    chosen = choose_best(texts) or texts[0]
+    for c in cands:
+        c["chosen"] = (c["text"] == chosen)
+    return chosen, cands
+
+
 def generate_reel(
     audio_path: str,
     niche: str,
@@ -203,6 +237,7 @@ def generate_reel(
     audio_energy: str | None = None,
     audio_vibe: list[str] | None = None,
     caption_text: str | None = None,
+    caption_candidates: list[dict] | None = None,
     caption_vibe: list[str] | None = None,
     no_caption: bool = False,
     sources: dict[str, str] | None = None,
@@ -218,26 +253,14 @@ def generate_reel(
         raise RuntimeError("no indexed segments available to build a reel")
 
     # CAPTION FIRST — the caption is the post (a standalone joke). Skipped for blank-caption reels.
-    caption_candidates: list[dict] = []   # the captions that were available (best-of-N), for production grading
+    caption_candidates = list(caption_candidates or [])   # pre-generated (audio-first match) or filled below
     if no_caption:
         caption_text = ""
     elif caption_text is None:
-        from app.caption.chooser import choose_best
-
         bpm = audio_bpm or bp.bpm
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
-        # Keep notes MINIMAL — piling niche/audio/vibe context into the prompt degrades the engine.
-        note = (niche or "").strip() or None
-        # BEST-OF-3: three independent caption generations, then the chooser picks the one to post.
-        from app.caption.engine import generate_independent  # lazy: pulls anthropic + corpus
-        caption_candidates = generate_independent(k=3, notes=note, audio_energy=energy)
-        if not caption_candidates:   # empty voice (e.g. a new profile with no corpus yet) -> fail clearly
-            raise RuntimeError("this profile has no voice yet — add caption references to its corpus "
-                               "before generating (the active profile's corpus is empty)")
-        texts = [c["text"] for c in caption_candidates]
-        caption_text = choose_best(texts) or texts[0]
-        for c in caption_candidates:            # record which candidate the chooser picked to post
-            c["chosen"] = (c["text"] == caption_text)
+        # BEST-OF-3 caption (audio-agnostic; the chooser picks the one to post). Notes stay MINIMAL.
+        caption_text, caption_candidates = generate_caption((niche or "").strip() or None, energy)
 
     # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes
     # the best-fitting clip per slot, rotating among near-equal fits (by usage) so a small library still

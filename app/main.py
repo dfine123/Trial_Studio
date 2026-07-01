@@ -712,11 +712,30 @@ def api_generate(req: GenerateRequest):
         if not clip_ids:
             raise HTTPException(status_code=400, detail="no indexed clips in that folder yet — upload + index some first")
 
+    # AUDIO-FIRST MATCH: when the operator lets us pick the track ("Mix"), generate the caption FIRST and
+    # pick the audio whose vibe amplifies it — instead of the blind random draw above.
+    pre_caption, pre_cands = None, None
+    if req.audio_id is None and not req.no_caption:
+        try:
+            from app.generate.generator import generate_caption, match_audio
+            with SessionLocal() as s:
+                choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
+            if len(choices) > 1:
+                pre_caption, pre_cands = generate_caption(niche or None)
+                bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in choices])
+                audio = choices[bi]
+                _p = _audio_path(audio)
+                if _p:
+                    audio_path = _p
+        except Exception:  # noqa: BLE001 — fall back to the random audio + inline caption gen
+            pre_caption, pre_cands = None, None
+
     try:
         res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
                             audio_desc=audio.description, audio_bpm=audio.bpm,
                             audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
-                            clip_ids=clip_ids, no_caption=req.no_caption)
+                            clip_ids=clip_ids, no_caption=req.no_caption,
+                            caption_text=pre_caption, caption_candidates=pre_cands)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 
