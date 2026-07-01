@@ -992,6 +992,12 @@ def api_reels_pending():
     return reels.pending()
 
 
+@app.get("/api/reels/graded")
+def api_reels_graded():
+    from app.corpus import reels
+    return reels.graded()
+
+
 class ReelGrade(BaseModel):
     reel_id: str
     rating: int | None = None        # /10 quality rating on the finished reel

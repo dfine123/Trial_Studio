@@ -72,3 +72,8 @@ def record_grade(reel_id: str, rating, notes, pid=None) -> dict | None:
                 target = r
         _rewrite(recs, pid)
         return target
+
+
+def graded(pid=None) -> list[dict]:
+    """Reels that have been graded (carry a rating/notes) — the production feedback, newest first."""
+    return [r for r in reversed(_load(pid)) if r.get("grade")]
