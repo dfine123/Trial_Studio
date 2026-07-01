@@ -998,6 +998,29 @@ def api_reels_graded():
     return reels.graded()
 
 
+@app.post("/api/reels/learn")
+def api_reels_learn():
+    """Backfill: mine every graded reel's note for a 'should have picked X' pairwise preference (active
+    profile), idempotent, seeding the chooser's taste from the existing feedback."""
+    from app.caption import taste
+    from app.corpus import reels
+    n = 0
+    for r in reels.graded():
+        try:
+            if taste.learn_from_reel(r):
+                n += 1
+        except Exception:  # noqa: BLE001
+            pass
+    return {"ok": True, "pairs_captured": n}
+
+
+@app.get("/api/reels/calibration")
+def api_reels_calibration():
+    """What the chooser has learned about this operator's taste (transparency / verification)."""
+    from app.caption import taste
+    return {"calibration": taste.calibration()}
+
+
 class ReelGrade(BaseModel):
     reel_id: str
     rating: int | None = None        # /10 quality rating on the finished reel
@@ -1017,6 +1040,11 @@ def api_reels_grade(req: ReelGrade):
                 attribute.credit_verdict({"anchor_refs": anchors}, "keep")
             elif req.rating <= 4:
                 attribute.credit_verdict({"anchor_refs": anchors}, "kill")
+    except Exception:   # noqa: BLE001
+        pass
+    try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference
+        from app.caption import taste
+        taste.learn_from_reel(rec)
     except Exception:   # noqa: BLE001
         pass
     return {"ok": True}

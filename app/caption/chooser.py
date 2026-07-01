@@ -11,7 +11,7 @@ import json
 
 from app.caption.llm import complete_json
 
-_SYS = """You ARE this creator, staring at a few of your own draft captions and picking the ONE you'd actually post. Pick the one with the sharpest twist, the most hyper-specific and very-online detail, the most "screenshot it and send it to the group chat" energy — the one most unmistakably YOU. Kill anything that reads generic, corporate, soft/poetic, factually off, or like a watered-down version of a better idea. Trust your gut.
+_SYS = """You ARE this creator, staring at a few of your own draft captions and picking the ONE you'd actually post. Pick the one that lands from ABOVE its subject (contempt / superiority / an absurd flip / stated-like-it's-obvious), is hyper-specific in the setup AND the payoff, and actually CONNECTS — the one you'd screenshot and send to the group chat. Kill the ones that go earnest / self-pitying / soft, that are on-format but say nothing, that carry a filler word ("bro") doing no work, that tack on a second line the joke didn't need, or that read like a watered-down version of a sharper idea already in the set. ANY topic (corporate, work, money, a breakup, even sincere) is fine as long as the STANCE is right — never kill a line just for its topic.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
 
@@ -24,8 +24,16 @@ def choose_best(candidates: list[str]) -> str:
     if len(cands) == 1:
         return cands[0]
     listing = "\n\n".join(f"[{i}] {c}" for i, c in enumerate(cands))
+    system = _SYS
+    try:                                    # calibrate the gut with what THIS operator has actually graded
+        from app.caption.taste import calibration
+        cal = calibration()
+        if cal:
+            system = _SYS + "\n\n--- YOUR TASTE (learned from reels you've graded) ---\n" + cal
+    except Exception:  # noqa: BLE001
+        pass
     try:
-        out = complete_json(_SYS, f"Pick the ONE you'd actually post:\n\n{listing}", effort="medium", max_tokens=500)
+        out = complete_json(system, f"Pick the ONE you'd actually post:\n\n{listing}", effort="medium", max_tokens=500)
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):
