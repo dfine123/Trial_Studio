@@ -68,7 +68,14 @@ async function generateBatch(){
   btn.disabled = true;
   for (let i = 0; i < 3; i++){
     btn.textContent = 'Generating ' + (i + 1) + '/3…';
-    try { await fetch('/api/generate' + Q, { method:'POST', headers:{'content-type':'application/json'}, body:'{}' }); } catch(_){}
+    try {
+      const r = await fetch('/api/generate' + Q, { method:'POST', headers:{'content-type':'application/json'}, body:'{}' });
+      if (!r.ok) {
+        const d = await r.json().catch(()=>({}));
+        btn.textContent = '⚠ ' + ((d.detail || ('HTTP ' + r.status)) + '').slice(0, 90);
+        btn.disabled = false; return;   // surface the error instead of spinning silently
+      }
+    } catch(e){ btn.textContent = '⚠ ' + e; btn.disabled = false; return; }
     await load();
   }
   btn.textContent = '+ Generate 3 test reels'; btn.disabled = false;
