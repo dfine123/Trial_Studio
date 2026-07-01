@@ -1024,9 +1024,8 @@ def api_reels_graded():
 
 @app.post("/api/reels/learn")
 def api_reels_learn():
-    """Backfill: mine every graded reel's note (active profile, idempotent) for a 'should have picked X'
-    pairwise preference AND an off_voice STANCE negative — seeding the chooser's taste + the voice's
-    on/off-voice calibration from the existing feedback."""
+    """Learn from the round: mine every graded reel's note for pairwise/off_voice signals (idempotent),
+    THEN (re)distill the creator's high-level TASTE so the chooser reads what makes their captions hit."""
     from app.caption import taste
     from app.corpus import reels
     pw, ov = 0, 0
@@ -1037,14 +1036,21 @@ def api_reels_learn():
             ov += 1 if got.get("off_voice") else 0
         except Exception:  # noqa: BLE001
             pass
-    return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov}
+    return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, "taste": taste.refresh_taste()}
+
+
+@app.post("/api/reels/refresh-taste")
+def api_reels_refresh_taste():
+    """(Re)distill the creator's taste from everything graded so far, cache it for the chooser."""
+    from app.caption import taste
+    return taste.refresh_taste()
 
 
 @app.get("/api/reels/calibration")
 def api_reels_calibration():
-    """What the chooser has learned about this operator's taste (transparency / verification)."""
+    """The distilled TASTE the chooser now reads — what makes this creator's captions hit (transparency)."""
     from app.caption import taste
-    return {"calibration": taste.calibration()}
+    return {"taste": taste.distilled_taste()}
 
 
 @app.get("/api/refs/audit")

@@ -11,7 +11,7 @@ import json
 
 from app.caption.llm import complete_json
 
-_SYS = """You ARE this creator, staring at a few of your own draft captions and picking the ONE you'd actually post — the one you'd screenshot and send to the group chat. Pick on gut, across your FULL range: your voice spans crude wordplay, villain/flex, deadpan-degenerate confession, absurd bits, self-owns, AND genuinely sincere grindset/wisdom — any of those can be the pick. Take the one that's hyper-specific (setup AND payoff) and actually CONNECTS — a real observation, not a shape that's on-format but says nothing. Kill the ones that are generic, or a watered-down version of a sharper idea already in the set, that collapse into limp self-pity (narrating the wound from inside instead of landing a point), or that carry a filler word or a tacked-on line doing no work. NEVER kill a line for its TOPIC (corporate, money, a breakup) or its REGISTER — a sincere line is fine when it's a specific truth or a parody; judge only whether it lands.
+_SYS = """You ARE this creator, looking at a few of your own draft captions and choosing the ONE you'd actually post. Pick the single best caption AS A WHOLE — reading it cold, which one actually HITS: it makes you stop, it rings true, and the turn LANDS clean in one read — the kind you'd screenshot and send. You know your own range — crude wordplay, villain flex, degenerate confession, absurd bits, self-owns, and genuinely sincere grindset wisdom are ALL you; judge each purely on whether it CONNECTS, never on its topic or its register. A clever idea that fumbles the landing loses to a simpler line that lands. Go with your gut on the one that actually hits.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
 
@@ -25,15 +25,15 @@ def choose_best(candidates: list[str]) -> str:
         return cands[0]
     listing = "\n\n".join(f"[{i}] {c}" for i, c in enumerate(cands))
     system = _SYS
-    try:                                    # calibrate the gut with what THIS operator has actually graded
-        from app.caption.taste import calibration
-        cal = calibration()
-        if cal:
-            system = _SYS + "\n\n--- YOUR TASTE (learned from reels you've graded) ---\n" + cal
+    try:                                    # the creator's learned TASTE — what makes THEIR captions hit
+        from app.caption.taste import distilled_taste
+        taste = distilled_taste()
+        if taste:
+            system = _SYS + "\n\n--- WHAT MAKES YOUR CAPTIONS HIT (distilled from everything you've graded) ---\n" + taste
     except Exception:  # noqa: BLE001
         pass
     try:
-        out = complete_json(system, f"Pick the ONE you'd actually post:\n\n{listing}", effort="medium", max_tokens=500)
+        out = complete_json(system, f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500)
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):
