@@ -50,7 +50,12 @@ def compose_reel(
         vmap = "[outv]"
     else:
         vmap = "[cat]"
-    chains.append(f"[{audio_idx}:a]loudnorm=I=-14:TP=-1.5:LRA=11[outa]")
+    # the track is trimmed to the (caption-scaled) reel length — fade the cut so it doesn't end abruptly
+    fade = min(0.35, reel_duration)
+    audio_chain = f"[{audio_idx}:a]loudnorm=I=-14:TP=-1.5:LRA=11"
+    if fade > 0.0:
+        audio_chain += f",afade=t=out:st={max(0.0, reel_duration - fade):.3f}:d={fade:.3f}"
+    chains.append(audio_chain + "[outa]")
     filtergraph = ";".join(chains)
 
     cmd += [

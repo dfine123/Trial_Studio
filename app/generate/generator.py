@@ -227,6 +227,17 @@ def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str,
     return chosen, cands
 
 
+_DUR_MIN = 5.0   # a reel is just the caption over b-roll — at least this long to read the line + let it land
+_DUR_MAX = 9.0   # ...and never longer, even for a long caption
+
+
+def _target_duration(caption: str) -> float:
+    """Reel length SCALES with the caption, clamped to [5s, 9s]: ~3 words/sec silent read + a ~1.8s landing
+    beat. A short punchline runs ~5s; a long one caps at 9s — never the full ~15s track."""
+    words = len((caption or "").split())
+    return max(_DUR_MIN, min(_DUR_MAX, 1.8 + words / 3.0))
+
+
 def generate_reel(
     audio_path: str,
     niche: str,
@@ -245,8 +256,6 @@ def generate_reel(
     work_png: str = "tmp/reel_caption.png",
 ) -> dict:
     bp = profile.analyze(audio_path)
-    slots = build_slot_plan(bp.beat_map, bp.duration)
-    reel_dur = slots[-1].end
 
     segs, clip_dur, clip_meta = _load_segments(clip_ids=clip_ids)
     if not segs:
@@ -261,6 +270,13 @@ def generate_reel(
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
         # BEST-OF-3 caption (audio-agnostic; the chooser picks the one to post). Notes stay MINIMAL.
         caption_text, caption_candidates = generate_caption((niche or "").strip() or None, energy)
+
+    # DURATION SCALES WITH THE CAPTION. A reel is just the caption over b-roll, so it runs only as long as
+    # the line needs to be read + land — ~5s short, up to 9s long, never the full track. Cap the beat plan
+    # (and, in compose, the audio) to that; a blank reel just stays under the 9s ceiling.
+    dur_cap = min(bp.duration, _DUR_MAX) if no_caption else _target_duration(caption_text)
+    slots = build_slot_plan(bp.beat_map, bp.duration, max_reel=dur_cap)
+    reel_dur = slots[-1].end
 
     # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes
     # the best-fitting clip per slot, rotating among near-equal fits (by usage) so a small library still
