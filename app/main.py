@@ -693,8 +693,12 @@ def api_audios():
 
 
 @app.post("/api/generate")
-def api_generate(req: GenerateRequest):
-    """One-button reel generation: audio -> caption -> beat-cut selection -> render."""
+def api_generate(req: GenerateRequest, backend: str | None = None):
+    """One-button reel generation: audio -> caption -> beat-cut selection -> render.
+
+    `backend` (TEST only): 'sonnet' | 'openai' routes the whole pipeline to that model + an isolated
+    reels/taste/rotation store; None = production Opus (unchanged)."""
+    from app.caption import backend as _bk
     with SessionLocal() as s:
         audio = s.get(Audio, req.audio_id) if req.audio_id else s.scalar(select(Audio).order_by(func.random()).limit(1))
     if audio is None or not audio.r2_key:
@@ -717,47 +721,50 @@ def api_generate(req: GenerateRequest):
         if not clip_ids:
             raise HTTPException(status_code=400, detail="no indexed clips in that folder yet — upload + index some first")
 
-    # AUDIO-FIRST MATCH: when the operator lets us pick the track ("Mix"), generate the caption FIRST and
-    # pick the audio whose vibe amplifies it — instead of the blind random draw above.
-    pre_caption, pre_cands = None, None
-    if req.audio_id is None and not req.no_caption:
+    # A TEST backend (Sonnet/OpenAI) routes the whole pipeline to that model + writes to an ISOLATED
+    # reels/rotation store; None = production Opus. Wraps caption gen + reel build + the grading record.
+    with _bk.using(backend):
+        # AUDIO-FIRST MATCH: when the operator lets us pick the track ("Mix"), generate the caption FIRST and
+        # pick the audio whose vibe amplifies it — instead of the blind random draw above.
+        pre_caption, pre_cands = None, None
+        if req.audio_id is None and not req.no_caption:
+            try:
+                from app.generate.generator import generate_caption, match_audio
+                with SessionLocal() as s:
+                    choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
+                if len(choices) > 1:
+                    pre_caption, pre_cands = generate_caption(niche or None)
+                    bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in choices])
+                    audio = choices[bi]
+                    _p = _audio_path(audio)
+                    if _p:
+                        audio_path = _p
+            except Exception:  # noqa: BLE001 — fall back to the random audio + inline caption gen
+                pre_caption, pre_cands = None, None
+
         try:
-            from app.generate.generator import generate_caption, match_audio
-            with SessionLocal() as s:
-                choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
-            if len(choices) > 1:
-                pre_caption, pre_cands = generate_caption(niche or None)
-                bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in choices])
-                audio = choices[bi]
-                _p = _audio_path(audio)
-                if _p:
-                    audio_path = _p
-        except Exception:  # noqa: BLE001 — fall back to the random audio + inline caption gen
-            pre_caption, pre_cands = None, None
+            res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
+                                audio_desc=audio.description, audio_bpm=audio.bpm,
+                                audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
+                                clip_ids=clip_ids, no_caption=req.no_caption,
+                                caption_text=pre_caption, caption_candidates=pre_cands)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 
-    try:
-        res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
-                            audio_desc=audio.description, audio_bpm=audio.bpm,
-                            audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
-                            clip_ids=clip_ids, no_caption=req.no_caption,
-                            caption_text=pre_caption, caption_candidates=pre_cands)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
-
-    try:    # capture the production context for END-OUTPUT grading (chosen caption + candidates + clips + audio)
-        from app.corpus import reels
-        reels.append({
-            "reel_id": name.rsplit(".", 1)[0],
-            "reel_url": f"/reels/{name}",
-            "audio": {"id": str(audio.id), "description": audio.description},
-            "caption": res.get("caption"),
-            "caption_id": res.get("caption_id"),
-            "caption_anchor_refs": res.get("caption_anchor_refs") or [],
-            "candidates": res.get("candidates") or [],
-            "clips": res.get("clips") or [],
-        })
-    except Exception:   # noqa: BLE001 — recording must never break generation
-        pass
+        try:    # capture the production context for END-OUTPUT grading (chosen caption + candidates + clips + audio)
+            from app.corpus import reels
+            reels.append({
+                "reel_id": name.rsplit(".", 1)[0],
+                "reel_url": f"/reels/{name}",
+                "audio": {"id": str(audio.id), "description": audio.description},
+                "caption": res.get("caption"),
+                "caption_id": res.get("caption_id"),
+                "caption_anchor_refs": res.get("caption_anchor_refs") or [],
+                "candidates": res.get("candidates") or [],
+                "clips": res.get("clips") or [],
+            })
+        except Exception:   # noqa: BLE001 — recording must never break generation
+            pass
 
     return {
         "reel_url": f"/reels/{name}",
@@ -1011,46 +1018,53 @@ def grade_reels_page(request: Request):
 
 
 @app.get("/api/reels/pending")
-def api_reels_pending():
+def api_reels_pending(backend: str | None = None):
+    from app.caption import backend as _bk
     from app.corpus import reels
-    return reels.pending()
+    with _bk.using(backend):
+        return reels.pending()
 
 
 @app.get("/api/reels/graded")
-def api_reels_graded():
+def api_reels_graded(backend: str | None = None):
+    from app.caption import backend as _bk
     from app.corpus import reels
-    return reels.graded()
+    with _bk.using(backend):
+        return reels.graded()
 
 
 @app.post("/api/reels/learn")
-def api_reels_learn():
+def api_reels_learn(backend: str | None = None):
     """Learn from the round: mine every graded reel's note for pairwise/off_voice signals (idempotent),
     THEN (re)distill the creator's high-level TASTE so the chooser reads what makes their captions hit."""
-    from app.caption import taste
+    from app.caption import backend as _bk, taste
     from app.corpus import reels
-    pw, ov = 0, 0
-    for r in reels.graded():
-        try:
-            got = taste.learn_from_reel(r)
-            pw += 1 if got.get("pairwise") else 0
-            ov += 1 if got.get("off_voice") else 0
-        except Exception:  # noqa: BLE001
-            pass
-    return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, "taste": taste.refresh_taste()}
+    with _bk.using(backend):
+        pw, ov = 0, 0
+        for r in reels.graded():
+            try:
+                got = taste.learn_from_reel(r)
+                pw += 1 if got.get("pairwise") else 0
+                ov += 1 if got.get("off_voice") else 0
+            except Exception:  # noqa: BLE001
+                pass
+        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, "taste": taste.refresh_taste()}
 
 
 @app.post("/api/reels/refresh-taste")
-def api_reels_refresh_taste():
+def api_reels_refresh_taste(backend: str | None = None):
     """(Re)distill the creator's taste from everything graded so far, cache it for the chooser."""
-    from app.caption import taste
-    return taste.refresh_taste()
+    from app.caption import backend as _bk, taste
+    with _bk.using(backend):
+        return taste.refresh_taste()
 
 
 @app.get("/api/reels/calibration")
-def api_reels_calibration():
+def api_reels_calibration(backend: str | None = None):
     """The distilled TASTE the chooser now reads — what makes this creator's captions hit (transparency)."""
-    from app.caption import taste
-    return {"taste": taste.distilled_taste()}
+    from app.caption import backend as _bk, taste
+    with _bk.using(backend):
+        return {"taste": taste.distilled_taste()}
 
 
 @app.get("/api/refs/audit")
@@ -1071,26 +1085,28 @@ class ReelGrade(BaseModel):
 
 
 @app.post("/api/reels/grade")
-def api_reels_grade(req: ReelGrade):
+def api_reels_grade(req: ReelGrade, backend: str | None = None):
+    from app.caption import backend as _bk
     from app.corpus import reels
-    rec = reels.record_grade(req.reel_id, req.rating, (req.notes or "").strip() or None)
-    if rec is None:
-        raise HTTPException(status_code=404, detail="reel not found")
-    try:    # map the /10 rating onto the CHOSEN caption's anchor(s) so it feeds the rotation loop
-        anchors = rec.get("caption_anchor_refs") or []
-        if anchors and isinstance(req.rating, int):
-            if req.rating >= 7:
-                attribute.credit_verdict({"anchor_refs": anchors}, "keep")
-            elif req.rating <= 4:
-                attribute.credit_verdict({"anchor_refs": anchors}, "kill")
-    except Exception:   # noqa: BLE001
-        pass
-    try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference
-        from app.caption import taste
-        taste.learn_from_reel(rec)
-    except Exception:   # noqa: BLE001
-        pass
-    return {"ok": True}
+    with _bk.using(backend):
+        rec = reels.record_grade(req.reel_id, req.rating, (req.notes or "").strip() or None)
+        if rec is None:
+            raise HTTPException(status_code=404, detail="reel not found")
+        try:    # map the /10 rating onto the CHOSEN caption's anchor(s) so it feeds the rotation loop
+            anchors = rec.get("caption_anchor_refs") or []
+            if anchors and isinstance(req.rating, int):
+                if req.rating >= 7:
+                    attribute.credit_verdict({"anchor_refs": anchors}, "keep")
+                elif req.rating <= 4:
+                    attribute.credit_verdict({"anchor_refs": anchors}, "kill")
+        except Exception:   # noqa: BLE001
+            pass
+        try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference
+            from app.caption import taste
+            taste.learn_from_reel(rec)
+        except Exception:   # noqa: BLE001
+            pass
+        return {"ok": True}
 
 
 @app.post("/api/captions/generate")

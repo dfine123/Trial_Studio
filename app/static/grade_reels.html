@@ -38,10 +38,13 @@
 </head>
 <body>
 <header>
-  <h1>Reel grading</h1>
+  <h1 id="title">Reel grading</h1>
   <span class="count" id="count"></span>
+  <span id="gen"></span>
   <span style="flex:1"></span>
-  <a class="link" href="/grade">caption grading →</a>
+  <a class="link" href="/grade-reels">production (Opus)</a>
+  <a class="link" href="/grade-reels?backend=sonnet">Sonnet&nbsp;5 test</a>
+  <a class="link" href="/grade-reels?backend=openai">OpenAI test</a>
   <a class="link" href="/">← studio</a>
 </header>
 <div class="wrap" id="wrap"><div class="empty">Loading…</div></div>
@@ -49,6 +52,27 @@
 const wrap = document.getElementById('wrap');
 const countEl = document.getElementById('count');
 let reels = [];
+
+// TEST backends: everything (generation, grading, pending) is scoped to the chosen model via ?backend=,
+// which the API routes to an ISOLATED store — production Opus is untouched.
+const BK = new URLSearchParams(location.search).get('backend') || '';
+const Q = BK ? ('?backend=' + encodeURIComponent(BK)) : '';
+const MODELS = { sonnet: 'Claude Sonnet 5', openai: 'OpenAI GPT-5.5' };
+if (BK) {
+  document.getElementById('title').textContent = 'Reel grading — ' + (MODELS[BK] || BK) + ' · TEST';
+  document.getElementById('gen').innerHTML = '<button id="genbtn">+ Generate 3 test reels</button>';
+  document.getElementById('genbtn').onclick = generateBatch;
+}
+async function generateBatch(){
+  const btn = document.getElementById('genbtn');
+  btn.disabled = true;
+  for (let i = 0; i < 3; i++){
+    btn.textContent = 'Generating ' + (i + 1) + '/3…';
+    try { await fetch('/api/generate' + Q, { method:'POST', headers:{'content-type':'application/json'}, body:'{}' }); } catch(_){}
+    await load();
+  }
+  btn.textContent = '+ Generate 3 test reels'; btn.disabled = false;
+}
 
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtClips(clips){
@@ -84,7 +108,7 @@ function card(reel){
     e.target.disabled = true;
     const notes = el.querySelector('textarea').value;
     try {
-      await fetch('/api/reels/grade', { method:'POST', headers:{'content-type':'application/json'},
+      await fetch('/api/reels/grade' + Q, { method:'POST', headers:{'content-type':'application/json'},
         body: JSON.stringify({ reel_id: reel.reel_id, rating: parseInt(range.value,10), notes }) });
     } catch(_) {}
     remove(reel.reel_id);
@@ -96,11 +120,11 @@ function remove(id){ reels = reels.filter(r => r.reel_id !== id); render(); }
 function render(){
   countEl.textContent = reels.length ? `${reels.length} reel${reels.length>1?'s':''} to grade` : '';
   wrap.innerHTML = '';
-  if(!reels.length){ wrap.innerHTML = '<div class="empty">No reels waiting to be graded — generate some in the Studio, then come back.</div>'; return; }
+  if(!reels.length){ wrap.innerHTML = '<div class="empty">' + (BK ? 'No test reels yet — hit “+ Generate 3 test reels” above (this runs the full pipeline on ' + (MODELS[BK]||BK) + ').' : 'No reels waiting to be graded — generate some in the Studio, then come back.') + '</div>'; return; }
   reels.forEach(r => wrap.appendChild(card(r)));
 }
 async function load(){
-  try { reels = await (await fetch('/api/reels/pending')).json(); }
+  try { reels = await (await fetch('/api/reels/pending' + Q)).json(); }
   catch(_) { reels = []; }
   render();
 }

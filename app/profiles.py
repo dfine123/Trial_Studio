@@ -49,14 +49,27 @@ def voice_file(name: str, pid: uuid.UUID | None = None) -> str:
     return os.path.join(profile_dir(pid or active_id()), name)
 
 
-# resolvers used across the voice stack (store / engine / genlog / grades)
+def _suffixed(name: str) -> str:
+    """Append the active TEST-backend suffix so its mutable state is isolated ('' for production)."""
+    from app.caption.backend import suffix   # lazy: avoid an import cycle at module load
+    s = suffix()
+    if not s:
+        return name
+    base, dot, ext = name.rpartition(".")
+    return f"{base}{s}.{ext}" if dot else name + s
+
+
+# resolvers used across the voice stack (store / engine / genlog / grades). references + persona are the
+# SHARED voice (read-only during generation) — never suffixed. The rest are MUTABLE (rotation / grades /
+# outputs / taste) and take the test-backend suffix so a Sonnet/OpenAI run stays fully isolated.
 def corpus_path(pid: uuid.UUID | None = None) -> str:    return voice_file("references.jsonl", pid)
-def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file("generated.jsonl", pid)
-def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_usage.json", pid)
-def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file("ref_scores.json", pid)
-def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file("grades.jsonl", pid)
-def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file("reels.jsonl", pid)
 def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid)
+def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("generated.jsonl"), pid)
+def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_usage.json"), pid)
+def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_scores.json"), pid)
+def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("grades.jsonl"), pid)
+def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)
+def taste_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("taste.md"), pid)
 
 
 def read_persona(pid: uuid.UUID) -> str:

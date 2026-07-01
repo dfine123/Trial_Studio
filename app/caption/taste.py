@@ -114,7 +114,7 @@ delivery/landing qualities that hold ACROSS all of them.
 
 
 def _taste_path(pid=None) -> str:
-    return profiles.voice_file("taste.md", pid)
+    return profiles.taste_path(pid)   # suffixed per active test backend (isolated); shared voice stays shared
 
 
 def _rating(r: dict) -> int:

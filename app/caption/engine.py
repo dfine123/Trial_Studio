@@ -14,6 +14,7 @@ scores are absent.
 """
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import os
@@ -276,8 +277,11 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             return None
         return {"text": t, "anchor_ref": anchor.get("ref_id")} if t else None
 
+    # copy_context() is evaluated HERE (request thread), carrying the active test backend into each
+    # worker; a fresh snapshot per task avoids concurrent re-entry. No-op for production (backend None).
     with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
-        raw = [c for c in ex.map(one, anchors) if c]
+        futs = [ex.submit(contextvars.copy_context().run, one, a) for a in anchors]
+        raw = [c for c in (f.result() for f in futs) if c]
     out = [c for c in refine(raw) if (c.get("text") or "").strip()]
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
