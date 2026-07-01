@@ -1092,13 +1092,13 @@ def api_reels_grade(req: ReelGrade, backend: str | None = None):
         rec = reels.record_grade(req.reel_id, req.rating, (req.notes or "").strip() or None)
         if rec is None:
             raise HTTPException(status_code=404, detail="reel not found")
-        try:    # map the /10 rating onto the CHOSEN caption's anchor(s) so it feeds the rotation loop
+        try:    # AMPLIFY winners only. A strong rating credits the anchor a "keep" (weights it up in
+                # rotation). We deliberately DON'T "kill" on a low rating: a weak reel is almost always a
+                # delivery or a SELECTION miss, not a bad FORMAT — and culling formats for low scores
+                # narrows the voice. Operator's standing rule: understand WHY it missed, never eliminate.
             anchors = rec.get("caption_anchor_refs") or []
-            if anchors and isinstance(req.rating, int):
-                if req.rating >= 7:
-                    attribute.credit_verdict({"anchor_refs": anchors}, "keep")
-                elif req.rating <= 4:
-                    attribute.credit_verdict({"anchor_refs": anchors}, "kill")
+            if anchors and isinstance(req.rating, int) and req.rating >= 8:
+                attribute.credit_verdict({"anchor_refs": anchors}, "keep")
         except Exception:   # noqa: BLE001
             pass
         try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference
