@@ -182,6 +182,43 @@ def _cid(text: str) -> str:
     return hashlib.sha1((text or "").encode("utf-8")).hexdigest()[:12]
 
 
+# ---- CRAFT-DEEPENED GROUNDING (A/B, off by default) ----
+# Raise the aim WITHOUT a transform layer: each anchor also teaches THE CRAFT of its landing (the exact
+# execution move), so generation aims at 9-craft per format instead of the 7-average. Grounding, not a
+# post-process — the model still invents freely, so the range/voice is preserved. Gated by a ContextVar
+# so production (off) is byte-for-byte unchanged.
+_CRAFT: contextvars.ContextVar[bool] = contextvars.ContextVar("craft_grounding", default=False)
+
+_CRAFT_SYS = """You are studying ONE of a creator's sharp captions to name the CRAFT of its landing — the specific execution move that makes THIS exact line hit so hard. NOT a generic virtue. It is faithful to THIS line, and it varies wildly line to line: a hyper-exact word or number, a concrete physical image, an absurd-but-airtight logical leap, a rhythm/cadence, a taboo edge, one precise real-world detail, or a genuinely true thing nobody says out loud. Name the ACTUAL move in this line — one tight sentence, concrete, never generic 'be specific' advice.
+
+Return ONLY JSON: {"craft": "<the move that makes THIS line land>"}"""
+
+
+def _anchor_craft(anchor: dict) -> str:
+    """The execution craft of ONE anchor (what makes its landing hit). Best-effort; '' on error."""
+    cap = (anchor.get("caption") or "").strip()
+    if not cap:
+        return ""
+    why = (anchor.get("why_it_works") or "").strip()
+    try:
+        out = complete_json(_CRAFT_SYS, f"CAPTION:\n{cap}\n\nWHY IT LANDS: {why}", effort="low", max_tokens=200)
+        s, e = out.find("{"), out.rfind("}")
+        return (json.loads(out[s:e + 1]).get("craft") or "").strip() if s != -1 else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _render_anchors(anchors: list[dict]) -> str:
+    """The anchor block. In craft mode each anchor also carries THE CRAFT of its landing (computed in
+    parallel, faithfully per-anchor so it raises the aim without collapsing to one 'be specific' center)."""
+    renders = [_anchor_render(f"ANCHOR {i + 1}", a) for i, a in enumerate(anchors)]
+    if _CRAFT.get():
+        with ThreadPoolExecutor(max_workers=max(1, len(anchors))) as ex:
+            crafts = list(ex.map(_anchor_craft, anchors))
+        renders = [r + (f"\nTHE CRAFT: {c}" if c else "") for r, c in zip(renders, crafts)]
+    return "\n\n".join(renders)
+
+
 def generate(
     audio_vibe: list[str] | None = None,
     audio_purpose: list[str] | None = None,
@@ -198,13 +235,16 @@ def generate(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
     )
     anchors = _pick_anchors(refs, n)
-    anchor_block = "\n\n".join(_anchor_render(f"ANCHOR {i + 1}", a) for i, a in enumerate(anchors))
+    anchor_block = _render_anchors(anchors)   # craft-deepened when _CRAFT is on (A/B); plain otherwise
     avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
     note = (notes or "").strip()
+    craft_note = (" Each anchor also names THE CRAFT of its landing — the exact move that makes it hit; "
+                  "land yours with that same craft (as exact and concrete — no fuzzy noun, no almost-right payoff)."
+                  if _CRAFT.get() else "")
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
         + "Here are " + str(n) + " of your own sharp captions, each with WHY IT LANDS — these set your VOICE, "
-        "your range, and the BAR. Write " + str(n) + " NEW captions, one sparked by each (in order), and let them "
+        "your range, and the BAR." + craft_note + " Write " + str(n) + " NEW captions, one sparked by each (in order), and let them "
         "come NATURALLY. Hit that same bar, but DON'T force a shape: keep a format's structure ONLY when the "
         "structure IS the joke and it lands genuinely fresh — otherwise just write the sharpest thing in your "
         "voice and let the form follow the idea. A mechanical fill-in-the-blank of the template is dead — scrap it "

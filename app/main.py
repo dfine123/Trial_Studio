@@ -1110,10 +1110,14 @@ def api_reels_grade(req: ReelGrade, backend: str | None = None):
 
 
 @app.post("/api/captions/generate")
-def api_captions_generate(req: CapGenRequest):
+def api_captions_generate(req: CapGenRequest, craft: bool = False):
     try:
-        from app.caption.engine import generate  # lazy import (pulls anthropic + corpus)
-        cands = generate(notes=req.notes, n=req.n)
+        from app.caption import engine  # lazy import (pulls anthropic + corpus)
+        tok = engine._CRAFT.set(bool(craft))   # A/B: craft-deepened grounding (off by default)
+        try:
+            cands = engine.generate(notes=req.notes, n=req.n)
+        finally:
+            engine._CRAFT.reset(tok)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
     return {"candidates": cands}
