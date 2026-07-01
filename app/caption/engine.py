@@ -93,8 +93,17 @@ def persona() -> str:
 
 
 def voice_system(ref_block: str) -> str:
-    """Compose the system prompt: per-profile PERSONA + the profile's references + the shared FORMAT base."""
-    return persona() + _BRIDGE.format(references=ref_block) + _MECHANICS
+    """Compose the system prompt: per-profile PERSONA + the profile's references + the shared FORMAT base,
+    plus learned ON-VOICE/OFF-VOICE calibration from graded reels (SHOWN, not told; empty until graded)."""
+    base = persona() + _BRIDGE.format(references=ref_block) + _MECHANICS
+    try:
+        from app.caption.taste import stance_block
+        sb = stance_block()
+        if sb:
+            base += "\n\n" + sb
+    except Exception:  # noqa: BLE001 — calibration is best-effort; never block generation on it
+        pass
+    return base
 
 
 def _pick_anchors(refs: list[dict], n: int) -> list[dict]:

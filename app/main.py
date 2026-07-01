@@ -1019,18 +1019,20 @@ def api_reels_graded():
 
 @app.post("/api/reels/learn")
 def api_reels_learn():
-    """Backfill: mine every graded reel's note for a 'should have picked X' pairwise preference (active
-    profile), idempotent, seeding the chooser's taste from the existing feedback."""
+    """Backfill: mine every graded reel's note (active profile, idempotent) for a 'should have picked X'
+    pairwise preference AND an off_voice STANCE negative — seeding the chooser's taste + the voice's
+    on/off-voice calibration from the existing feedback."""
     from app.caption import taste
     from app.corpus import reels
-    n = 0
+    pw, ov = 0, 0
     for r in reels.graded():
         try:
-            if taste.learn_from_reel(r):
-                n += 1
+            got = taste.learn_from_reel(r)
+            pw += 1 if got.get("pairwise") else 0
+            ov += 1 if got.get("off_voice") else 0
         except Exception:  # noqa: BLE001
             pass
-    return {"ok": True, "pairs_captured": n}
+    return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov}
 
 
 @app.get("/api/reels/calibration")
