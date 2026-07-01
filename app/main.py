@@ -130,6 +130,11 @@ async def lifespan(app: FastAPI):
         app.state.default_user_id = ensure_default_user()
     except Exception:  # noqa: BLE001 — don't block startup if DB isn't ready yet
         app.state.default_user_id = None
+    try:    # permanently drop any retired references from every profile's live corpus (self-healing)
+        from app.corpus import retire
+        retire.purge_all()
+    except Exception:  # noqa: BLE001 — cleanup must never block boot
+        pass
     yield
 
 
@@ -1040,6 +1045,17 @@ def api_reels_calibration():
     """What the chooser has learned about this operator's taste (transparency / verification)."""
     from app.caption import taste
     return {"calibration": taste.calibration()}
+
+
+@app.get("/api/refs/audit")
+def api_refs_audit():
+    """Active profile's corpus size + any RETIRED reference still present (post-purge verification)."""
+    from app import profiles
+    from app.corpus import retire
+    from app.corpus.store import load_refs
+    pid = profiles.active_id()
+    return {"total_refs": len(load_refs(profiles.corpus_path(pid))),
+            "retired_present": retire.retired_present(pid)}
 
 
 class ReelGrade(BaseModel):
