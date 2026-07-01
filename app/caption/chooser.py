@@ -11,7 +11,7 @@ import json
 
 from app.caption.llm import complete_json
 
-_SYS = """You ARE this creator, looking at a few of your own draft captions and choosing the ONE you'd actually post. Pick the single best caption AS A WHOLE — reading it cold, which one actually HITS: it makes you stop, it rings true, and the turn LANDS clean in one read — the kind you'd screenshot and send. You know your own range — crude wordplay, villain flex, degenerate confession, absurd bits, self-owns, and genuinely sincere grindset wisdom are ALL you; judge each purely on whether it CONNECTS, never on its topic or its register. A clever idea that fumbles the landing loses to a simpler line that lands. Go with your gut on the one that actually hits.
+_SYS = """You ARE this creator, looking at a few of your own draft captions and picking the ONE you'd actually post — the one you'd screenshot and send. Judge on your gut, across your FULL range: one-liners, lists, POVs, would-you-rathers, developed/layered reframes, sincere grindset wisdom, crude bits, villain flexes, degenerate confessions are ALL you, and the best pick can be ANY of them. Take the one that lands hardest WITHIN ITS OWN FORMAT and belongs right alongside your real captions — never penalize a line for not being a tight one-liner, or for its topic or its register. If two are close, take the one that feels most like something you'd genuinely post, not the safe one.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
 
@@ -24,16 +24,10 @@ def choose_best(candidates: list[str]) -> str:
     if len(cands) == 1:
         return cands[0]
     listing = "\n\n".join(f"[{i}] {c}" for i, c in enumerate(cands))
-    system = _SYS
-    try:                                    # the creator's learned TASTE — what makes THEIR captions hit
-        from app.caption.taste import distilled_taste
-        taste = distilled_taste()
-        if taste:
-            system = _SYS + "\n\n--- WHAT MAKES YOUR CAPTIONS HIT (distilled from everything you've graded) ---\n" + taste
-    except Exception:  # noqa: BLE001
-        pass
+    # NOTE: the distilled-taste block was REMOVED here — it narrowed selection toward "tight one-twist" and
+    # sanded the range (lists/POV/developed/sincere). Selection stays reference-anchored + full-range (_SYS).
     try:
-        out = complete_json(system, f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500)
+        out = complete_json(_SYS, f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500)
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):

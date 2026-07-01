@@ -217,7 +217,7 @@ def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str,
     one flagged — shared by generate_reel and the audio-first matching path."""
     from app.caption.chooser import choose_best
     from app.caption.engine import generate_independent
-    cands = generate_independent(k=3, notes=(niche or None), audio_energy=energy)
+    cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy)   # best-of-5: ~50% of raw
     if not cands:
         raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
     texts = [c["text"] for c in cands]
