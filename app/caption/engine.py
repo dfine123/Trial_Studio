@@ -72,10 +72,10 @@ _BRIDGE = "\n\nBelow are your REAL captions — this is the voice, the range, AN
 _MECHANICS = """What every one of your captions shares — the FORMAT instincts (feel them, don't check them off):
 - THE TWIST. The setup primes one read; the line flips to another — the GAP is the joke. It can be a decode, a reframe, a bait-and-switch, or a self-own — but the whole line exists to land that turn.
 - PRECISION. The twist maps EXACTLY — the two halves line up perfectly. Approximate or almost-funny is dead.
-- ECONOMY. The hit lands in the fewest words that carry it — one clean move, then stop. You trust the reader to get it: never explain the joke, pad the setup, or tack on a second and third payoff. Most of your best lines are dead-simple; length is earned ONLY when every beat does real work. If a line can be cut and still hits, it was too long.
-- DEADPAN CONFIDENCE. Stated flat, like it's obvious, even when it's unhinged.
-- HYPER-SPECIFIC + VERY-ONLINE. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague.
-- ALWAYS SHARP — never generic, never corporate, never a motivational poster. Even a sincere line is a SPECIFIC truth or a parody, never a platitude."""
+- STANCE — you speak from ABOVE the subject. You're on top of the joke, never its victim: you hold the loss in contempt, flip it so you come out superior, or state the unhinged thing like it's obviously correct. You NEVER plead, mope, or narrate the wound from inside it — the same topic (money, work, a breakup, being broke) dies the instant it turns earnest or self-pitying. Deadpan is the delivery; superiority is the position.
+- ECONOMY. The hit lands in the fewest words that carry it — one clean move, then stop. Every word earns its place: never explain the joke, pad the setup, or bolt on a second payoff or a tagline that adds nothing — cut the ONE beat that isn't pulling weight. Slang lands only when it's load-bearing; a reflexive "bro" that carries nothing is drag. Your best lines are often dead-simple; length is earned ONLY when every beat works.
+- HYPER-SPECIFIC + VERY-ONLINE, SETUP INCLUDED. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague. The setup is as exact as the payoff: a vague opener ("when I say we shouldn't") undercuts a sharp turn — make it precise ("when I say I'm scared") WITHOUT making it longer.
+- ALWAYS SHARP — never generic, never a motivational poster. Any topic works (corporate, serious, sincere) — but only through your STANCE (contempt / absurd flip / obvious-truth), never the earnest grind. A sincere line is a SPECIFIC truth or a parody, never a platitude."""
 
 _DEFAULT_PERSONA = """You ARE this creator. The captions below are your real posts — your voice, your range, and the bar. Write only in that exact voice: the same register, slang, rhythm, and attitude. Never corporate, poetic, or generic."""
 
@@ -200,13 +200,14 @@ def generate(
     note = (notes or "").strip()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "Here are " + str(n) + " of your own sharp captions, each with WHY IT LANDS — these set your VOICE, "
-        "your range, and the BAR. Write " + str(n) + " NEW captions, one sparked by each (in order), and let them "
-        "come NATURALLY. Hit that same bar, but DON'T force a shape: keep a format's structure ONLY when the "
-        "structure IS the joke and it lands genuinely fresh — otherwise just write the sharpest thing in your "
-        "voice and let the form follow the idea. A mechanical fill-in-the-blank of the template is dead — scrap it "
-        "and write the one you'd post unprompted. Keep your exact hyper-specificity; never generic, corporate, or "
-        "poetic. Make the " + str(n) + " as VARIED from each other as your references are:\n\n"
+        + "Here are " + str(n) + " of your own sharp captions, each with WHY IT LANDS — these set your VOICE, your "
+        "range, and the BAR. WHY IT LANDS is the MECHANISM that made it hit; the sentence is NOT a skeleton to refill. "
+        "Write " + str(n) + " NEW captions, one sparked by each (in order): transpose that mechanism onto a fresh "
+        "subject and let it come NATURALLY. Every line has to actually CONNECT — a real observation someone stops and "
+        "sends — not a shape that's technically on-format but says nothing. Keep a format's structure ONLY when the "
+        "structure IS the joke and it lands genuinely fresh; otherwise drop it and write the sharpest thing in your "
+        "voice. A mechanical fill-in of the template is dead. Keep your exact hyper-specificity; never generic or a "
+        "platitude. Make the " + str(n) + " as VARIED from each other as your references are:\n\n"
         + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
@@ -255,11 +256,12 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     def one(anchor: dict) -> dict | None:
         user = (
             (f"Lean (soft): {note}\n\n" if note else "")
-            + "Here's one of your sharp captions, with WHY IT LANDS — it sets your voice and your bar. Write a "
-            "NEW caption that hits at that same bar, but let it come NATURALLY: keep its shape ONLY when that "
-            "shape IS the joke and it lands genuinely fresh — otherwise just write the sharpest thing in your "
-            "voice and let the form follow. A mechanical fill-in of the template is dead. Keep your exact "
-            "specificity; never generic, corporate, or poetic:\n\n"
+            + "Here's one of your sharp captions, with WHY IT LANDS — the MECHANISM that made it hit (the sentence "
+            "is not a skeleton to refill). Write a NEW caption that transposes that mechanism onto a fresh subject "
+            "and CONNECTS — a real observation someone stops and sends, not a shape that's on-format but says "
+            "nothing. Let it come naturally; keep the shape ONLY when the shape IS the joke and lands fresh — else "
+            "drop it and write the sharpest thing in your voice. A mechanical fill-in is dead. Keep your exact "
+            "specificity; never generic or a platitude:\n\n"
             + _anchor_render("ANCHOR", anchor) + "\n\n"
             f"(Don't rehash these exact recent lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
