@@ -36,8 +36,9 @@ _DEFAULT_NICHE = (
 )
 _REELS_DIR = "var/reels"
 _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
-# Serialize clip indexing (OpenCV is memory-heavy) so a batch upload can't OOM-crash the instance.
-_INDEX_SEM = threading.Semaphore(1)
+# Up to 3 clips in flight: the long TwelveLabs remote waits overlap, while the memory-heavy OpenCV
+# stages stay one-at-a-time via pipeline._CV2 (so a batch still can't OOM-crash the instance).
+_INDEX_SEM = threading.Semaphore(3)
 _DEBUG_JOBS: dict = {}  # last /api/debug/generate-start job, polled by /api/debug/generate-result
 
 

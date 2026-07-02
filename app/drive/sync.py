@@ -111,12 +111,14 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
         summary["new"], summary["remaining"] = len(new), max(0, len(pending) - len(new))
         log(f"[drive] sync {str(connection_id)[:8]}: {len(new)} of {len(pending)} new (cap {max_files})")
         os.makedirs("var/uploads", exist_ok=True)
-        for v in new:
+
+        def _one(v: dict) -> tuple[str, int]:
+            """Download + index ONE file, write its ledger row. Returns (status, n_clips). Several run
+            concurrently — the long TL remote waits overlap; cv2 serializes inside the pipeline."""
             clip_ids: list[str] = []
             status, reason = "failed", None
             if int(v.get("size") or 0) > SIZE_CAP_BYTES:
-                status, reason = "failed", "file too large (> 4GB) — skipped"
-                summary["skipped_large"] += 1
+                status, reason = "skipped_large", "file too large (> 4GB) — skipped"
             else:
                 clip_id = uuid.uuid4()
                 dest = os.path.abspath(os.path.join("var/uploads", f"{clip_id}{_safe_ext(v.get('name'))}"))
@@ -130,7 +132,7 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
                                           status="uploaded", folder_id=fid))
                         s.commit()
                     from app.indexing.pipeline import run_pipeline   # heavy import — in the worker
-                    from app.main import _INDEX_SEM                  # the one-at-a-time indexing slot
+                    from app.main import _INDEX_SEM                  # bounds clips in flight (3)
                     with _INDEX_SEM:
                         run_pipeline(clip_id, source_path=dest)
                     with SessionLocal() as s:
@@ -144,14 +146,21 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
                     status, reason = "failed", str(exc)[:200]
                     _rm(dest)
                     log(f"[drive]   FAILED {v.get('name')}: {exc}")
-            summary["clips"] += len(clip_ids)
-            summary["rejected"] += 1 if status == "rejected" else 0
-            summary["failed"] += 1 if status == "failed" else 0
             with SessionLocal() as s:
                 s.add(models.SyncedFile(connection_id=connection_id, user_id=user_id,
                                         provider_file_id=v["id"], name=v.get("name"),
-                                        status=status, reason=reason, clip_ids=clip_ids))
+                                        status="failed" if status == "skipped_large" else status,
+                                        reason=reason, clip_ids=clip_ids))
                 s.commit()
+            return status, len(clip_ids)
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as pool:   # 3 in flight: TL waits overlap, cv2 serialized
+            for status, n_clips in pool.map(_one, new):
+                summary["clips"] += n_clips
+                summary["rejected"] += 1 if status == "rejected" else 0
+                summary["failed"] += 1 if status == "failed" else 0
+                summary["skipped_large"] += 1 if status == "skipped_large" else 0
         return summary
     except Exception as exc:  # noqa: BLE001 — surface a top-level failure on the connection
         log(f"[drive] sync error: {exc}")

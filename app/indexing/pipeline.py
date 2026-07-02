@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import statistics
 import subprocess
+import threading
 import uuid
 from datetime import datetime, timezone
 
@@ -134,6 +135,10 @@ def _pad_short_for_tl(src: str, real_duration: float, work_dir: str, target: flo
     return out
 
 
+# OpenCV decode is the memory-heavy part — serialize ONLY it, so several clips can be in flight
+# (overlapping their long TwelveLabs remote waits) while at most one decodes locally at a time.
+_CV2 = threading.Semaphore(1)
+
 INDEX_TRACE: list[str] = []  # diagnostic ring of recent [idx] trace lines (read by /api/debug/index-test)
 
 
@@ -173,9 +178,10 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
             session.commit()
             return clip.status
 
-        # Segmentation (+ long-take windowing)
+        # Segmentation (+ long-take windowing) — cv2-heavy, one at a time
         _t(f"[idx] {clip_id} qc passed {p.width}x{p.height} {p.fps}fps {p.duration}s — segmenting…", flush=True)
-        windows = segmentation.segment_video(path, total_duration=p.duration)
+        with _CV2:
+            windows = segmentation.segment_video(path, total_duration=p.duration)
         _t(f"[idx] {clip_id} segmented into {len(windows)} window(s)", flush=True)
 
         # Twelve Labs (index -> poll -> Pegasus -> Marengo).
@@ -210,8 +216,9 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
                 except OSError:
                     pass
 
-        # OpenCV per-segment metrics
-        visuals = [visual.analyze_segment(path, w.start_ts, w.end_ts) for w in windows]
+        # OpenCV per-segment metrics — cv2-heavy, one at a time
+        with _CV2:
+            visuals = [visual.analyze_segment(path, w.start_ts, w.end_ts) for w in windows]
 
         # Assemble + persist
         clip_fields, seg_rows = assemble(windows, visuals, analysis, embedding)
