@@ -131,12 +131,14 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
     anchors: list[dict] = []
     seen_traits: set[str] = set()
     gambling = [0]
+    # gambling anchors scale with batch size (~corpus share, 10%) — a flat 2 allowed 40% on best-of-5
+    gambling_cap = 1 if n <= 6 else 2
 
     def try_add(r: dict) -> None:
         if len(anchors) >= n or (r.get("persona_trait") or "?") in seen_traits:
             return
         if _is_gambling(r):
-            if gambling[0] >= 2:
+            if gambling[0] >= gambling_cap:
                 return
             gambling[0] += 1
         anchors.append(r)

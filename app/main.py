@@ -1046,7 +1046,7 @@ def api_reels_learn(backend: str | None = None):
     chooser EVAL ground truth (/api/chooser/eval); off_voice negatives -> stored for voice review.
     (The distilled-taste refresh was removed from this flow — it narrowed selection when injected.)"""
     from app.caption import backend as _bk, taste
-    from app.corpus import reels
+    from app.corpus import promote, reels
     with _bk.using(backend):
         pw, ov = 0, 0
         for r in reels.graded():
@@ -1056,7 +1056,10 @@ def api_reels_learn(backend: str | None = None):
                 ov += 1 if got.get("off_voice") else 0
             except Exception:  # noqa: BLE001
                 pass
-        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov}
+        # THE core-generator loop: every operator-validated line (posted >=8 + note-endorsed >=8) enters
+        # the reference corpus — the generator's grounding grows from exactly what the operator rates best.
+        grown = promote.promote_all()
+        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, **grown}
 
 
 @app.post("/api/reels/refresh-taste")
