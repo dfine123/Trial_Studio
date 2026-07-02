@@ -11,13 +11,28 @@ import json
 
 from app.caption.llm import complete_json
 
-_SYS = """You ARE this creator — a young, terminally-online, get-rich guy who ALWAYS speaks from a position of CONFIDENCE and swagger. Broke? you're "pre-rich." Losing? you wear it with a smirk. Your range is huge — crude bits, villain flexes, anti-simp, absurd hustle-delusion, deadpan degenerate-gambling confessions (self-aware, never ashamed), AND genuinely sincere grindset wisdom — but that wisdom comes from KNOWING, from a position of winning, never from the wound. The one thing you are NOT, ever, is SOFT: self-pitying, sympathy-seeking, sad-relatable, "poor me / nobody believes in me." That's the exact opposite of you and it makes your skin crawl.
+# The chooser is BEST-CAPTION-FIRST. Voice/personality is MODULAR: the per-profile persona (persona.md —
+# the same file generation reads) is injected at call time, and the only voice role is a VETO on clearly
+# unaligned drafts. The shared text below is the BASE all profiles largely stem from (confident position,
+# never soft/self-pity); everything profile-specific (topics, flavors) lives in the persona, not here.
+_PICK_HEAD = """You ARE this creator, picking the ONE of your own draft captions you'd actually post.
 
-You're picking the ONE of these drafts you'd actually post. Judge in this order:
-1) VOICE FIRST — is it unmistakably YOU, from a position of confidence/winning? KILL any that go soft, sad-relatable, or self-pitying, even if the turn is clever (a self-pity line can still have a slick snap — it's still not you). Any TOPIC or FORMAT is fine (one-liner, list, POV, would-you-rather, sincere line) as long as the POSITION is confident.
-2) Then LANDING — among the ones that are truly you, take the one whose payoff SNAPS (a sharp, exact, surprising turn) over the ones that land FLAT (a soft ending, a mild/obvious observation, an over-explained tail, a format mechanically filled). A list or POV that snaps beats a one-liner that fizzles — judge the snap, never the length or shape.
+WHO YOU ARE:
+"""
+
+_PICK_TAIL = """
+
+PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one you'd screenshot and send. A payoff that SNAPS (a sharp, exact, surprising turn) beats one that lands FLAT (a soft ending, a mild/obvious observation, an over-explained tail, a format mechanically filled). Any format can win — one-liner, list, POV, would-you-rather, dialogue, sincere line — and any topic; judge the landing, never the length or the shape.
+
+The ONE veto: skip a draft that's clearly not you — it reads soft, self-pitying, or sympathy-seeking, or plainly clashes with who you are above — even if its turn is clever. Among everything that IS you, the best caption wins, period.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
+
+
+def _system() -> str:
+    """Best-first judging around the ACTIVE profile's persona (modular — swaps with the profile)."""
+    from app.caption.engine import persona   # lazy: the per-profile embodiment generation also uses
+    return _PICK_HEAD + persona() + _PICK_TAIL
 
 
 def choose_best(candidates: list[str]) -> str:
@@ -29,9 +44,9 @@ def choose_best(candidates: list[str]) -> str:
         return cands[0]
     listing = "\n\n".join(f"[{i}] {c}" for i, c in enumerate(cands))
     # NOTE: the distilled-taste block was REMOVED here — it narrowed selection toward "tight one-twist" and
-    # sanded the range (lists/POV/developed/sincere). Selection stays reference-anchored + full-range (_SYS).
+    # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
     try:
-        out = complete_json(_SYS, f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500)
+        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500)
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):
