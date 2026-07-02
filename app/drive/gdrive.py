@@ -83,7 +83,8 @@ def list_videos(folder_id: str, since: str | None = None, root_name: str | None 
         while True:
             resp = svc.files().list(
                 q=f"'{fid}' in parents and trashed = false", spaces="drive",
-                fields="nextPageToken, files(id,name,mimeType,size,modifiedTime)",
+                fields="nextPageToken, files(id,name,mimeType,size,modifiedTime,"
+                       "videoMediaMetadata(durationMillis))",
                 pageSize=200, pageToken=page,
                 includeItemsFromAllDrives=True, supportsAllDrives=True,
             ).execute()

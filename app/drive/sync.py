@@ -96,6 +96,17 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
     try:
         vids = gdrive.list_videos(folder_id, root_name=folder_name)
         pending = [v for v in vids if v["id"] not in seen]
+
+        def _shortest_first(v: dict) -> tuple:
+            """Sort key: real duration when Drive has processed it, else file size. Short clips download
+            + index fastest, so the library fills with usable clips early on a big folder."""
+            try:
+                d = int((v.get("videoMediaMetadata") or {}).get("durationMillis") or 0)
+            except (TypeError, ValueError):
+                d = 0
+            return (0, d) if d > 0 else (1, int(v.get("size") or 0))
+
+        pending.sort(key=_shortest_first)
         new = pending[:max_files] if max_files else pending
         summary["new"], summary["remaining"] = len(new), max(0, len(pending) - len(new))
         log(f"[drive] sync {str(connection_id)[:8]}: {len(new)} of {len(pending)} new (cap {max_files})")

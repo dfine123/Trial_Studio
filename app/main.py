@@ -15,7 +15,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, Response, Uploa
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import selectinload
 
 from app import profiles, schemas
@@ -135,6 +135,14 @@ async def lifespan(app: FastAPI):
         from app.corpus import retire
         retire.purge_all()
     except Exception:  # noqa: BLE001 — cleanup must never block boot
+        pass
+    try:    # a deploy/restart kills any in-flight Drive sync — release stale claims so re-sync works
+        with SessionLocal() as s:
+            s.execute(update(models.DriveConnection)
+                      .where(models.DriveConnection.status == "syncing")
+                      .values(status="connected"))
+            s.commit()
+    except Exception:  # noqa: BLE001 — table may not exist yet on first boot
         pass
     yield
 
