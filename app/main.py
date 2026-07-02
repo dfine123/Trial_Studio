@@ -1017,6 +1017,13 @@ def grade_reels_page(request: Request):
     return FileResponse(os.path.join(_WEB_DIR, "grade_reels.html"))
 
 
+@app.get("/promote")
+def promote_page(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "promote.html"))
+
+
 @app.get("/api/reels/pending")
 def api_reels_pending(backend: str | None = None):
     from app.caption import backend as _bk
@@ -1035,8 +1042,9 @@ def api_reels_graded(backend: str | None = None):
 
 @app.post("/api/reels/learn")
 def api_reels_learn(backend: str | None = None):
-    """Learn from the round: mine every graded reel's note for pairwise/off_voice signals (idempotent),
-    THEN (re)distill the creator's high-level TASTE so the chooser reads what makes their captions hit."""
+    """Mine every graded reel's note (idempotent): pairwise 'you'd have posted X' corrections -> the
+    chooser EVAL ground truth (/api/chooser/eval); off_voice negatives -> stored for voice review.
+    (The distilled-taste refresh was removed from this flow — it narrowed selection when injected.)"""
     from app.caption import backend as _bk, taste
     from app.corpus import reels
     with _bk.using(backend):
@@ -1048,7 +1056,7 @@ def api_reels_learn(backend: str | None = None):
                 ov += 1 if got.get("off_voice") else 0
             except Exception:  # noqa: BLE001
                 pass
-        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, "taste": taste.refresh_taste()}
+        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov}
 
 
 @app.post("/api/reels/refresh-taste")
@@ -1076,6 +1084,97 @@ def api_refs_audit():
     pid = profiles.active_id()
     return {"total_refs": len(load_refs(profiles.corpus_path(pid))),
             "retired_present": retire.retired_present(pid)}
+
+
+@app.get("/api/refs/rotation")
+def api_refs_rotation():
+    """TRANSPARENCY: what the closed loop has done to each reference — keep/kill/best credits, usage,
+    and its rotation status (amplified winner / de-weighted / normal). Nothing is ever dropped."""
+    from app import profiles
+    from app.caption.engine import _load_json, _ref_key
+    from app.corpus.store import load_refs
+    pid = profiles.active_id()
+    scores = _load_json(profiles.ref_scores_path(pid))
+    usage = _load_json(profiles.ref_usage_path(pid))
+    out = []
+    for r in load_refs(profiles.corpus_path(pid)):
+        rid = r.get("ref_id") or ""
+        s = scores.get(rid, {})
+        k, x, b = s.get("keep", 0), s.get("kill", 0), s.get("best", 0)
+        rate = (k + b) / (k + x) if (k + x) else None
+        status = "normal"
+        if (k + x) >= 6 and (rate or 0) >= 0.6:
+            status = "amplified"
+        elif rate is not None and rate < 0.25 and x >= 4 and x > k + 3:
+            status = "de-weighted"
+        out.append({"ref_id": rid, "trait": r.get("persona_trait"), "source": r.get("source"),
+                    "keep": k, "kill": x, "best": b, "usage": usage.get(_ref_key(r), 0),
+                    "status": status, "caption": (r.get("caption") or "")[:80]})
+    return {"refs": out,
+            "amplified": [r["ref_id"] for r in out if r["status"] == "amplified"],
+            "de_weighted": [r["ref_id"] for r in out if r["status"] == "de-weighted"]}
+
+
+# ── Living corpus: promote operator-validated bangers (9-10 reels) into the references ──
+@app.get("/api/corpus/promotable")
+def api_corpus_promotable(min_rating: int = 9):
+    from app.corpus import promote
+    return {"promotable": promote.promotable(min_rating=min_rating)}
+
+
+class PromoteReq(BaseModel):
+    reel_id: str
+
+
+@app.post("/api/corpus/promote")
+def api_corpus_promote(req: PromoteReq):
+    from app.corpus import promote
+    res = promote.promote(req.reel_id)
+    if not res.get("ok"):
+        raise HTTPException(status_code=400, detail=res.get("reason", "promotion failed"))
+    return res
+
+
+@app.post("/api/chooser/eval")
+def api_chooser_eval():
+    """Replay the operator's own corrections ('you'd have posted X, not Y') against the CURRENT chooser —
+    the objective selection-accuracy benchmark. Any future chooser change must not regress this."""
+    import re as _re
+
+    from app.caption.chooser import choose_best
+    from app.corpus import grades as grade_store
+    from app.corpus import reels
+
+    def norm(t):
+        return _re.sub(r"\s+", " ", (t or "")).strip().lower()
+
+    pairs = [g for g in grade_store.load_grades() if g.get("type") == "pairwise"]
+    recs = reels.graded()
+    cases, correct, picked_loser, picked_other = 0, 0, 0, 0
+    detail = []
+    seen = set()
+    for g in pairs:
+        w, l = norm(g.get("winner")), norm(g.get("loser"))
+        if not w or not l or (w, l) in seen:
+            continue
+        seen.add((w, l))
+        rec = next((r for r in recs
+                    if {w, l} <= {norm(c.get("text")) for c in (r.get("candidates") or [])}), None)
+        if rec is None:
+            continue
+        cands = [c.get("text") or "" for c in rec.get("candidates") or []]
+        try:
+            pick = norm(choose_best(cands))
+        except Exception:  # noqa: BLE001
+            continue
+        cases += 1
+        verdict = "correct" if pick == w else ("picked_loser" if pick == l else "picked_other")
+        correct += verdict == "correct"
+        picked_loser += verdict == "picked_loser"
+        picked_other += verdict == "picked_other"
+        detail.append({"verdict": verdict, "should": (g.get("winner") or "")[:70], "picked": pick[:70]})
+    return {"cases": cases, "correct": correct, "picked_loser": picked_loser, "picked_other": picked_other,
+            "accuracy": round(correct / cases, 3) if cases else None, "detail": detail}
 
 
 class ReelGrade(BaseModel):

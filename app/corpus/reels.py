@@ -77,3 +77,13 @@ def record_grade(reel_id: str, rating, notes, pid=None) -> dict | None:
 def graded(pid=None) -> list[dict]:
     """Reels that have been graded (carry a rating/notes) — the production feedback, newest first."""
     return [r for r in reversed(_load(pid)) if r.get("grade")]
+
+
+def mark_promoted(reel_id: str, pid=None) -> None:
+    """Flag a reel's caption as promoted into the reference corpus (so it never double-promotes)."""
+    with _LOCK:
+        recs = _load(pid)
+        for r in recs:
+            if r.get("reel_id") == reel_id:
+                r["promoted"] = True
+        _rewrite(recs, pid)

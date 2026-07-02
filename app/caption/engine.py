@@ -111,7 +111,9 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
         s = scores.get(r.get("ref_id") or "", {})
         return s.get("keep", 0), s.get("kill", 0), s.get("best", 0)
 
-    def is_failer(r: dict) -> bool:  # chronic LOW-KEEP-RATE format -> drop from rotation
+    def is_failer(r: dict) -> bool:  # chronic low-keep-rate -> DE-WEIGHT (rotate in later/rarer), NEVER drop.
+        # A miss is evidence about an EXECUTION, not a verdict on the format (operator's standing rule) —
+        # grading must never shrink the range, so every ref stays in rotation.
         k, x, b = _stat(r)
         rate = (k + b) / (k + x) if (k + x) else 1.0
         return rate < 0.25 and x >= 4 and x > k + 3  # genuinely killed most of the time, with volume
@@ -121,11 +123,10 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
         rate = (k + b) / (k + x) if (k + x) else 0.0
         return (k + x) >= 6 and rate >= 0.6
 
-    healthy = [r for r in refs if (r.get("caption") or "").strip() and not is_failer(r)]
-    if len(healthy) < n:  # safety: too many dropped -> fall back to all non-empty
-        healthy = [r for r in refs if (r.get("caption") or "").strip()]
+    healthy = [r for r in refs if (r.get("caption") or "").strip()]
     random.shuffle(healthy)  # random tiebreak among equally-used
-    by_usage = sorted(healthy, key=lambda r: usage.get(_ref_key(r), 0))  # least-used first
+    # least-used first; failers carry a virtual-usage penalty so they cycle less often but always return
+    by_usage = sorted(healthy, key=lambda r: usage.get(_ref_key(r), 0) + (3 if is_failer(r) else 0))
 
     anchors: list[dict] = []
     seen_traits: set[str] = set()

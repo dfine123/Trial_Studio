@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promote to corpus — Trial Studio</title>
+<style>
+  :root { --bg:#0b0d10; --card:#15181d; --line:#262b33; --txt:#e8eaed; --dim:#8b929c; --accent:#22c55e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; position:sticky; top:0; background:var(--bg); z-index:5; }
+  header h1 { font-size:18px; margin:0; font-weight:700; }
+  .sub { color:var(--dim); font-size:13px; }
+  a.link { color:var(--dim); text-decoration:none; font-size:13px; margin-left:auto; }
+  a.link:hover { color:var(--txt); }
+  .wrap { max-width:860px; margin:0 auto; padding:24px; display:flex; flex-direction:column; gap:14px; }
+  .row { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; gap:16px; align-items:center; }
+  .cap { flex:1; white-space:pre-wrap; }
+  .rating { font-weight:700; font-size:18px; color:var(--accent); width:64px; text-align:center; }
+  button { background:var(--accent); color:#06220f; border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; font-size:14px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .empty { text-align:center; color:var(--dim); padding:70px 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Promote to corpus</h1>
+  <span class="sub">your 9–10 rated lines → new references (the voice compounds from your wins)</span>
+  <a class="link" href="/grade-reels">← reel grading</a>
+</header>
+<div class="wrap" id="wrap"><div class="empty">Loading…</div></div>
+<script>
+const wrap = document.getElementById('wrap');
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+async function load(){
+  let rows = [];
+  try { rows = (await (await fetch('/api/corpus/promotable')).json()).promotable || []; } catch(_){}
+  wrap.innerHTML = '';
+  if(!rows.length){ wrap.innerHTML = '<div class="empty">Nothing waiting — every 9–10 you’ve graded is already in the corpus.</div>'; return; }
+  rows.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<div class="rating">${r.rating}/10</div><div class="cap">${esc(r.caption)}</div><button>Promote</button>`;
+    el.querySelector('button').onclick = async (e) => {
+      e.target.disabled = true; e.target.textContent = 'Promoting…';
+      try {
+        const res = await fetch('/api/corpus/promote', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ reel_id: r.reel_id }) });
+        if (res.ok) { el.remove(); if(!wrap.children.length) load(); return; }
+        e.target.textContent = '⚠ failed';
+      } catch(_) { e.target.textContent = '⚠ failed'; }
+      e.target.disabled = false;
+    };
+    wrap.appendChild(el);
+  });
+}
+load();
+</script>
+</body>
+</html>
