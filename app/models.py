@@ -158,6 +158,39 @@ class Audio(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class DriveConnection(Base):
+    """A profile's connected Google Drive folder (read-only). The creator shares a folder with the
+    service-account email; we poll it and ingest new videos. One profile can have several."""
+    __tablename__ = "drive_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(16), default="gdrive")
+    folder_id: Mapped[str] = mapped_column(String(255))
+    folder_name: Mapped[str | None] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(16), default="connected")  # connected | syncing | error
+    last_error: Mapped[str | None] = mapped_column(Text)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SyncedFile(Base):
+    """Dedup ledger: one row per Drive file we've seen, so re-syncs are incremental and the UI can
+    show imported / rejected / failed."""
+    __tablename__ = "synced_files"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("drive_connections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    provider_file_id: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str | None] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(16))        # synced | rejected | failed
+    reason: Mapped[str | None] = mapped_column(Text)
+    clip_ids: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Template(Base):
     """A reusable progression template: a beat-segmented recipe + an LLM-authored Formula Object.
 

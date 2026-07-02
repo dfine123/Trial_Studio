@@ -46,6 +46,34 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_caption_model: str = "gpt-4o"          # OpenAI model for the A/B (override via OPENAI_CAPTION_MODEL)
 
+    # ── Google Drive ingest (service account; share a folder with the SA email) ──
+    google_sa_json: str = ""           # raw service-account key JSON (use on Railway — paste contents)
+    google_sa_json_file: str = ""      # OR a path to the key file (use locally — no JSON in .env)
+
+    @property
+    def google_sa_info(self) -> dict | None:
+        """The service-account key as a dict, from GOOGLE_SA_JSON (contents) or GOOGLE_SA_JSON_FILE
+        (path) — whichever is set. None if Drive ingest isn't configured."""
+        import json
+        raw = (self.google_sa_json or "").strip()
+        if not raw and self.google_sa_json_file:
+            try:
+                with open(self.google_sa_json_file, encoding="utf-8") as f:
+                    raw = f.read()
+            except OSError:
+                return None
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
+    @property
+    def google_sa_email(self) -> str | None:
+        info = self.google_sa_info
+        return info.get("client_email") if info else None
+
     # ── Reel assembly (Phase 1) ───────────────────────────────
     reel_target_shot: float = 2.0    # ~seconds per shot; each cut snaps to the nearest beat
     reel_min_shot: float = 1.0        # don't leave a final shard shorter than this

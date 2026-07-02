@@ -272,6 +272,14 @@
       <div class="libwrap">
         <aside class="folders" id="folders"></aside>
         <div class="libmain">
+          <div id="drivecard" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 16px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <b style="font-size:13.5px">Google Drive sync</b>
+              <span class="uz-sub" id="drivesa" style="flex:1;text-align:right"></span>
+              <button class="newfolder" id="driveconnect" style="width:auto;margin:0;padding:7px 13px">＋ Connect folder</button>
+            </div>
+            <div id="driveconns"></div>
+          </div>
           <div class="upzone" id="upzone">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
             <div class="uz-main">Drop clips or click to upload into <b id="uptarget">All clips</b></div>
@@ -330,7 +338,7 @@ document.querySelectorAll('.nav').forEach(b => b.onclick = () => {
   document.querySelectorAll('.nav').forEach(x => x.classList.remove('on')); b.classList.add('on');
   Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
   const v = b.dataset.view; document.getElementById(views[v]).classList.add('on');
-  if (v === 'library' && !libLoaded) { libLoaded = true; loadFolders().then(() => selectFolder(null)); }
+  if (v === 'library' && !libLoaded) { libLoaded = true; loadFolders().then(() => selectFolder(null)); loadDrive(); }
   if (v === 'grade' && !gradeLoaded) { gradeLoaded = true; const f = document.getElementById('gradeframe'); f.src = f.dataset.src; }
   if (v === 'reels' && !reelsLoaded) { reelsLoaded = true; const f = document.getElementById('reelframe'); f.src = f.dataset.src; }
 });
@@ -343,6 +351,55 @@ document.querySelectorAll('.stepper .step').forEach(b => b.onclick = () => {
   const inp = document.getElementById('count');
   inp.value = Math.max(1, Math.min(12, (parseInt(inp.value,10) || 1) + parseInt(b.dataset.d,10)));
 });
+
+// ---------- google drive sync ----------
+let drivePolling = false;
+async function loadDrive() {
+  let st = null;
+  try { st = await (await fetch('/api/drive/status')).json(); } catch (_) { return; }
+  const card = document.getElementById('drivecard');
+  if (!st || !st.configured) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('drivesa').textContent = 'share folders (Viewer) with ' + (st.service_account || 'the service account');
+  const conns = st.connections || [];
+  document.getElementById('driveconns').innerHTML = conns.map(c => {
+    const busy = c.status === 'syncing';
+    const stat = busy ? 'syncing — downloading + indexing new clips…'
+      : `${c.clips} clip${c.clips === 1 ? '' : 's'} from ${c.imported_files} files` +
+        (c.rejected ? ` · ${c.rejected} rejected` : '') + (c.failed ? ` · ${c.failed} failed` : '') +
+        (c.last_synced_at ? '' : ' · never synced');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 2px 2px;margin-top:8px;border-top:1px solid var(--border)">
+      <span style="font-weight:550;font-size:13px">📁 ${c.folder_name || c.folder_id}</span>
+      <span class="uz-sub" style="flex:1">${stat}${c.last_error ? ' · ⚠ ' + c.last_error : ''}</span>
+      <button class="newfolder" style="width:auto;margin:0;padding:6px 12px" data-sync="${c.connection_id}" ${busy ? 'disabled' : ''}>${busy ? 'Syncing…' : 'Sync now'}</button>
+    </div>`;
+  }).join('') || '<div class="uz-sub" style="padding-top:8px">No folders connected — paste a Drive folder link shared with the email above.</div>';
+  document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Syncing…';
+    await fetch('/api/drive/sync/' + b.dataset.sync, { method: 'POST' });
+    pollDrive();
+  });
+  if (conns.some(c => c.status === 'syncing')) pollDrive();
+}
+function pollDrive() {
+  if (drivePolling) return;
+  drivePolling = true;
+  const tick = async () => {
+    let st = null;
+    try { st = await (await fetch('/api/drive/status')).json(); } catch (_) {}
+    await loadDrive(); loadFolders(); loadClips();   // clips land as the sync indexes them
+    if (st && (st.connections || []).some(c => c.status === 'syncing')) setTimeout(tick, 8000);
+    else drivePolling = false;
+  };
+  setTimeout(tick, 8000);
+}
+document.getElementById('driveconnect').onclick = async () => {
+  const link = await modal({ title: 'Connect a Drive folder', input: { placeholder: 'Drive folder link or id' }, confirmText: 'Connect' });
+  if (!link) return;
+  const r = await fetch('/api/drive/connect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ folder: link }) });
+  if (r.ok) { toast('Folder connected'); loadDrive(); }
+  else { const d = await r.json().catch(() => ({})); toast(d.detail || 'Could not access that folder', 'err'); }
+};
 
 // ---------- folders ----------
 function depthOf(f) { let d = 0, p = f.parent_id; while (p) { const par = FOLDERS.find(x => x.id === p); if (!par) break; d++; p = par.parent_id; } return d; }

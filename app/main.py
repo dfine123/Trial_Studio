@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app import profiles, schemas
 from app.config import settings
 from app.db import SessionLocal, engine
+from app import models
 from app.models import Audio, Clip, ClipFolder, Template, User
 from app.templates.spec import TemplateSpec
 from app.storage import r2
@@ -1007,6 +1008,44 @@ def grade_page(request: Request):
     if not _is_authed(request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(_WEB_DIR, "grade.html"))
+
+
+# ── Google Drive sync (share a folder with the service account -> clips auto-ingest) ──
+class DriveConnectReq(BaseModel):
+    folder: str   # a Drive folder link or id, shared with the service account as Viewer
+
+
+@app.post("/api/drive/connect")
+def api_drive_connect(req: DriveConnectReq):
+    """Connect a shared Drive folder to the ACTIVE profile (verifies the SA can actually see it)."""
+    from app.drive import sync as drive_sync
+    res = drive_sync.connect(profiles.active_id(), req.folder)
+    if not res.get("ok"):
+        raise HTTPException(status_code=422, detail=res.get("error") or "could not access that folder")
+    return {**res, "service_account": settings.google_sa_email}
+
+
+@app.get("/api/drive/status")
+def api_drive_status():
+    """The active profile's Drive connections + counts + the share-with email."""
+    from app.drive import sync as drive_sync
+    return drive_sync.status(profiles.active_id())
+
+
+@app.post("/api/drive/sync/{connection_id}")
+def api_drive_sync(connection_id: uuid.UUID):
+    """Kick a sync for one connection in the background (download -> index each new video)."""
+    from app.drive import sync as drive_sync
+    with SessionLocal() as s:
+        conn = s.get(models.DriveConnection, connection_id)
+        if conn is None or conn.user_id != profiles.active_id():
+            raise HTTPException(status_code=404, detail="connection not found for this profile")
+        if conn.status == "syncing":
+            return {"ok": True, "already_syncing": True}
+    threading.Thread(target=lambda: drive_sync.sync_connection(connection_id,
+                                                               log=lambda m: print(m, flush=True)),
+                     daemon=True).start()
+    return {"ok": True, "syncing": True}
 
 
 # ── Reel (end-output) grading: rate the finished reel + see the candidate captions it chose between ──
