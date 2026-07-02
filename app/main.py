@@ -36,9 +36,10 @@ _DEFAULT_NICHE = (
 )
 _REELS_DIR = "var/reels"
 _WEB_DIR = os.path.join(os.path.dirname(__file__), "static")
-# Up to 3 clips in flight: the long TwelveLabs remote waits overlap, while the memory-heavy OpenCV
-# stages stay one-at-a-time via pipeline._CV2 (so a batch still can't OOM-crash the instance).
-_INDEX_SEM = threading.Semaphore(3)
+# Clips in flight (INDEX_CONCURRENCY, default 6): the long TwelveLabs remote waits overlap, while the
+# memory-heavy OpenCV stages stay one-at-a-time via pipeline._CV2 (a batch still can't OOM the instance).
+# TL side measured 2026-07-02: 8 simultaneous tasks accepted instantly, no 429s, parallel processing.
+_INDEX_SEM = threading.Semaphore(max(1, settings.index_concurrency))
 _DEBUG_JOBS: dict = {}  # last /api/debug/generate-start job, polled by /api/debug/generate-result
 
 

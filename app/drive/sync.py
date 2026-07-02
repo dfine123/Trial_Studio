@@ -155,7 +155,8 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
             return status, len(clip_ids)
 
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=3) as pool:   # 3 in flight: TL waits overlap, cv2 serialized
+        workers = max(1, settings.index_concurrency)      # in flight: TL waits overlap, cv2 serialized
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             for status, n_clips in pool.map(_one, new):
                 summary["clips"] += n_clips
                 summary["rejected"] += 1 if status == "rejected" else 0
