@@ -254,7 +254,9 @@ def generate(
         "species, so write yours as the same KIND of frame on a completely fresh moment — never converted into a "
         "written statement. A big share of your real captions are frames that live over the footage, and they hit "
         "hardest short. Keep your exact hyper-specificity; never generic, corporate, or "
-        "poetic. Make the " + str(n) + " as VARIED from each other as your references are:\n\n"
+        "poetic. Make the " + str(n) + " as VARIED from each other as your references are — in LENGTH too: a real "
+        "share of your best references are dead-simple and under 12 words, so when an idea lands short, LEAVE it "
+        "short:\n\n"
         + anchor_block
         + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
@@ -309,8 +311,9 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             "voice and let the form follow. A mechanical fill-in of the template is dead. EXCEPTION: if this "
             "anchor is a FRAME (a \"POV:\", a \"How bro looks…\", a \"when…\", a dialogue, a would-you-rather), "
             "the frame IS the joke's species — write the same KIND of frame on a completely fresh moment, never "
-            "converted into a written statement; frames live over the footage and hit hardest short. Keep your "
-            "exact specificity; never generic, corporate, or poetic:\n\n"
+            "converted into a written statement; frames live over the footage and hit hardest short. Your best "
+            "lines are often dead-simple and SHORT — when the idea lands in 10 words, that's the caption; never "
+            "pad past the joke. Keep your exact specificity; never generic, corporate, or poetic:\n\n"
             + _anchor_render("ANCHOR", anchor) + "\n\n"
             f"(Don't rehash these exact recent lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
