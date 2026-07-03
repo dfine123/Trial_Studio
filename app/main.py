@@ -1181,21 +1181,29 @@ def api_debug_clip_sim(ids: str | None = None, top: int = 15):
 
 
 @app.post("/api/debug/re-embed")
-def api_debug_re_embed():
+def api_debug_re_embed(dry: bool = False):
     """Repair corrupt clip embeddings for the ACTIVE profile: any embedding vector shared EXACTLY by
     2+ clips is garbage (unrelated footage can't be identical), so re-run the Marengo embed from each
-    clip's source file and store the real vector. Serial + idempotent (healthy clips untouched)."""
+    clip's source file and store the real vector. Serial + idempotent (healthy clips untouched).
+    dry=true: no re-embedding — just report each corrupt clip's source-file state (diagnosis)."""
     import hashlib as _hashlib
     from app.indexing import twelvelabs as tl
     with SessionLocal() as s:
-        rows = s.execute(select(Clip.id, Clip.r2_key, Clip.embedding).where(
+        rows = s.execute(select(Clip.id, Clip.r2_key, Clip.embedding, Clip.summary).where(
             Clip.user_id == profiles.active_id(), Clip.status == "indexed",
             Clip.embedding.isnot(None))).all()
     groups: dict = {}
-    for cid, key, emb in rows:
+    for cid, key, emb, summ in rows:
         h = _hashlib.sha1(json.dumps(emb).encode()).hexdigest()
-        groups.setdefault(h, []).append((cid, key))
+        groups.setdefault(h, []).append((cid, key, summ))
     bad = [x for g in groups.values() if len(g) > 1 for x in g]
+    if dry:
+        return {"corrupt_clips": len(bad), "clips": [
+            {"id": str(cid), "summary": (summ or "")[:50], "src": key,
+             "src_exists": bool(key and os.path.exists(key)),
+             "size": (os.path.getsize(key) if key and os.path.exists(key) else 0)}
+            for cid, key, summ in bad]}
+    bad = [(cid, key) for cid, key, _ in bad]
     if not bad:
         return {"corrupt_clips": 0, "re_embedded": 0, "failed": 0}
     c = tl.client()
