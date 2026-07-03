@@ -117,6 +117,7 @@ class BootstrapRequest(BaseModel):
     from_profile: uuid.UUID | None = None   # source voice to reskin (default: the Spence profile)
     limit: int = 200                        # default covers the FULL corpus — don't silently drop proven formats
     reset: bool = False                     # drop the previous bootstrap seed before re-seeding
+    verbatim: bool = False                  # same-archetype seed: copy original refs as-is (no reskin)
 
 
 def ensure_default_user() -> uuid.UUID:
@@ -453,7 +454,8 @@ def api_bootstrap_voice(profile_id: uuid.UUID, req: BootstrapRequest):
     src = req.from_profile or profiles.ensure_default_profile()
     from app.caption.bootstrap import bootstrap_from
     try:
-        n = bootstrap_from(target=profile_id, source=src, limit=req.limit, reset=req.reset)
+        n = bootstrap_from(target=profile_id, source=src, limit=req.limit, reset=req.reset,
+                           verbatim=req.verbatim)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"bootstrap failed: {exc}") from exc
     return {"ok": True, "added": n}

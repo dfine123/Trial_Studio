@@ -41,32 +41,49 @@ def reskin(source_captions: list[str], target_persona: str) -> list[str]:
         return []
 
 
-def bootstrap_from(target, source, limit: int = 200, reset: bool = False) -> int:
-    """Reskin the source profile's (non-gambling) refs into the target's voice. `limit` defaults high
-    enough to cover the WHOLE corpus — capping it silently drops proven formats from the new creator's
-    voice (a 40-cap once dropped 45 of 85 formats). With reset=True the target's previous BOOTSTRAP
-    refs are dropped first (real/ingested refs are kept); otherwise it appends. Returns how many were added."""
+_SEED_SOURCES = ("bootstrap", "seed_verbatim")           # seed provenance (dropped by reset; real refs kept)
+_PROMOTED_SOURCES = ("promoted_gen", "note_endorsed")    # later graded-in promotions — NOT "original" refs
+
+
+def bootstrap_from(target, source, limit: int = 200, reset: bool = False, verbatim: bool = False) -> int:
+    """Cold-start the target's voice corpus from a source profile's (non-gambling, ORIGINAL) refs.
+
+    verbatim=True — same-archetype seed: copy the original references AS-IS (caption + why_it_works +
+    all labels; no LLM reskin), excluding gambling refs and later promoted generations. Use when the new
+    creator is essentially the source's voice (e.g. minus the gambling emphasis).
+    verbatim=False — different archetype: LLM-reskin each caption into the target's persona.
+
+    `limit` defaults high enough to cover the WHOLE corpus — capping it silently drops proven formats
+    (a 40-cap once dropped 45 of 85). With reset=True the target's previous SEED refs are dropped first
+    (real/ingested refs are kept); otherwise it appends. Returns how many were added."""
     from app.caption.engine import _is_gambling   # lazy: avoid pulling the engine at module import
 
     src = [r for r in load_refs(profiles.corpus_path(source))
-           if (r.get("caption") or "").strip() and not _is_gambling(r)][:limit]
-    tp = (profiles.read_persona(target) or "").strip() or "an actually-cool, confident, very-online creator"
+           if (r.get("caption") or "").strip() and not _is_gambling(r)
+           and r.get("source") not in _PROMOTED_SOURCES][:limit]
 
     new_refs: list[dict] = []
-    for i in range(0, len(src), 12):                 # chunk so each LLM call stays small + reliable
-        chunk = src[i:i + 12]
-        caps = reskin([r["caption"] for r in chunk], tp)
-        for r, c in zip(chunk, caps):
-            # Carry the source ref's why_it_works: the MECHANISM transfers through a reskin (same
-            # format/twist), so the explanation still applies — and L1 enrichment can use it.
-            new_refs.append({"caption": c, "source": "bootstrap",
-                             "why_it_works": (r.get("why_it_works") or "").strip(),
-                             "persona_trait": r.get("persona_trait", "core")})
+    if verbatim:
+        for r in src:   # the voice IS the target's — carry everything, only the provenance changes
+            nr = {k: v for k, v in r.items() if k != "ref_id"}
+            nr["source"] = "seed_verbatim"
+            new_refs.append(nr)
+    else:
+        tp = (profiles.read_persona(target) or "").strip() or "an actually-cool, confident, very-online creator"
+        for i in range(0, len(src), 12):             # chunk so each LLM call stays small + reliable
+            chunk = src[i:i + 12]
+            caps = reskin([r["caption"] for r in chunk], tp)
+            for r, c in zip(chunk, caps):
+                # Carry the source ref's why_it_works: the MECHANISM transfers through a reskin (same
+                # format/twist), so the explanation still applies — and L1 enrichment can use it.
+                new_refs.append({"caption": c, "source": "bootstrap",
+                                 "why_it_works": (r.get("why_it_works") or "").strip(),
+                                 "persona_trait": r.get("persona_trait", "core")})
 
     path = profiles.corpus_path(target)
     kept = load_refs(path)
     if reset:
-        kept = [r for r in kept if r.get("source") != "bootstrap"]   # drop the old seed, keep real refs
+        kept = [r for r in kept if r.get("source") not in _SEED_SOURCES]   # drop old seeds, keep real refs
     combined = kept + new_refs
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:     # rewrite + renumber (small file; avoids id clashes)
