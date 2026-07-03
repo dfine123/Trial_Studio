@@ -65,6 +65,17 @@ def build_slot_plan(
     return [Slot(i, round(s, 3), round(e, 3)) for i, (s, e) in enumerate(cuts)]
 
 
+def _cos(a: list, b: list) -> float:
+    """Cosine similarity (pure python — small candidate sets, no numpy needed here)."""
+    try:
+        num = sum(x * y for x, y in zip(a, b))
+        da = math.sqrt(sum(x * x for x in a))
+        db = math.sqrt(sum(y * y for y in b))
+        return num / (da * db) if da and db else 0.0
+    except TypeError:
+        return 0.0
+
+
 def select_segments(
     slots: list[Slot],
     segments: list[dict],
@@ -73,6 +84,7 @@ def select_segments(
     usage: dict[str, int] | None = None,
     min_seg: float = 0.8,
     temperature: float = 2.0,
+    clip_emb: dict[str, list] | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -101,24 +113,32 @@ def select_segments(
 
     chosen: list[dict] = []
     clip_used: dict[str, int] = {}
+    used_vecs: list[list] = []   # embeddings of clips already in this reel (visual de-dup)
 
     for slot in slots:
         length = slot.duration
         # prefer segments long enough to fill the slot; relax if none qualify
         pool = [s for s in segments if (s.get("duration") or 0.0) >= length] or \
                [s for s in segments if (s.get("duration") or 0.0) >= min_seg] or list(segments)
-        # DISTINCT clips within a reel: a repeat — especially the same clip bookending the first and
-        # last shot — reads as a glitch/loop. Prefer clips unused in this reel; fall back to merely
-        # not-consecutive, then to the raw pool (only a library smaller than the slot count gets there).
+        # DISTINCT footage within a reel — by ID *and* by LOOK. Different clip ids can be near-identical
+        # takes of the same scene (embedding cosine >= threshold = "the same clip" to a viewer), so the
+        # preference chain is: visually-distinct unused -> id-distinct unused -> not-consecutive -> pool.
         prev_clip = chosen[-1]["clip_id"] if chosen else None
-        cands = ([s for s in pool if s["clip_id"] not in clip_used]
-                 or [s for s in pool if s["clip_id"] != prev_clip]
-                 or pool)
+        fresh = [s for s in pool if s["clip_id"] not in clip_used]
+        cands = fresh
+        if fresh and used_vecs and clip_emb:
+            thr = settings.clip_sim_threshold
+            visually = [s for s in fresh
+                        if max((_cos(clip_emb.get(s["clip_id"]) or [], v) for v in used_vecs), default=0.0) < thr]
+            cands = visually or fresh
+        cands = cands or [s for s in pool if s["clip_id"] != prev_clip] or pool
         costs = [cost(s, clip_used) for s in cands]
         lo = min(costs)
         weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
         seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced
         clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
+        if clip_emb and clip_emb.get(seg["clip_id"]):
+            used_vecs.append(clip_emb[seg["clip_id"]])
 
         seg_dur = seg.get("duration") or length
         offset = max(0.0, (seg_dur - length) / 2.0)    # center the sub-window in the segment

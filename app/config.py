@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     tl_pad_target: float = 4.5                    # pad sub-minimum clips up to this length
     index_concurrency: int = 6                    # clips in flight (TL remote waits overlap; cv2 stays serialized)
     sync_max_clip_seconds: float = 20.0           # Drive sync skips clips longer than this (0 = no cap)
+    clip_sim_threshold: float = 0.93              # within a reel, clips with embedding cosine >= this count as the SAME footage
 
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant

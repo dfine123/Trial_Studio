@@ -1140,6 +1140,35 @@ def api_refs_audit():
             "retired_present": retire.retired_present(pid)}
 
 
+@app.get("/api/debug/clip-sim")
+def api_debug_clip_sim(ids: str | None = None, top: int = 15):
+    """Embedding-similarity report for the ACTIVE profile's clips. Without `ids`: the pairwise cosine
+    distribution + the most-similar pairs (calibrates CLIP_SIM_THRESHOLD — near-duplicate takes sit at
+    the top). With `ids` (comma-separated): all pairwise sims among those clips (verify a reel's picks)."""
+    import numpy as np
+    with SessionLocal() as s:
+        rows = s.execute(select(Clip.id, Clip.summary, Clip.embedding).where(
+            Clip.user_id == profiles.active_id(), Clip.status == "indexed",
+            Clip.embedding.isnot(None))).all()
+    if ids:
+        want = {x.strip() for x in ids.split(",") if x.strip()}
+        rows = [r for r in rows if str(r[0]) in want]
+    if len(rows) < 2:
+        return {"clips_with_embeddings": len(rows), "pairs": []}
+    E = np.array([r[2] for r in rows], dtype=float)
+    E = E / (np.linalg.norm(E, axis=1, keepdims=True) + 1e-9)
+    S = E @ E.T
+    iu = np.triu_indices(len(rows), k=1)
+    sims = S[iu]
+    order = np.argsort(-sims)[: max(1, top)]
+    pairs = [{"a": str(rows[iu[0][k]][0]), "b": str(rows[iu[1][k]][0]), "sim": round(float(sims[k]), 4),
+              "a_sum": (rows[iu[0][k]][1] or "")[:60], "b_sum": (rows[iu[1][k]][1] or "")[:60]}
+             for k in order]
+    return {"clips_with_embeddings": len(rows), "threshold": settings.clip_sim_threshold,
+            "percentiles": {p: round(float(np.percentile(sims, p)), 4) for p in (50, 90, 95, 99)},
+            "max": round(float(sims.max()), 4), "top_pairs": pairs}
+
+
 @app.get("/api/refs/rotation")
 def api_refs_rotation():
     """TRANSPARENCY: what the closed loop has done to each reference — keep/kill/best credits, usage,

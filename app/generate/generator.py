@@ -116,7 +116,9 @@ def _resolve_sources(chosen: list[dict], clip_dur: dict[str, float]) -> dict[str
 
 
 def _load_segments(clip_ids: list[str] | None = None):
-    """Return (segments, clip_durations, clip_meta) for the ACTIVE profile's indexed clips."""
+    """Return (segments, clip_durations, clip_meta, clip_emb) for the ACTIVE profile's indexed clips.
+    clip_emb (Marengo whole-video vectors) is kept SEPARATE from clip_meta so it never leaks into the
+    caption-fit LLM prompt — it exists for VISUAL de-duplication at selection time."""
     from app import profiles
     with SessionLocal() as s:
         q = (
@@ -127,7 +129,7 @@ def _load_segments(clip_ids: list[str] | None = None):
         if clip_ids:
             q = q.where(Clip.id.in_(clip_ids))
         rows = s.execute(q).all()
-    segs, clip_dur, clip_meta = [], {}, {}
+    segs, clip_dur, clip_meta, clip_emb = [], {}, {}, {}
     for seg, clip in rows:
         cid = str(clip.id)
         segs.append({
@@ -142,7 +144,9 @@ def _load_segments(clip_ids: list[str] | None = None):
             "vibe_tags": clip.vibe_tags or [], "time_of_day": clip.time_of_day,
             "camera_movement": clip.camera_movement,
         }
-    return segs, clip_dur, clip_meta
+        if clip.embedding:
+            clip_emb[cid] = clip.embedding
+    return segs, clip_dur, clip_meta, clip_emb
 
 
 # Audio vibes that call for a reflective / serious caption rather than the funny voice.
@@ -257,7 +261,7 @@ def generate_reel(
 ) -> dict:
     bp = profile.analyze(audio_path)
 
-    segs, clip_dur, clip_meta = _load_segments(clip_ids=clip_ids)
+    segs, clip_dur, clip_meta, clip_emb = _load_segments(clip_ids=clip_ids)
     if not segs:
         raise RuntimeError("no indexed segments available to build a reel")
 
@@ -284,7 +288,7 @@ def generate_reel(
     ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta)
     fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
-                             fit_rank=fit_rank, usage=_load_clip_usage())
+                             fit_rank=fit_rank, usage=_load_clip_usage(), clip_emb=clip_emb)
     _log_clip_usage([c["clip_id"] for c in chosen])
 
     if sources is None:
