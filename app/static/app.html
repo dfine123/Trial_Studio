@@ -579,7 +579,15 @@ function wireValidate(vb, d) {
       const name = d.reel_url.split('/').pop();
       const r = await fetch('/api/reels/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, caption: d.caption }) });
       if (!r.ok) throw new Error((await r.text()).slice(0,160));
-      vb.innerHTML = '✓ Validated'; vb.classList.add('done', 'pop'); toast('Validated → Drive');
+      const res = await r.json().catch(() => ({}));
+      if (res.drive && res.drive.link) {
+        vb.innerHTML = '✓ In Drive ↗'; vb.classList.add('done', 'pop');
+        vb.disabled = false; vb.onclick = () => window.open(res.drive.link, '_blank');
+        toast('Uploaded to Drive');
+      } else {
+        vb.innerHTML = '✓ Validated'; vb.classList.add('done', 'pop');
+        toast(res.drive && res.drive.error ? 'Saved locally — Drive: ' + res.drive.error : 'Validated');
+      }
     } catch (e) { vb.disabled = false; vb.innerHTML = prev; toast('Export failed: ' + e.message, 'err'); }
   };
 }

@@ -102,6 +102,62 @@ def list_videos(folder_id: str, since: str | None = None, root_name: str | None 
     return out
 
 
+# ── EXPORT side (OAuth as the operator; drive.file scope = only files this app creates) ─────────
+_WRITE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
+
+def export_configured() -> bool:
+    return bool(settings.google_oauth_client_id and settings.google_oauth_client_secret
+                and settings.google_oauth_refresh_token)
+
+
+def _user_service():
+    """Drive client acting AS THE OPERATOR (refresh-token OAuth) — for WRITES. A service account can't
+    own files in a personal My Drive (no storage quota), so exports ride the operator's own account."""
+    if not export_configured():
+        raise DriveNotConfigured("exports need GOOGLE_OAUTH_CLIENT_ID / _SECRET / _REFRESH_TOKEN")
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    creds = Credentials(
+        None,
+        refresh_token=settings.google_oauth_refresh_token,
+        client_id=settings.google_oauth_client_id,
+        client_secret=settings.google_oauth_client_secret,
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=_WRITE_SCOPES,
+    )
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
+def _q_escape(name: str) -> str:
+    return (name or "").replace("\\", "\\\\").replace("'", "\\'")
+
+
+def ensure_folder(svc, name: str, parent_id: str | None = None) -> str:
+    """Get-or-create a folder by name (under parent_id, or My Drive root). drive.file scope only sees
+    folders this app created — exactly the export tree."""
+    q = f"name = '{_q_escape(name)}' and mimeType = '{_FOLDER_MIME}' and trashed = false"
+    if parent_id:
+        q += f" and '{parent_id}' in parents"
+    resp = svc.files().list(q=q, spaces="drive", fields="files(id)", pageSize=5).execute()
+    files = resp.get("files", [])
+    if files:
+        return files[0]["id"]
+    body = {"name": name, "mimeType": _FOLDER_MIME}
+    if parent_id:
+        body["parents"] = [parent_id]
+    return svc.files().create(body=body, fields="id").execute()["id"]
+
+
+def upload_file(svc, path: str, folder_id: str, name: str | None = None) -> dict:
+    """Upload one file into a folder (resumable). Returns {id, link}."""
+    from googleapiclient.http import MediaFileUpload
+    media = MediaFileUpload(path, resumable=True)
+    body = {"name": name or os.path.basename(path), "parents": [folder_id]}
+    f = svc.files().create(body=body, media_body=media, fields="id,webViewLink").execute()
+    return {"id": f.get("id"), "link": f.get("webViewLink")}
+
+
 def download(file_id: str, dest: str) -> str:
     """Stream a Drive file to `dest` in chunks (handles large 4K clips without loading into memory)."""
     from googleapiclient.http import MediaIoBaseDownload

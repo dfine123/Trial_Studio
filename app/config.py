@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     google_sa_json: str = ""           # raw service-account key JSON (use on Railway — paste contents)
     google_sa_json_file: str = ""      # OR a path to the key file (use locally — no JSON in .env)
 
+    # ── Google Drive EXPORT (OAuth as the operator — SAs can't own files in a personal My Drive) ──
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_refresh_token: str = ""
+    drive_export_root: str = "treelz exports"     # top-level folder in the operator's My Drive
+
     @property
     def google_sa_info(self) -> dict | None:
         """The service-account key as a dict, from GOOGLE_SA_JSON (contents) or GOOGLE_SA_JSON_FILE

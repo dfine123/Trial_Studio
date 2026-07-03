@@ -166,6 +166,13 @@ def create_profile(name: str, niche: str | None = None) -> dict:
         s.refresh(u)
         pid = u.id
     profile_dir(pid)   # create the (empty) voice dir so a fresh profile starts with its own blank voice
+    try:    # best-effort: the profile's Drive export folder appears immediately (lazy-healed otherwise)
+        from app.drive import gdrive
+        from app.drive.export import ensure_profile_folder
+        if gdrive.export_configured():
+            ensure_profile_folder(pid)
+    except Exception:  # noqa: BLE001
+        pass
     return {"id": str(pid), "name": u.handle, "niche": u.niche, "active": False}
 
 

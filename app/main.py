@@ -1008,10 +1008,21 @@ def api_reels_validate(req: ValidateRequest):
                 f.write(req.caption.strip() + "\n")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"export copy failed: {exc}")
+    # Real Drive upload (OAuth as the operator): the reel lands in "treelz exports/<profile>" in THEIR
+    # My Drive. Best-effort — a Drive hiccup or missing creds never blocks the local validate.
+    drive = None
+    try:
+        from app.drive import gdrive as _gd
+        from app.drive.export import upload_validated
+        if _gd.export_configured():
+            drive = upload_validated(profiles.active_id(), src, stem, req.caption)
+    except Exception as exc:  # noqa: BLE001
+        drive = {"error": str(exc)[:200]}
     os.makedirs("var", exist_ok=True)
     with open("var/validated.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({"name": req.name, "caption": req.caption, "exported": dest_mp4}, ensure_ascii=False) + "\n")
-    return {"ok": True, "exported": dest_mp4}
+        f.write(json.dumps({"name": req.name, "caption": req.caption, "exported": dest_mp4,
+                            "drive": drive}, ensure_ascii=False) + "\n")
+    return {"ok": True, "exported": dest_mp4, "drive": drive}
 
 
 # ── Caption grading (reward-model data capture) ───────────────
