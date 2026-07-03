@@ -239,7 +239,7 @@ def generate(
     )
     anchors = _pick_anchors(refs, n)
     anchor_block = _render_anchors(anchors)   # craft-deepened when _CRAFT is on (A/B); plain otherwise
-    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
+    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(150)) or "(none yet)"
     note = (notes or "").strip()
     craft_note = (" Each anchor also names THE CRAFT of its landing — the exact move that makes it hit; "
                   "land yours with that same craft (as exact and concrete — no fuzzy noun, no almost-right payoff)."
@@ -301,7 +301,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     ref_block = "\n\n".join(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
     )
-    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(50)) or "(none yet)"
+    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(150)) or "(none yet)"
     note = (notes or "").strip()
 
     def one(anchor: dict) -> dict | None:
