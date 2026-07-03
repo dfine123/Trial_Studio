@@ -1169,6 +1169,46 @@ def api_debug_clip_sim(ids: str | None = None, top: int = 15):
             "max": round(float(sims.max()), 4), "top_pairs": pairs}
 
 
+@app.post("/api/debug/re-embed")
+def api_debug_re_embed():
+    """Repair corrupt clip embeddings for the ACTIVE profile: any embedding vector shared EXACTLY by
+    2+ clips is garbage (unrelated footage can't be identical), so re-run the Marengo embed from each
+    clip's source file and store the real vector. Serial + idempotent (healthy clips untouched)."""
+    import hashlib as _hashlib
+    from app.indexing import twelvelabs as tl
+    with SessionLocal() as s:
+        rows = s.execute(select(Clip.id, Clip.r2_key, Clip.embedding).where(
+            Clip.user_id == profiles.active_id(), Clip.status == "indexed",
+            Clip.embedding.isnot(None))).all()
+    groups: dict = {}
+    for cid, key, emb in rows:
+        h = _hashlib.sha1(json.dumps(emb).encode()).hexdigest()
+        groups.setdefault(h, []).append((cid, key))
+    bad = [x for g in groups.values() if len(g) > 1 for x in g]
+    if not bad:
+        return {"corrupt_clips": 0, "re_embedded": 0, "failed": 0}
+    c = tl.client()
+    fixed, failed = 0, 0
+    for cid, key in bad:
+        try:
+            if not key or not os.path.exists(key):
+                failed += 1
+                continue
+            vec = tl.embed_video(c, video_file=key)
+            if vec:
+                with SessionLocal() as s:
+                    cl = s.get(Clip, cid)
+                    if cl is not None:
+                        cl.embedding = vec
+                        s.commit()
+                fixed += 1
+            else:
+                failed += 1
+        except Exception:  # noqa: BLE001 — one clip must not stop the repair
+            failed += 1
+    return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
+
+
 @app.get("/api/refs/rotation")
 def api_refs_rotation():
     """TRANSPARENCY: what the closed loop has done to each reference — keep/kill/best credits, usage,
