@@ -1003,9 +1003,6 @@ def api_reels_validate(req: ValidateRequest):
     try:
         if not os.path.exists(dest_mp4):
             shutil.copy2(src, dest_mp4)
-        if (req.caption or "").strip():
-            with open(os.path.join(export_dir, stem + ".txt"), "w", encoding="utf-8") as f:
-                f.write(req.caption.strip() + "\n")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"export copy failed: {exc}")
     # Real Drive upload (OAuth as the operator): the reel lands in "treelz exports/<profile>" in THEIR

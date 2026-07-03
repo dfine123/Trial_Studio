@@ -52,20 +52,11 @@ def ensure_profile_folder(pid) -> str:
 
 
 def upload_validated(pid, mp4_path: str, stem: str, caption: str | None = None) -> dict:
-    """Upload a validated reel (+ caption sidecar) into the profile's export folder. Returns
+    """Upload a validated reel into the profile's export folder. Just the mp4 — the caption is baked
+    into the video and logged in validated.jsonl; sidecar files only cluttered the folder. Returns
     {link, file_id, folder_id}."""
     from app.drive import gdrive
     svc = gdrive._user_service()
     fid = ensure_profile_folder(pid)
     up = gdrive.upload_file(svc, mp4_path, fid, name=stem + ".mp4")
-    if (caption or "").strip():
-        try:    # sidecar is a nice-to-have — never fail the export over it
-            import tempfile
-            tf = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
-            tf.write(caption.strip() + "\n")
-            tf.close()
-            gdrive.upload_file(svc, tf.name, fid, name=stem + ".txt")
-            os.remove(tf.name)
-        except Exception:  # noqa: BLE001
-            pass
     return {"link": up.get("link"), "file_id": up.get("id"), "folder_id": fid}
