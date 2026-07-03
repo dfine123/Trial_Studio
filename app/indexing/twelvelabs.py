@@ -15,6 +15,7 @@ video is queryable; on `failed` raise so the clip is marked rejected.
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import time
 
@@ -85,7 +86,8 @@ def index_video(
     if video_file is not None:
         if isinstance(video_file, str):
             fh = open(video_file, "rb")  # SDK needs a file handle, not a path string
-            create_kwargs["video_file"] = (os.path.basename(video_file), fh, "video/mp4")
+            mime = mimetypes.guess_type(video_file)[0] or "video/mp4"   # .mov = video/quicktime
+            create_kwargs["video_file"] = (os.path.basename(video_file), fh, mime)
         else:
             create_kwargs["video_file"] = video_file
     if video_url is not None:
@@ -180,7 +182,8 @@ def embed_video(
     if video_file is not None:
         if isinstance(video_file, str):
             fh = open(video_file, "rb")
-            create_kwargs["video_file"] = (os.path.basename(video_file), fh, "video/mp4")
+            mime = mimetypes.guess_type(video_file)[0] or "video/mp4"   # .mov embeds failed as video/mp4
+            create_kwargs["video_file"] = (os.path.basename(video_file), fh, mime)
         else:
             create_kwargs["video_file"] = video_file
     if video_url is not None:
