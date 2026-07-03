@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     tl_min_duration: float = 4.0                  # TL's hard minimum; freeze-pad shorter clips
     tl_pad_target: float = 4.5                    # pad sub-minimum clips up to this length
     index_concurrency: int = 6                    # clips in flight (TL remote waits overlap; cv2 stays serialized)
+    sync_max_clip_seconds: float = 20.0           # Drive sync skips clips longer than this (0 = no cap)
 
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant

@@ -106,6 +106,21 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
                 d = 0
             return (0, d) if d > 0 else (1, int(v.get("size") or 0))
 
+        cap_s = settings.sync_max_clip_seconds
+        if cap_s and cap_s > 0:
+            def _within_cap(v: dict) -> bool:
+                try:
+                    d = int((v.get("videoMediaMetadata") or {}).get("durationMillis") or 0)
+                except (TypeError, ValueError):
+                    d = 0
+                if d:
+                    return d <= cap_s * 1000
+                return int(v.get("size") or 0) <= 25 * 1024 * 1024   # no duration metadata: ~20s at phone bitrate
+            over = len(pending) - sum(1 for v in pending if _within_cap(v))
+            pending = [v for v in pending if _within_cap(v)]
+            if over:
+                log(f"[drive] {over} clips over {cap_s:.0f}s excluded (SYNC_MAX_CLIP_SECONDS)")
+
         pending.sort(key=_shortest_first)
         new = pending[:max_files] if max_files else pending
         summary["new"], summary["remaining"] = len(new), max(0, len(pending) - len(new))
