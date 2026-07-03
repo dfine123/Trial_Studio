@@ -81,8 +81,8 @@ def select_segments(
     likely, but the next few fits each get a real share — so successive reels genuinely vary their footage
     instead of the fit ranker (a single greedy call that structurally CAN'T create variety) landing on the
     same hero clips every time. Higher `temperature` = more variety; clearly-bad-fit clips stay rare.
-    Consecutive shots avoid the same clip; blank reels (empty fit_rank) sample on pure freshness.
-    Returns the reel sequence."""
+    Shots prefer clips UNUSED in this reel (no repeats, no first/last bookend) with graceful fallbacks
+    for tiny libraries; blank reels (empty fit_rank) sample on pure freshness. Returns the reel sequence."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
     fit_rank = fit_rank or {}
     usage = usage or {}
@@ -107,8 +107,13 @@ def select_segments(
         # prefer segments long enough to fill the slot; relax if none qualify
         pool = [s for s in segments if (s.get("duration") or 0.0) >= length] or \
                [s for s in segments if (s.get("duration") or 0.0) >= min_seg] or list(segments)
+        # DISTINCT clips within a reel: a repeat — especially the same clip bookending the first and
+        # last shot — reads as a glitch/loop. Prefer clips unused in this reel; fall back to merely
+        # not-consecutive, then to the raw pool (only a library smaller than the slot count gets there).
         prev_clip = chosen[-1]["clip_id"] if chosen else None
-        cands = [s for s in pool if s["clip_id"] != prev_clip] or pool
+        cands = ([s for s in pool if s["clip_id"] not in clip_used]
+                 or [s for s in pool if s["clip_id"] != prev_clip]
+                 or pool)
         costs = [cost(s, clip_used) for s in cands]
         lo = min(costs)
         weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
