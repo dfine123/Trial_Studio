@@ -25,15 +25,16 @@ from app import profiles
 from app.db import SessionLocal
 from app.models import User
 
-# Matched by ref_id OR exact caption (belt + suspenders — catches a verbatim copy under a different id).
-RETIRED_REF_IDS: set[str] = {"r014"}
+# Matched by exact CAPTION only. Ref ids are PROFILE-LOCAL and renumbered on seeding (a verbatim seed
+# gave another profile's innocent 14th ref the id "r014"), so id matching would delete legitimate refs.
+# (Originally Spence's r014.)
 RETIRED_CAPTIONS: set[str] = {
     "She should be serving LIFE for animal abuse. The way she treated the GOAT.",
 }
 
 
 def _is_retired(ref: dict) -> bool:
-    return ref.get("ref_id") in RETIRED_REF_IDS or (ref.get("caption") or "") in RETIRED_CAPTIONS
+    return (ref.get("caption") or "") in RETIRED_CAPTIONS
 
 
 def _atomic_write(path: str, text: str) -> None:
@@ -73,9 +74,9 @@ def _purge_corpus(path: str) -> int:
     return removed
 
 
-def _purge_json_map(path: str) -> int:
-    """Drop retired ref_id keys from a ref_scores/ref_usage json map. Returns keys removed."""
-    if not os.path.exists(path):
+def _purge_json_map(path: str, drop_ids: set[str]) -> int:
+    """Drop the given ref_id keys from a ref_scores/ref_usage json map. Returns keys removed."""
+    if not drop_ids or not os.path.exists(path):
         return 0
     try:
         with open(path, encoding="utf-8") as f:
@@ -84,7 +85,7 @@ def _purge_json_map(path: str) -> int:
         return 0
     if not isinstance(data, dict):
         return 0
-    drop = [k for k in data if k in RETIRED_REF_IDS]
+    drop = [k for k in data if k in drop_ids]
     for k in drop:
         del data[k]
     if drop:
@@ -93,18 +94,22 @@ def _purge_json_map(path: str) -> int:
 
 
 def purge_profile(pid) -> dict:
-    """Remove every retired ref from ONE profile's live voice files."""
+    """Remove every retired ref from ONE profile's live voice files. The score/usage keys to drop are
+    the ids the retired CAPTION holds in THIS profile's corpus (ids are profile-local)."""
+    from app.corpus.store import load_refs
+    drop_ids = {r.get("ref_id") for r in load_refs(profiles.corpus_path(pid))
+                if _is_retired(r) and r.get("ref_id")}
     return {
         "corpus": _purge_corpus(profiles.corpus_path(pid)),
-        "scores": _purge_json_map(profiles.ref_scores_path(pid)),
-        "usage": _purge_json_map(profiles.ref_usage_path(pid)),
+        "scores": _purge_json_map(profiles.ref_scores_path(pid), drop_ids),
+        "usage": _purge_json_map(profiles.ref_usage_path(pid), drop_ids),
     }
 
 
 def purge_all() -> dict:
     """Remove every retired ref from every profile's live voice files. Self-healing; call at startup.
     Never raises — cleanup must not block boot."""
-    if not RETIRED_REF_IDS and not RETIRED_CAPTIONS:
+    if not RETIRED_CAPTIONS:
         return {}
     try:
         with SessionLocal() as s:
