@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Lab — treelz.ai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧪%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
+<style>
+  body { display:flex; justify-content:center; }
+  .wrap { width:100%; max-width:840px; padding:32px 20px 90px; }
+  h1 { font-size:22px; margin-bottom:4px; display:flex; align-items:center; gap:10px; }
+  h1 .flask { filter:drop-shadow(0 0 12px var(--acc-glow)); }
+  .sub { color:var(--muted); margin:0 0 6px; font-size:14px; }
+  .legend { color:var(--faint); font-size:12.5px; line-height:1.6; margin:0 0 18px; }
+  .legend b { color:var(--ink-soft); font-weight:600; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:14px; position:sticky; top:10px; z-index:5;
+    backdrop-filter:blur(6px); background:rgba(18,20,25,.92); }
+  .stats { font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; flex:1; }
+  .stats b { color:var(--acc-bright); }
+  #cards { margin-top:14px; }
+  .lcard { padding:16px 18px; margin-bottom:12px; transition:opacity var(--t), border-color var(--t), box-shadow var(--t); }
+  .lcap { white-space:pre-wrap; font-size:15.5px; line-height:1.5; font-weight:500; }
+  .rate { display:flex; align-items:center; gap:12px; margin-top:13px; }
+  .rate10 { display:flex; gap:4px; flex:1; }
+  .r { flex:1; min-width:0; height:34px; font-family:inherit; font-size:12.5px; font-weight:650; color:var(--muted);
+    background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer;
+    transition:background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast); }
+  .r:hover { transform:translateY(-2px); color:var(--ink); border-color:var(--border-2); }
+  .r:disabled { cursor:default; opacity:.55; transform:none; }
+  .r.low.on  { background:var(--bad); color:#2b060c; border-color:transparent; opacity:1; }
+  .r.mid.on  { background:#e9ebf0; color:#10120f; border-color:transparent; opacity:1; }
+  .r.high.on { background:linear-gradient(180deg,#5fd99f,#2fae6e); color:#052e18; border-color:transparent;
+    box-shadow:0 4px 16px -6px rgba(70,201,138,.45); opacity:1; }
+  .lcard.rated-low { opacity:.55; border-color:var(--bad-line); }
+  .lcard.rated-mid { opacity:.75; }
+  .lcard.rated-high { border-color:rgba(70,201,138,.4); }
+  .intake { display:inline-flex; align-items:center; gap:7px; margin-left:auto; font-size:12px; font-weight:700;
+    color:var(--good); animation:pop .4s var(--spring); white-space:nowrap; }
+  .intake .dot { color:var(--good); }
+  .next { margin-top:8px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border); box-shadow:none; }
+  .next.ready { background:var(--grad); color:#fff; border-color:transparent; box-shadow:var(--glow-cta); }
+  .status { color:var(--muted); font-size:13.5px; margin:10px 2px; min-height:18px; }
+</style>
+</head>
+<body class="grain">
+<div class="wrap">
+  <h1><span class="flask">🧪</span>The Lab</h1>
+  <p class="sub">The isolated exploration lane — big swings the production engine wouldn't take.</p>
+  <p class="legend">
+    Each line collides <b>two distant references</b> under an off-the-leash brief. Nothing here touches production —
+    no rotation credit, no avoid-window pollution, no reels — except the one bridge: <b>rate a line 8+ and it joins the
+    voice</b> as a real reference (near-dup guarded). Misses cost nothing; grade cold and let the weird ones surprise you.
+  </p>
+  <div class="card bar">
+    <button class="btn btn-primary" id="gen">Generate batch</button>
+    <span class="stats" id="stats"></span>
+    <a class="link" href="/" target="_top" style="font-size:12.5px">← studio</a>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="cards">
+    <div class="empty-block">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v6L4.7 18a2 2 0 001.8 3h11a2 2 0 001.8-3L14 9V3"/><path d="M8.5 3h7"/><path d="M7.5 15h9"/></svg>
+      <div class="empty-title">Nothing brewing yet</div>
+      <div class="empty-sub">Hit <b>Generate batch</b> — 8 hot candidates from distant-reference collisions. The 8+ you rate cross into the voice.</div>
+    </div>
+  </div>
+  <button class="btn btn-block next" id="next" style="display:none">Next batch →</button>
+</div>
+<script>
+let batch = [];
+
+function band(v){ return v <= 4 ? 'low' : (v <= 7 ? 'mid' : 'high'); }
+async function refreshStats(){
+  try {
+    const s = await (await fetch('/api/lab/stats')).json();
+    document.getElementById('stats').textContent =
+      `${s.generated} generated · ${s.rated} rated · ${s.hits} hit 8+ · ${s.promoted} in the voice`;
+  } catch(_){}
+}
+function render(){
+  const wrap = document.getElementById('cards'); wrap.innerHTML = '';
+  batch.forEach((c, i) => {
+    const card = document.createElement('div'); card.className = 'card lcard';
+    card.style.animation = 'cardIn .4s var(--ease-out) both'; card.style.animationDelay = (i * 40) + 'ms';
+    card.innerHTML = `<div class="lcap"></div>
+      <div class="rate"><div class="rate10">${Array.from({length:10},(_,k)=>`<button class="r ${band(k+1)}" data-v="${k+1}">${k+1}</button>`).join('')}</div></div>`;
+    card.querySelector('.lcap').textContent = c.text;
+    card.querySelectorAll('.r').forEach(b => b.onclick = () => rate(c, card, +b.dataset.v));
+    wrap.appendChild(card);
+  });
+}
+async function rate(c, card, v){
+  if (card.dataset.rated) return;
+  card.dataset.rated = '1';
+  card.querySelectorAll('.r').forEach(b => { b.disabled = true; b.classList.toggle('on', +b.dataset.v === v); });
+  card.classList.add(v >= 8 ? 'rated-high' : (v <= 4 ? 'rated-low' : 'rated-mid'));
+  let res = {};
+  try { res = await (await fetch('/api/lab/grade', { method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ caption_id: c.caption_id, rating: v }) })).json(); } catch(_){}
+  if (v >= 8) {
+    const chip = document.createElement('span');
+    chip.className = 'intake';
+    chip.innerHTML = res.promoted ? `<span class="dot"></span>in the voice · ${res.promoted}`
+                                  : '<span class="dot"></span>already in the voice';
+    card.querySelector('.rate').appendChild(chip);
+  }
+  refreshStats(); updateNext();
+}
+function updateNext(){
+  const done = document.querySelectorAll('.lcard[data-rated]').length;
+  document.getElementById('next').classList.toggle('ready', batch.length > 0 && done >= batch.length);
+}
+async function genBatch(){
+  const btn = document.getElementById('gen'), st = document.getElementById('status'), next = document.getElementById('next');
+  btn.disabled = true; next.style.display = 'none';
+  st.innerHTML = '<span class="spin"></span> Colliding references… (~20–30s)';
+  document.getElementById('cards').innerHTML = '';
+  try {
+    const r = await fetch('/api/lab/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ n: 8 }) });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+    batch = (await r.json()).candidates || [];
+    st.textContent = `${batch.length} hot candidates — rate each cold.`;
+    render(); updateNext();
+    next.style.display = batch.length ? 'flex' : 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch(e){ st.textContent = 'Error: ' + e.message; }
+  finally { btn.disabled = false; }
+}
+document.getElementById('gen').onclick = genBatch;
+document.getElementById('next').onclick = genBatch;
+refreshStats();
+</script>
+</body>
+</html>

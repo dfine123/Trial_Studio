@@ -1133,6 +1133,44 @@ def promote_page(request: Request):
     return FileResponse(os.path.join(_WEB_DIR, "promote.html"))
 
 
+# ── THE LAB: isolated exploration lane — hot generation, 1-10 grading, >=8 auto-promotes into the voice ──
+@app.get("/lab")
+def lab_page(request: Request):
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "lab.html"))
+
+
+class LabGenRequest(BaseModel):
+    n: int = 8
+
+
+class LabGradeRequest(BaseModel):
+    caption_id: str
+    rating: int
+
+
+@app.post("/api/lab/generate")
+def api_lab_generate(req: LabGenRequest):
+    from app.caption import lab
+    try:
+        return {"candidates": lab.generate_lab(max(1, min(12, req.n)))}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"lab generation failed: {exc}") from exc
+
+
+@app.post("/api/lab/grade")
+def api_lab_grade(req: LabGradeRequest):
+    from app.caption import lab
+    return lab.grade_lab(req.caption_id, req.rating)
+
+
+@app.get("/api/lab/stats")
+def api_lab_stats():
+    from app.caption import lab
+    return lab.lab_stats()
+
+
 @app.get("/api/reels/pending")
 def api_reels_pending(backend: str | None = None):
     from app.caption import backend as _bk

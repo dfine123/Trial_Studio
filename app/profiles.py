@@ -97,6 +97,7 @@ def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suff
 def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_scores.json"), pid or voice_id())
 def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("grades.jsonl"), pid or voice_id())
 def taste_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("taste.md"), pid or voice_id())
+def lab_pool_path(pid: uuid.UUID | None = None) -> str:  return voice_file(_suffixed("lab_pool.jsonl"), pid or voice_id())
 def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)   # PROFILE-owned
 
 
