@@ -248,11 +248,6 @@
       <div class="panel gen">
         <label style="margin-top:0">Voice</label>
         <div class="voices" id="voices">
-          <div class="voice-card on" data-voice="spence">
-            <div class="voice-av">S</div>
-            <div class="voice-info"><div class="voice-name">Spence</div><div class="voice-tag">absurdist · very-online</div></div>
-            <svg class="voice-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
-          </div>
           <div class="voice-card ghost" id="addProfileCard" style="cursor:pointer;opacity:.8"><div class="voice-av gh">+</div><div class="voice-info"><div class="voice-name">New profile</div><div class="voice-tag">its own clips &amp; voice</div></div></div>
         </div>
         <div class="form-grid">
@@ -296,7 +291,7 @@
 <script>
 const views = { studio:'view-studio', library:'view-library', grade:'view-grade', reels:'view-reels' };
 let libLoaded = false, gradeLoaded = false, reelsLoaded = false;
-let FOLDERS = [], selectedFolder = null, selectedVoice = 'spence';
+let FOLDERS = [], selectedFolder = null;
 const IC_FOLDER = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h3.6l1.8 2h9.6A1.5 1.5 0 0121 9.5v8A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg>`;
 const IC_ALL = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>`;
 const IC_FILM = `<svg class="thumb-fb" viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18M3 14.5h18M7.5 5v14M16.5 5v14"/></svg>`;
@@ -343,10 +338,27 @@ document.querySelectorAll('.nav').forEach(b => b.onclick = () => {
   if (v === 'reels' && !reelsLoaded) { reelsLoaded = true; const f = document.getElementById('reelframe'); f.src = f.dataset.src; }
 });
 document.getElementById('logout').onclick = async () => { await fetch('/api/logout', {method:'POST'}); location.href = '/login'; };
-document.querySelectorAll('.voice-card[data-voice]').forEach(c => c.onclick = () => {
-  document.querySelectorAll('.voice-card[data-voice]').forEach(x => x.classList.remove('on'));
-  c.classList.add('on'); selectedVoice = c.dataset.voice;
-});
+// ---------- voices (toggle which VOICE the active profile generates with) ----------
+async function loadVoices() {
+  let d = null;
+  try { d = await (await fetch('/api/voices')).json(); } catch (_) { return; }
+  const wrap = document.getElementById('voices');
+  wrap.querySelectorAll('.voice-card[data-voice]').forEach(x => x.remove());
+  const ghost = document.getElementById('addProfileCard');
+  (d.voices || []).forEach(v => {
+    const el = document.createElement('div');
+    el.className = 'voice-card' + (v.active ? ' on' : '');
+    el.dataset.voice = v.profile_id;
+    el.innerHTML = `<div class="voice-av">${(v.label || '?').slice(0, 1).toUpperCase()}</div>
+      <div class="voice-info"><div class="voice-name">${v.label}</div><div class="voice-tag">${v.refs} references</div></div>
+      <svg class="voice-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
+    el.onclick = async () => {
+      const r = await fetch('/api/voice', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voice_profile_id: v.profile_id }) });
+      if (r.ok) { toast('Voice: ' + v.label); loadVoices(); }
+    };
+    wrap.insertBefore(el, ghost);
+  });
+}
 document.querySelectorAll('.stepper .step').forEach(b => b.onclick = () => {
   const inp = document.getElementById('count');
   inp.value = Math.max(1, Math.min(12, (parseInt(inp.value,10) || 1) + parseInt(b.dataset.d,10)));
@@ -645,11 +657,7 @@ async function loadProfiles() {
   try { PROFILES = await (await fetch('/api/profiles')).json(); } catch (_) { PROFILES = []; }
   const sel = document.getElementById('profileSel');
   sel.innerHTML = PROFILES.map(p => `<option value="${p.id}"${p.active ? ' selected' : ''}>${p.name}</option>`).join('');
-  const active = PROFILES.find(p => p.active) || PROFILES[0];
-  if (active) {
-    const vc = document.querySelector('.voice-card[data-voice]');
-    if (vc) { vc.querySelector('.voice-name').textContent = active.name; vc.querySelector('.voice-av').textContent = (active.name || '?').slice(0, 1).toUpperCase(); }
-  }
+  loadVoices();   // the voice picker is scoped to the active profile
 }
 async function switchProfile(id) {
   await fetch('/api/profiles/active', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });

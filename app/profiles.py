@@ -49,6 +49,32 @@ def voice_file(name: str, pid: uuid.UUID | None = None) -> str:
     return os.path.join(profile_dir(pid or active_id()), name)
 
 
+# ── VOICE pointer: a profile can generate with ANY profile's voice (default: its own) ──────────
+def voice_id(pid: uuid.UUID | None = None) -> uuid.UUID:
+    """The VOICE the given (default: active) profile generates with. Persisted per profile at
+    var/profiles/<id>/voice.json; heals to self if the pointed-at profile was deleted."""
+    owner = pid or active_id()
+    try:
+        with open(os.path.join(profile_dir(owner), "voice.json"), encoding="utf-8") as f:
+            vid = uuid.UUID(json.load(f)["voice_profile_id"])
+    except Exception:  # noqa: BLE001 — no pointer -> own voice
+        return owner
+    if vid == owner:
+        return owner
+    with SessionLocal() as s:
+        if s.get(User, vid) is not None:
+            return vid
+    return owner
+
+
+def set_voice(pid: uuid.UUID, voice_pid: uuid.UUID) -> None:
+    p = os.path.join(profile_dir(pid), "voice.json")
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"voice_profile_id": str(voice_pid)}, f)
+    os.replace(tmp, p)
+
+
 def _suffixed(name: str) -> str:
     """Append the active TEST-backend suffix so its mutable state is isolated ('' for production)."""
     from app.caption.backend import suffix   # lazy: avoid an import cycle at module load
@@ -59,17 +85,19 @@ def _suffixed(name: str) -> str:
     return f"{base}{s}.{ext}" if dot else name + s
 
 
-# resolvers used across the voice stack (store / engine / genlog / grades). references + persona are the
-# SHARED voice (read-only during generation) — never suffixed. The rest are MUTABLE (rotation / grades /
-# outputs / taste) and take the test-backend suffix so a Sonnet/OpenAI run stays fully isolated.
-def corpus_path(pid: uuid.UUID | None = None) -> str:    return voice_file("references.jsonl", pid)
-def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid)
-def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("generated.jsonl"), pid)
-def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_usage.json"), pid)
-def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_scores.json"), pid)
-def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("grades.jsonl"), pid)
-def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)
-def taste_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("taste.md"), pid)
+# resolvers used across the voice stack (store / engine / genlog / grades).
+# VOICE-owned files (corpus/persona/rotation/grade-attribution/taste) resolve through the VOICE POINTER
+# when pid is None — so a profile generating with another profile's voice reads AND learns into that
+# voice. PROFILE-owned files (reels, drive export) always stay with the profile itself. An explicit pid
+# always means THAT profile's own files (bootstrap targets, retire purge, per-record attribution).
+def corpus_path(pid: uuid.UUID | None = None) -> str:    return voice_file("references.jsonl", pid or voice_id())
+def persona_path(pid: uuid.UUID | None = None) -> str:   return voice_file("persona.md", pid or voice_id())
+def genlog_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("generated.jsonl"), pid or voice_id())
+def ref_usage_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_usage.json"), pid or voice_id())
+def ref_scores_path(pid: uuid.UUID | None = None) -> str: return voice_file(_suffixed("ref_scores.json"), pid or voice_id())
+def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suffixed("grades.jsonl"), pid or voice_id())
+def taste_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("taste.md"), pid or voice_id())
+def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)   # PROFILE-owned
 
 
 def read_persona(pid: uuid.UUID) -> str:

@@ -444,6 +444,55 @@ def api_profile_persona_set(profile_id: uuid.UUID, req: PersonaUpdate):
     return {"ok": True}
 
 
+# ── VOICES: any profile can generate with any profile's voice (persisted per profile) ──────────
+@app.get("/api/voices")
+def api_voices():
+    """Selectable voices (profiles that have a corpus), with the ACTIVE profile's current pick."""
+    from app.corpus.store import load_refs
+    act = profiles.active_id()
+    cur = profiles.voice_id()
+    out = []
+    with SessionLocal() as s:
+        rows = s.scalars(select(User).order_by(User.created_at)).all()
+    for u in rows:
+        refs = len(load_refs(profiles.corpus_path(u.id)))
+        if refs == 0 and u.id != cur:
+            continue   # a profile with no voice yet isn't a usable voice
+        out.append({"profile_id": str(u.id), "label": (u.voice_label or u.handle or "Untitled"),
+                    "refs": refs, "active": u.id == cur})
+    return {"voices": out, "for_profile": str(act)}
+
+
+class VoiceSelect(BaseModel):
+    voice_profile_id: uuid.UUID
+
+
+@app.post("/api/voice")
+def api_voice_select(req: VoiceSelect):
+    """Point the ACTIVE profile at a voice. Generation, rotation, and learning all follow it."""
+    with SessionLocal() as s:
+        if s.get(User, req.voice_profile_id) is None:
+            raise HTTPException(status_code=404, detail="voice profile not found")
+    profiles.set_voice(profiles.active_id(), req.voice_profile_id)
+    return {"ok": True, "voice_profile_id": str(req.voice_profile_id)}
+
+
+class VoiceLabelReq(BaseModel):
+    label: str
+
+
+@app.post("/api/profiles/{profile_id}/voice-label")
+def api_voice_label(profile_id: uuid.UUID, req: VoiceLabelReq):
+    """Rename how this profile's VOICE displays in the picker (e.g. Austin's voice -> 'Base')."""
+    with SessionLocal() as s:
+        u = s.get(User, profile_id)
+        if u is None:
+            raise HTTPException(status_code=404, detail="profile not found")
+        u.voice_label = (req.label or "").strip()[:64] or None
+        s.commit()
+    return {"ok": True}
+
+
 @app.post("/api/profiles/{profile_id}/bootstrap-voice")
 def api_bootstrap_voice(profile_id: uuid.UUID, req: BootstrapRequest):
     """Cold-start a profile's voice corpus by reskinning a SOURCE profile's proven formats into this
@@ -775,6 +824,7 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                 "caption_anchor_refs": res.get("caption_anchor_refs") or [],
                 "candidates": res.get("candidates") or [],
                 "clips": res.get("clips") or [],
+                "voice_profile_id": str(profiles.voice_id()),   # which VOICE generated it (grades credit it)
             })
         except Exception:   # noqa: BLE001 — recording must never break generation
             pass
@@ -1334,9 +1384,11 @@ def api_reels_grade(req: ReelGrade, backend: str | None = None):
                 # rotation). We deliberately DON'T "kill" on a low rating: a weak reel is almost always a
                 # delivery or a SELECTION miss, not a bad FORMAT — and culling formats for low scores
                 # narrows the voice. Operator's standing rule: understand WHY it missed, never eliminate.
+                # Credits go to the VOICE that generated the reel (recorded on it; fallback: current voice).
             anchors = rec.get("caption_anchor_refs") or []
+            vpid = uuid.UUID(rec["voice_profile_id"]) if rec.get("voice_profile_id") else None
             if anchors and isinstance(req.rating, int) and req.rating >= 8:
-                attribute.credit_verdict({"anchor_refs": anchors}, "keep")
+                attribute.credit_verdict({"anchor_refs": anchors}, "keep", pid=vpid)
         except Exception:   # noqa: BLE001
             pass
         try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference

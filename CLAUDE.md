@@ -34,12 +34,20 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
    rated ≥8 + note-endorsed "would have been an 8/9" alts) into the profile's references with decoded
    why_it_works. Grade → learn → better generator. That's the whole loop.
 
-## Voice architecture (two layers, per profile)
+## Voice architecture (two layers; voices are TOGGLEABLE per profile)
 
 - **Shared FORMAT base** (`engine._MECHANICS`): THE TWIST / PRECISION / ECONOMY / DEADPAN CONFIDENCE /
   HYPER-SPECIFIC+VERY-ONLINE / ALWAYS SHARP. Same for every profile.
 - **Per-profile PERSONA** (`var/profiles/<id>/persona.md`, GET/POST `/api/profiles/{id}/persona`) +
   the profile's own `references.jsonl`. `voice_system() = persona + references + _MECHANICS`.
+- **VOICE POINTER**: a profile can generate with ANY profile's voice. `profiles.voice_id()` reads
+  `var/profiles/<id>/voice.json` (default: own voice). VOICE-owned files (corpus, persona, ref_usage,
+  ref_scores, grades, genlog, taste) resolve through the pointer when pid is None; PROFILE-owned files
+  (reels, drive export) stay with the profile. Each reel records its `voice_profile_id` — grading
+  keep-credits and learn/promotion flow into the VOICE that generated it. API: `GET /api/voices`
+  (label = User.voice_label or handle; profiles without a corpus are hidden), `POST /api/voice`
+  {voice_profile_id} for the active profile, `POST /api/profiles/{id}/voice-label` to rename a voice's
+  display (Austin's voice is labeled **"Base"**). UI: the Generation Studio voice cards toggle it.
 - New same-archetype profile: seed via `POST /api/profiles/{id}/bootstrap-voice {verbatim:true}`
   (copies source originals as-is, drops gambling refs + later promotions). Different archetype:
   `verbatim:false` LLM-reskins (how Check was made).

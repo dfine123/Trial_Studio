@@ -87,14 +87,24 @@ def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, p
     return ref["ref_id"]
 
 
+def _rec_voice(rec: dict):
+    """The VOICE that generated this reel (recorded at generation; None -> current voice pointer)."""
+    import uuid as _uuid
+    v = rec.get("voice_profile_id")
+    try:
+        return _uuid.UUID(v) if v else None
+    except (ValueError, TypeError):
+        return None
+
+
 def promote(reel_id: str, pid=None) -> dict:
-    """Promote ONE graded reel's posted caption into the reference corpus (idempotent)."""
+    """Promote ONE graded reel's posted caption into the corpus OF THE VOICE that generated it."""
     rec = next((r for r in reel_store.graded(pid) if r.get("reel_id") == reel_id), None)
     if rec is None:
         return {"ok": False, "reason": "reel not found or ungraded"}
     rating = (rec.get("grade") or {}).get("rating") or 0
     rid = _add_ref(rec.get("caption") or "", rating, rec.get("caption_anchor_refs") or [], "promoted_gen",
-                   f"operator-rated {rating}/10 on a real reel; promoted into the corpus", pid)
+                   f"operator-rated {rating}/10 on a real reel; promoted into the corpus", _rec_voice(rec))
     reel_store.mark_promoted(reel_id, pid)
     return {"ok": True, "ref_id": rid, "already": rid is None}
 
@@ -122,14 +132,15 @@ def promote_all(pid=None, min_rating: int = 8) -> dict:
                 posted.append(res["ref_id"])
         claim = max((int(x) for x in _ENDORSE_RX.findall(g.get("notes") or "")), default=0)
         if claim >= min_rating:
+            vpid = _rec_voice(r)
             for c in (r.get("candidates") or []):
                 if not c.get("chosen") and _norm(c.get("text") or "") in pair_winners:
                     rid = _add_ref(c.get("text") or "", claim,
                                    [c.get("anchor_ref")], "note_endorsed",
-                                   f"operator note: would have been a {claim}; promoted into the corpus", pid)
+                                   f"operator note: would have been a {claim}; promoted into the corpus", vpid)
                     if rid:
                         endorsed.append(rid)
                         if c.get("anchor_ref"):   # amplify the format that produced the endorsed line
-                            attribute.credit_verdict({"anchor_refs": [c["anchor_ref"]]}, "keep", pid)
+                            attribute.credit_verdict({"anchor_refs": [c["anchor_ref"]]}, "keep", vpid)
     return {"posted_promoted": len(posted), "endorsed_promoted": len(endorsed),
             "ref_ids": posted + endorsed}

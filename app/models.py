@@ -34,6 +34,7 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     handle: Mapped[str | None] = mapped_column(String(255))
+    voice_label: Mapped[str | None] = mapped_column(String(64))   # display name of this profile's VOICE (default: handle)
     description: Mapped[str | None] = mapped_column(Text)
     niche: Mapped[str | None] = mapped_column(String(255))
     edge_pref: Mapped[str | None] = mapped_column(String(255))
