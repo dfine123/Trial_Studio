@@ -1189,12 +1189,14 @@ def api_reels_calibration(backend: str | None = None):
 
 @app.get("/api/refs/audit")
 def api_refs_audit():
-    """Active profile's corpus size + any RETIRED reference still present (post-purge verification)."""
+    """The ACTIVE VOICE's corpus size (what generation actually sees — follows the voice pointer) +
+    any RETIRED reference still present (post-purge verification)."""
     from app import profiles
     from app.corpus import retire
     from app.corpus.store import load_refs
-    pid = profiles.active_id()
+    pid = profiles.voice_id()
     return {"total_refs": len(load_refs(profiles.corpus_path(pid))),
+            "voice_profile_id": str(pid),
             "retired_present": retire.retired_present(pid)}
 
 
@@ -1278,11 +1280,12 @@ def api_debug_re_embed(dry: bool = False):
 @app.get("/api/refs/rotation")
 def api_refs_rotation():
     """TRANSPARENCY: what the closed loop has done to each reference — keep/kill/best credits, usage,
-    and its rotation status (amplified winner / de-weighted / normal). Nothing is ever dropped."""
+    and its rotation status (amplified winner / de-weighted / normal). Nothing is ever dropped.
+    Follows the ACTIVE VOICE pointer (rotation state belongs to the voice)."""
     from app import profiles
     from app.caption.engine import _load_json, _ref_key
     from app.corpus.store import load_refs
-    pid = profiles.active_id()
+    pid = profiles.voice_id()
     scores = _load_json(profiles.ref_scores_path(pid))
     usage = _load_json(profiles.ref_usage_path(pid))
     out = []
