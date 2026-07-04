@@ -1277,6 +1277,35 @@ def api_debug_re_embed(dry: bool = False):
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
 
 
+@app.post("/api/debug/corpus-dedup")
+def api_corpus_dedup(dry: bool = True):
+    """Remove NEAR-duplicate refs from the ACTIVE VOICE's corpus — the same joke promoted twice in
+    different renditions gets double rotation slots + double priming (felt as format over-representation).
+    Keeps the EARLIEST of each pair (originals outrank promotions). dry=true just reports the pairs."""
+    from app.corpus.promote import _too_similar
+    from app.corpus.store import load_refs
+    pid = profiles.voice_id()
+    path = profiles.corpus_path(pid)
+    refs = load_refs(path)
+    kept, removed = [], []
+    for r in refs:
+        cap = r.get("caption") or ""
+        dup_of = next((k for k in kept if _too_similar(cap, k.get("caption") or "")), None)
+        if dup_of is not None:
+            removed.append({"ref_id": r.get("ref_id"), "caption": cap[:90],
+                            "dup_of": dup_of.get("ref_id"), "kept_caption": (dup_of.get("caption") or "")[:90]})
+        else:
+            kept.append(r)
+    if not dry and removed:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for r in kept:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    return {"voice_profile_id": str(pid), "total": len(refs), "kept": len(kept),
+            "removed": len(removed), "applied": bool(removed) and not dry, "pairs": removed}
+
+
 @app.get("/api/refs/rotation")
 def api_refs_rotation():
     """TRANSPARENCY: what the closed loop has done to each reference — keep/kill/best credits, usage,

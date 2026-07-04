@@ -50,14 +50,27 @@ def promotable(pid=None, min_rating: int = 9) -> list[dict]:
     return out
 
 
+def _too_similar(a: str, b: str, thr: float = 0.8) -> bool:
+    """Near-duplicate check: word-set containment. Catches the same joke re-rendered ("doesn't" vs
+    "don't") without flagging genuinely different lines that merely share a topic."""
+    wa, wb = set(_norm(a).split()), set(_norm(b).split())
+    if not wa or not wb:
+        return False
+    return len(wa & wb) / min(len(wa), len(wb)) >= thr
+
+
 def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, pid=None) -> str | None:
-    """Append one operator-validated caption to the corpus (deduped). Returns the new ref_id or None."""
+    """Append one operator-validated caption to the corpus (deduped, incl. NEAR-duplicates — a format
+    must never stack multiple copies of the same joke, or it gets double the rotation slots + double
+    the voice-block priming). Returns the new ref_id or None."""
     cap = (caption or "").strip()
     if not cap:
         return None
     refs = load_refs(profiles.corpus_path(pid))
     if _norm(cap) in {_norm(r.get("caption") or "") for r in refs}:
         return None
+    if any(_too_similar(cap, r.get("caption") or "") for r in refs):
+        return None   # same joke, different rendition — one copy is enough
     try:    # decode the execution principles (why THIS rendition lands) — the learning content
         out = complete_json(_LABEL_SYS, f"CAPTION:\n{cap}", effort="high", max_tokens=600)
         s, e = out.find("{"), out.rfind("}")
