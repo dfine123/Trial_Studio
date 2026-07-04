@@ -86,6 +86,8 @@ class Settings(BaseSettings):
     # ── Reel assembly (Phase 1) ───────────────────────────────
     reel_target_shot: float = 2.0    # ~seconds per shot; each cut snaps to the nearest beat
     reel_min_shot: float = 1.0        # don't leave a final shard shorter than this
+    reel_max_shot: float = 3.2       # split any longer slot — a sparse/empty beat map must never
+                                     # produce one giant slot no clip can fill (that froze a reel)
     font_path: str = "fonts/TikTokSans-VariableFont.ttf"   # caption brand font
     reel_width: int = 1080
     reel_height: int = 1920

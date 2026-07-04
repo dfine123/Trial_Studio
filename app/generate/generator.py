@@ -300,9 +300,10 @@ def generate_reel(
             clip_quality[s0["clip_id"]] = u
     ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta, clip_quality)
     fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
+    clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
                              fit_rank=fit_rank, usage=_load_clip_usage(), clip_emb=clip_emb,
-                             clip_dur=clip_dur)
+                             clip_dur=clip_dur, clip_text=clip_text)
     _log_clip_usage([c["clip_id"] for c in chosen])
 
     if sources is None:
