@@ -175,6 +175,11 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   from `corpus/demo_base/` (exported Austin corpus). Caps: 50 clips / 30s each / 15 reels →
   24h cooldown → full reset (failures never consume; quota in `demo_quota.json` per profile).
 - Prod runs DEMO dormant — verified: demo endpoints 404, all operator surfaces intact.
+- The demo page is a 3-STAGE WIZARD (add clips → we get them ready → make reels; stepper unlocks
+  live, one primary action per stage, no jargon). **/admin** = the operator dashboard (accounts
+  table, stat cards, playable latest-reels feed) gated on the OPERATOR cookie — demo sessions
+  can't pass; demo-service operator creds are env-set non-defaults (password in local
+  tmp/demo_admin_pw.txt, never committed).
 
 ## Ops runbook
 

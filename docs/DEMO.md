@@ -39,6 +39,16 @@ templates, drive, debug endpoints, corpus tooling) are unreachable on the demo d
   minute, Anthropic per reel (~6 Opus calls). The clip caps bound TL; the reel quota
   bounds Anthropic.
 
+## Admin dashboard
+
+**https://trial-studio-demo-production.up.railway.app/admin** — operator-only (env
+`TREELZ_USER`/`TREELZ_PASSWORD` on the demo service; set to non-defaults since the repo
+defaults are public). Shows: stat cards (accounts, reels made, reels/24h, clips
+ready/rejected, cooldowns), a per-account table (joined, clip counts, window + lifetime
+reels, last-reel age, status), and a playable feed of the latest reels across all
+accounts with captions. Auto-refreshes every 60s. Demo sessions can never pass the
+admin gate (it requires the operator cookie, a different auth system).
+
 ## Ops
 - Health: `GET /health` (returns the deployed commit).
 - Re-verify end-to-end after any change: `bash tmp/demo_live_verify.sh` (WSL) — signs
