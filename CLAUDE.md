@@ -82,6 +82,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   LOOK** (Marengo embedding cosine ≥ `CLIP_SIM_THRESHOLD` 0.93 = "same footage"; chain:
   visually-distinct-unused → id-distinct → not-consecutive → pool) → beat-cut → ffmpeg composite.
 - Duration scales with the caption: `clamp(1.8 + words/3, 5, 9)` seconds; audio fades out.
+- **Frozen/duplicate-shot hardening (2026-07-04, four layers — don't remove any):** (1) QC records
+  the VIDEO STREAM's real duration, never the container's (phone audio outlives the last frame →
+  phantom segments → cuts render zero frames → reel freezes under the audio); (2) `build_slot_plan`
+  splits any slot > `reel_max_shot` (3.2s) — a beatless audio stretch once produced ONE 6.6s slot
+  no clip could fill (2.1s of video, 4.5s frozen); (3) `select_segments` clamps windows to real
+  footage, floors out phantom/near-black/blur segments (tiered, never empties), and de-dups by
+  SUBJECT fingerprint (distinctive summary words) — two different clips starring the same subject
+  (iced-watch macro ×2, embedding cosine 0.06!) read as "the same clip twice"; embeddings can't
+  catch that; (4) compositor tpad(clone)+trim per shot — video can never end before the audio.
+  Maintenance: `POST /api/debug/repair-durations` (dry default; fixed 4 clips / 268 on first run),
+  `GET /api/debug/clip-probe?ids=|reel_id=` (db-vs-stream durations, segment reach, embedding
+  state, per-segment quality). Caption-fit ranking now offers the ranker the top-160 clips by
+  quality and falls back to QUALITY order (was: arbitrary 40 + insertion order).
 - Caption PNG: TikTok Sans weight 800 via variation axes, Pilmoji color emoji (offline Noto fallback).
 - Embedding health: `GET /api/debug/clip-sim` (distribution + top pairs; `?ids=` verifies a reel's
   picks). `POST /api/debug/re-embed` repairs exact-duplicate vectors (`?dry=true` diagnoses).
