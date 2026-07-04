@@ -60,8 +60,12 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   reference (least-used-first, grade-weighted: winners recur, chronic-miss refs de-weighted via +3
   virtual usage, NEVER dropped). Anchors render caption + WHY IT LANDS. Frame anchors (POV/"how bro"/
   dialogue/would-you-rather) keep their SPECIES (never converted to statements). Anti-repeat window:
-  `recent_generated(150)`. Gambling anchor cap: ≤1 for batches ≤6. Reels use best-of-5 independent
-  candidates (`generate_independent(k=5)`), batch grading uses `generate(n)`.
+  `recent_generated(150)` rendered as **9-word PREMISE STUBS, never full captions** — full texts
+  were 150 in-prompt length examples and created a measured ratchet (pool drifted 17.5→19.9 mean
+  words while refs held ~17; chooser was CLEAN at 0.518 mean length-rank — the 2026-07-04 audit).
+  `GET /api/debug/length-audit` = the corpus-vs-pool-vs-chosen length forensics, rerun it before
+  blaming any layer for length drift. Gambling anchor cap: ≤1 for batches ≤6. Reels use best-of-5
+  independent candidates (`generate_independent(k=5)`), batch grading uses `generate(n)`.
 - **Selection** (`app/caption/chooser.py`): best-caption-first; per-profile persona injected at call
   time (modular); ONE veto: clearly soft/self-pitying/off-persona. Never judges format/topic/length.
 - **Editor** (`app/caption/refine.py`): subtractive-only (trims over-extended tails, strips
