@@ -108,22 +108,31 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   queues server-side free, zero 429s. `INDEX_CONCURRENCY=6` in-flight saturates it (cv2 stages
   serialize on a 1-slot lock inside the pipeline for memory). Wider than ~6 adds nothing.
 
-## Front-end design system (2026-07-04 redesign)
+## Front-end design system (v2 — 2026-07-04 workbench rebuild)
 
-- **`app/static/ui.css` is the single source of truth** — tokens (near-black neutral base with a
-  3–4% green cast, ONE light-green accent `--acc:#7bf1a8` with restrained glow), buttons
-  (`.btn` + `-primary/-soft/-ghost/-danger/-sm/-block`), cards, badges (`b-good/warn/bad/neutral`),
-  chips, toasts, modals, progress/skeletons, empty states, focus rings, motion. ALL six pages
-  (app, login, grade, grade_reels, promote, templates) link it (`/assets/ui.css?v=N` — bump N on
-  change). Never introduce a per-page palette; glow only on CTA/focus/selection/live states.
-  Text on green fills is dark (`--acc-ink`), never white.
-- Grading pages render INSIDE app iframes — they share the page background so the seam is
-  invisible; in-iframe links that should escape the frame use `target="_top"`.
-- Reel grading uses a segmented 1–10 rating (one click; 1–4 red / 5–7 neutral / 8–10 green),
-  posting the same `{reel_id, rating, notes}` contract.
+- **`app/static/ui.css` is the single source of truth** — very dark neutral base, ONE accent:
+  the **blue→purple gradient** (`--grad` fills, solid `--acc:#7d7bff` for borders/text; white ink
+  on gradient fills). SUCCESS/keep/high-ratings stay GREEN (`--good`), off-voice is TEAL —
+  semantic colors never reuse the accent. Buttons (`.btn` + `-primary/-soft/-ghost/-danger/-sm/
+  -block`), cards, badges, chips, toasts, modals, progress/skeletons, empty states, focus rings.
+  ALL six pages link `/assets/ui.css?v=N` — **bump N on change**. No per-page palettes; glow only
+  on CTA/focus/selection/live states.
+- **App shell = workbench framed on the real workflow**: slim nav sidebar → sticky `.topbar`
+  with the profile switcher + LIVE stat chips (indexed clips · reels **to grade** (click→grading)
+  · active-voice refs · Drive sync dot) polling the same endpoints the operator watches →
+  Studio view is `.wb`: a sticky 308px control rail (compact voice rows, audio, source, notes,
+  count, CTA) + a full-width reel canvas where each run lands as a `.batch` (header: count ·
+  audio · time) of vertical 9:16 `.rcard`s (video-first, caption rail, validate→Drive/download;
+  progress/queued/failed states share the same footprint). Library: folder rail + compact Drive
+  strip + slim upload bar (whole view is a dropzone) + dense clip grid.
+- Grading pages render INSIDE app iframes — same background, invisible seam; in-iframe links
+  that should escape use `target="_top"`. Reel grading = segmented 1–10 (1–4 red / 5–7 neutral /
+  8–10 green), same `{reel_id, rating, notes}` contract.
 - **Design-review harness**: `node tools/design_preview.cjs` → http://localhost:4173 serves the
   real static pages with stubbed APIs + fixture media (regen instructions in the file header) —
-  screenshot/QA every page and state with zero prod risk.
+  QA every page and state with zero prod risk. Gotcha: in an occluded/background preview tab,
+  CSS transitions/animations FREEZE mid-flight — computed styles can read stale mid-transition
+  values; disable the element's transition before asserting colors.
 
 ## Ops runbook
 

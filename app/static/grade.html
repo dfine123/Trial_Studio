@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/ui.css?v=1">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   body { display:flex; justify-content:center; }
   .wrap { width:100%; max-width:840px; padding:32px 20px 90px; }
@@ -17,7 +17,7 @@
   .legend { color:var(--faint); font-size:12.5px; line-height:1.6; margin:0 0 18px; }
   .legend b { color:var(--ink-soft); font-weight:600; }
   .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:14px; position:sticky; top:10px; z-index:5;
-    backdrop-filter:blur(6px); background:rgba(18,21,20,.92); }
+    backdrop-filter:blur(6px); background:rgba(18,20,25,.92); }
   .bar input { flex:1; min-width:160px; }
   .stats { font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
   .progress { font-size:13px; color:var(--muted); margin:12px 2px 0; font-variant-numeric:tabular-nums; }
@@ -34,21 +34,21 @@
   .vbtn:hover { transform:translateY(-1px); color:var(--ink-soft); border-color:var(--border-2); }
   .vbtn:active { transform:scale(.96); }
   .vbtn:disabled { opacity:.45; cursor:default; transform:none; }
-  .keep:hover { color:var(--good); border-color:var(--acc-line); background:var(--good-bg); }
+  .keep:hover { color:var(--good); border-color:rgba(70,201,138,.4); background:var(--good-bg); }
   .kill:hover { color:var(--bad); border-color:var(--bad-line); background:var(--bad-bg); }
-  .offv:hover { color:var(--violet); border-color:rgba(201,184,255,.35); background:var(--violet-bg); }
+  .offv:hover { color:var(--teal); border-color:rgba(92,214,214,.4); background:var(--teal-bg); }
   .best { margin-left:auto; }
   .best:hover { color:var(--gold); border-color:rgba(255,215,106,.4); background:var(--gold-bg); }
-  .keep.on { background:linear-gradient(180deg,#93f8b9,#46d685); color:var(--acc-ink); border-color:transparent; box-shadow:0 4px 16px -6px var(--acc-glow); }
+  .keep.on { background:linear-gradient(180deg,#5fd99f,#2fae6e); color:#052e18; border-color:transparent; box-shadow:0 4px 16px -6px rgba(70,201,138,.45); }
   .kill.on { background:var(--bad); color:#2b060c; border-color:transparent; }
-  .offv.on { background:var(--violet); color:#1c1433; border-color:transparent; }
+  .offv.on { background:var(--teal); color:#062b2b; border-color:transparent; }
   .best.on { background:linear-gradient(180deg,#ffe293,var(--gold)); color:#241a00; border-color:transparent; box-shadow:0 4px 18px -6px rgba(255,215,106,.45); }
-  .gcard.kept { border-color:var(--acc-line); }
+  .gcard.kept { border-color:rgba(70,201,138,.4); }
   .gcard.killed { border-color:var(--bad-line); opacity:.55; }
-  .gcard.offvoice { border-color:rgba(201,184,255,.35); opacity:.7; }
+  .gcard.offvoice { border-color:rgba(92,214,214,.4); opacity:.7; }
   .gcard.bestmark { border-color:rgba(255,215,106,.55); box-shadow:0 0 22px -8px rgba(255,215,106,.35), var(--shadow); }
-  .next { margin-top:8px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border); box-shadow:none; text-shadow:none; }
-  .next.ready { background:linear-gradient(180deg,#93f8b9,#46d685); color:var(--acc-ink); border-color:transparent; box-shadow:var(--glow-cta); }
+  .next { margin-top:8px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border); box-shadow:none; }
+  .next.ready { background:var(--grad); color:#fff; border-color:transparent; box-shadow:var(--glow-cta); }
 </style>
 </head>
 <body class="grain">

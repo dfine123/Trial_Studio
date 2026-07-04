@@ -8,13 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/ui.css?v=1">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   body { display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  /* ambient glow — two slow orbs behind the card */
+  /* ambient glow — a blue orb and a purple orb behind the card */
   .orb { position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0; }
-  .orb.a { width:420px; height:420px; left:calc(50% - 400px); top:-140px; background:rgba(123,241,168,.10); animation:orb 11s var(--ease) infinite; }
-  .orb.b { width:340px; height:340px; right:calc(50% - 430px); bottom:-120px; background:rgba(123,241,168,.07); animation:orb 14s var(--ease) infinite reverse; }
+  .orb.a { width:420px; height:420px; left:calc(50% - 400px); top:-140px; background:rgba(91,138,255,.12); animation:orb 11s var(--ease) infinite; }
+  .orb.b { width:340px; height:340px; right:calc(50% - 430px); bottom:-120px; background:rgba(157,91,255,.10); animation:orb 14s var(--ease) infinite reverse; }
   .card-login { position:relative; z-index:1; width:392px; max-width:92vw; padding:38px 32px 32px; animation:cardIn .5s var(--ease-out) both; }
   .card-login.shake { animation:shake .5s var(--ease); }
   .brand { display:flex; align-items:center; justify-content:center; margin-bottom:5px; }
@@ -44,7 +44,7 @@ document.getElementById('f').onsubmit = async (e) => {
   e.preventDefault();
   const card = document.getElementById('f'), btn = document.getElementById('btn'), err = document.getElementById('err');
   btn.disabled = true; err.textContent = ''; card.classList.remove('shake');
-  btn.innerHTML = '<span class="spin" style="border-top-color:var(--acc-ink);border-color:rgba(5,36,15,.25);border-top-color:var(--acc-ink)"></span>Signing in…';
+  btn.innerHTML = '<span class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></span>Signing in…';
   try {
     const r = await fetch('/api/login', { method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value }) });

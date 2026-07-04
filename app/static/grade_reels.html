@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/ui.css?v=1">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   header { padding:14px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px;
-    position:sticky; top:0; z-index:5; backdrop-filter:blur(6px); background:rgba(10,12,11,.9); }
+    position:sticky; top:0; z-index:5; backdrop-filter:blur(6px); background:rgba(10,11,13,.9); }
   header h1 { font-size:17px; letter-spacing:-.3px; }
   header .count { color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
   header a.link { font-size:12.5px; }
@@ -36,9 +36,9 @@
     transition:background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast); }
   .r:hover { transform:translateY(-2px); color:var(--ink); border-color:var(--border-2); }
   .r.low.on  { background:var(--bad); color:#2b060c; border-color:transparent; }
-  .r.mid.on  { background:#e9eeea; color:#10130f; border-color:transparent; }
-  .r.high.on { background:linear-gradient(180deg,#93f8b9,#46d685); color:var(--acc-ink); border-color:transparent;
-    box-shadow:0 4px 16px -6px var(--acc-glow); }
+  .r.mid.on  { background:#e9ebf0; color:#10120f; border-color:transparent; }
+  .r.high.on { background:linear-gradient(180deg,#5fd99f,#2fae6e); color:#052e18; border-color:transparent;
+    box-shadow:0 4px 16px -6px rgba(70,201,138,.45); }
   .rval { font-size:20px; font-weight:700; width:62px; text-align:center; font-variant-numeric:tabular-nums; }
   textarea.notes { min-height:84px; font-size:13.5px; }
   .actions { display:flex; gap:10px; align-items:center; }
@@ -126,7 +126,7 @@ function card(reel){
   const paint = () => {
     el.querySelectorAll('.r').forEach(b => b.classList.toggle('on', +b.dataset.v === rating));
     val.firstChild.textContent = rating;
-    val.style.color = rating <= 4 ? 'var(--bad)' : (rating <= 7 ? 'var(--ink)' : 'var(--acc)');
+    val.style.color = rating <= 4 ? 'var(--bad)' : (rating <= 7 ? 'var(--ink)' : 'var(--good)');
   };
   el.querySelectorAll('.r').forEach(b => b.onclick = () => { rating = +b.dataset.v; paint(); });
   paint();

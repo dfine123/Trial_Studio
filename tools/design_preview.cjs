@@ -92,6 +92,7 @@ const API = {
     { reel_id: 'r2', rating: 9, caption: 'staying broke to avoid risk is like starving yourself so you never get food poisoning' },
   ] },
   'GET /api/templates': [ { id: 't1', name: 'relatable → flex', segments: 3, audio_id: 'a1' }, { id: 't2', name: 'decode bait', segments: 2, audio_id: 'a3' } ],
+  'GET /api/refs/audit': { total_refs: 120, retired_found: 0 },
 };
 
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.jpg': 'image/jpeg', '.png': 'image/png' };

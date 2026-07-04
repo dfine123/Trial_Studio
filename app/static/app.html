@@ -4,122 +4,102 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>treelz.ai studio</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌱%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎬%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/ui.css?v=1">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   body { display:flex; }
-  /* ---------- sidebar ---------- */
-  .side { width:252px; flex:none; height:100vh; position:sticky; top:0; padding:20px 14px 16px;
-    background:linear-gradient(180deg, #0d100e, var(--bg1)); border-right:1px solid var(--border);
-    display:flex; flex-direction:column; gap:4px; }
-  .brand { display:flex; justify-content:center; padding:6px 6px 18px; }
-  .brand img { width:150px; height:auto; max-width:100%; filter:drop-shadow(0 0 16px rgba(123,241,168,.14)); transition:transform .4s var(--ease); }
+  /* ---------- sidebar (pure navigation) ---------- */
+  .side { width:212px; flex:none; height:100vh; position:sticky; top:0; padding:18px 12px 14px;
+    background:linear-gradient(180deg, #0c0e12, var(--bg1)); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; gap:3px; }
+  .brand { display:flex; justify-content:center; padding:4px 6px 18px; }
+  .brand img { width:126px; height:auto; max-width:100%; filter:drop-shadow(0 0 16px rgba(125,123,255,.16)); transition:transform .4s var(--ease); }
   .brand img:hover { transform:scale(1.03); }
-  .profwrap { padding:2px 2px 14px; }
-  .proflabel { margin:0 0 6px 4px; }
-  .profrow { display:flex; gap:6px; }
-  .profsel { flex:1; min-width:0; padding:8px 10px; padding-right:32px; font-size:13px; font-weight:600; border-radius:9px; background-position:right 10px center; }
-  .profnew { flex:none; width:34px; padding:0; font-size:17px; border-radius:9px; }
   .nav { position:relative; display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0;
-    color:var(--muted); font-size:14.5px; font-weight:550; font-family:inherit; padding:11px 12px; border-radius:10px;
+    color:var(--muted); font-size:14px; font-weight:550; font-family:inherit; padding:10px 11px; border-radius:10px;
     cursor:pointer; text-decoration:none; transition:background var(--t), color var(--t); }
-  .nav svg { width:19px; height:19px; flex:none; opacity:.92; transition:transform var(--t) var(--spring); }
+  .nav svg { width:18px; height:18px; flex:none; opacity:.92; transition:transform var(--t) var(--spring); }
   .nav:hover { background:var(--surface); color:var(--ink-soft); }
   .nav:hover svg { transform:scale(1.12); }
   .nav.on { background:var(--acc-soft); color:var(--acc-bright); }
-  .nav.on::before { content:''; position:absolute; left:-14px; top:50%; width:3px; height:0; border-radius:0 3px 3px 0;
-    background:var(--acc); box-shadow:0 0 10px 1px var(--acc-glow); transform:translateY(-50%); animation:navbar .25s var(--ease-out) forwards; }
+  .nav.on::before { content:''; position:absolute; left:-12px; top:50%; width:3px; height:0; border-radius:0 3px 3px 0;
+    background:linear-gradient(180deg, var(--acc-a), var(--acc-b)); box-shadow:0 0 10px 1px var(--acc-glow);
+    transform:translateY(-50%); animation:navbar .25s var(--ease-out) forwards; }
   @keyframes navbar { to{height:20px} }
-  .nav .ext { margin-left:auto; opacity:.55; width:13px !important; height:13px !important; }
+  .nav .ext { margin-left:auto; opacity:.55; width:12px !important; height:12px !important; }
   .spacer { flex:1; } .sep { height:1px; background:var(--border); margin:8px 10px; }
-  .buildtag { color:var(--faint); font-size:11px; padding:2px 12px 6px; font-variant-numeric:tabular-nums; }
+  .buildtag { color:var(--faint); font-size:11px; padding:2px 11px 6px; font-variant-numeric:tabular-nums; }
   .logout { display:flex; align-items:center; gap:10px; color:var(--faint); font-size:13px; font-family:inherit; background:none;
-    border:0; cursor:pointer; text-align:left; padding:10px 12px; border-radius:10px; transition:background var(--t), color var(--t); }
-  .logout svg { width:17px; height:17px; }
+    border:0; cursor:pointer; text-align:left; padding:9px 11px; border-radius:10px; transition:background var(--t), color var(--t); }
+  .logout svg { width:16px; height:16px; }
   .logout:hover { background:var(--surface); color:var(--bad); }
-  /* ---------- main ---------- */
+  /* ---------- main + topbar ---------- */
   .main { flex:1; min-width:0; }
-  .view { display:none; padding:40px 48px 90px; max-width:1520px; margin:0 auto; }
+  .tb-label { margin-right:-4px; }
+  .profsel { width:172px; padding:7px 10px; padding-right:30px; font-size:13px; font-weight:600; border-radius:9px; background-position:right 9px center; }
+  .profnew { width:31px; height:31px; padding:0; font-size:16px; border-radius:9px; }
+  .tb-spacer { flex:1; }
+  .view { display:none; padding:26px 32px 90px; max-width:1780px; margin:0 auto; }
   .view.on { display:block; animation:fade .3s var(--ease-out); }
-  .head { margin-bottom:26px; }
-  h2 { font-size:24px; letter-spacing:-.5px; margin-bottom:5px; }
-  .vsub { color:var(--muted); margin:0; font-size:14px; max-width:680px; } .vsub.empty { margin-top:14px; }
-  /* ---------- studio form ---------- */
-  .gen { max-width:940px; }
-  .gen label { margin:18px 0 7px; }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 22px; }
-  .field { min-width:0; } .field.full { grid-column:1 / -1; }
-  .form-grid > .field:nth-child(-n+2) label { margin-top:6px; }
-  /* voice cards */
-  .voices { display:flex; gap:12px; flex-wrap:wrap; }
-  .voice-card { display:flex; align-items:center; gap:12px; padding:11px 16px 11px 11px; background:var(--surface-2);
-    border:1px solid var(--border); border-radius:13px; cursor:pointer; min-width:238px;
-    transition:border-color var(--t), background var(--t), transform var(--t), box-shadow var(--t); }
-  .voice-card:hover { border-color:var(--border-2); transform:translateY(-1px); }
-  .voice-card.on { border-color:var(--acc); background:var(--acc-soft); box-shadow:var(--glow-ring), 0 0 18px -6px var(--acc-glow); }
-  .voice-card.ghost { cursor:pointer; opacity:.7; border-style:dashed; }
-  .voice-card.ghost:hover { opacity:1; border-color:var(--acc-line); transform:none; }
-  .voice-av { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:16px; color:var(--acc-ink); flex:none;
-    background:linear-gradient(135deg, var(--acc), var(--acc-deep)); box-shadow:0 0 14px -4px var(--acc-glow); }
-  .voice-av.gh { background:var(--elevate); color:var(--faint); font-weight:400; font-size:20px; box-shadow:none; }
-  .voice-name { font-weight:600; font-size:14px; } .voice-tag { font-size:12px; color:var(--muted); margin-top:1px; }
-  .voice-check { width:18px; height:18px; color:var(--acc); margin-left:auto; opacity:0; transform:scale(.6);
-    transition:opacity var(--t), transform var(--t) var(--spring); filter:drop-shadow(0 0 6px var(--acc-glow)); }
-  .voice-card.on .voice-check { opacity:1; transform:scale(1); }
-  /* stepper */
+  .head { margin-bottom:20px; }
+  h2 { font-size:21px; letter-spacing:-.4px; margin-bottom:4px; }
+  .vsub { color:var(--muted); margin:0; font-size:13.5px; max-width:720px; }
+  /* ---------- studio: control rail ---------- */
+  .wb-rail .panel { padding:18px; }
+  .rail-label { margin:16px 0 8px; }
+  .rail-label:first-child { margin-top:0; }
+  .vrow { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:10px;
+    background:var(--surface-2); cursor:pointer; margin-bottom:6px;
+    transition:border-color var(--t), background var(--t); }
+  .vrow:hover { border-color:var(--border-2); }
+  .vrow.on { border-color:var(--acc-line); background:var(--acc-soft); }
+  .vav { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:12px; color:#fff; background:var(--grad); flex:none; }
+  .vrow.ghost .vav { background:var(--elevate); color:var(--faint); font-weight:400; font-size:15px; }
+  .vrow.ghost { border-style:dashed; opacity:.75; }
+  .vrow.ghost:hover { opacity:1; border-color:var(--acc-line); }
+  .vname { font-weight:600; font-size:13.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vrefs { color:var(--faint); font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .vcheck { width:15px; height:15px; color:var(--acc-bright); opacity:0; transform:scale(.6); flex:none;
+    transition:opacity var(--t), transform var(--t) var(--spring); }
+  .vrow.on .vcheck { opacity:1; transform:scale(1); }
   .stepper { display:flex; }
-  .stepper input { border-radius:0; text-align:center; }
-  .stepper .step { width:46px; flex:none; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-soft);
-    font-size:18px; cursor:pointer; transition:background var(--t), color var(--t), transform var(--t); }
+  .stepper input { border-radius:0; text-align:center; padding:9px; }
+  .stepper .step { width:42px; flex:none; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-soft);
+    font-size:17px; cursor:pointer; transition:background var(--t), color var(--t), transform var(--t); }
   .stepper .step:first-child { border-radius:var(--r-sm) 0 0 var(--r-sm); border-right:0; }
   .stepper .step:last-child { border-radius:0 var(--r-sm) var(--r-sm) 0; border-left:0; }
   .stepper .step:hover { background:var(--elevate); color:var(--acc-bright); }
   .stepper .step:active { transform:scale(.92); }
-  .cta { margin-top:24px; }
-  .status { margin-top:14px; color:var(--muted); font-size:13.5px; min-height:20px; display:flex; align-items:center; gap:8px; }
-  /* blank-caption toggle */
-  .blanktoggle { display:flex; align-items:center; gap:10px; margin:4px 0 16px; cursor:pointer; font-size:13.5px;
+  .blanktoggle { display:flex; align-items:center; gap:9px; margin:16px 0 0; cursor:pointer; font-size:13px;
     font-weight:550; color:var(--ink); user-select:none; width:fit-content; }
   .blanktoggle input { position:absolute; opacity:0; width:0; height:0; }
-  .bt-track { width:38px; height:22px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border-2); position:relative; transition:background var(--t), border-color var(--t), box-shadow var(--t); flex:none; }
-  .bt-thumb { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:left var(--t), background var(--t); }
-  .blanktoggle input:checked + .bt-track { background:var(--acc); border-color:var(--acc); box-shadow:0 0 12px -3px var(--acc-glow); }
-  .blanktoggle input:checked + .bt-track .bt-thumb { left:18px; background:var(--acc-ink); }
+  .bt-track { width:36px; height:21px; border-radius:11px; background:var(--surface-2); border:1px solid var(--border-2); position:relative; transition:background var(--t), border-color var(--t), box-shadow var(--t); flex:none; }
+  .bt-thumb { position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:var(--muted); transition:left var(--t), background var(--t); }
+  .blanktoggle input:checked + .bt-track { background:var(--grad); border-color:transparent; box-shadow:0 0 12px -3px var(--acc-glow); }
+  .blanktoggle input:checked + .bt-track .bt-thumb { left:18px; background:#fff; }
   .blanktoggle input:focus-visible + .bt-track { box-shadow:var(--glow-ring); }
   .bt-sub { color:var(--faint); font-weight:450; }
-  /* ---------- results ---------- */
-  .results { display:grid; grid-template-columns:repeat(auto-fill, minmax(440px, 1fr)); gap:18px; margin-bottom:20px; }
-  .reel-card { display:flex; gap:16px; padding:16px; animation:cardIn .45s var(--ease-out) both; }
-  .reel-card.generating { border-color:var(--acc-line); animation:cardIn .45s var(--ease-out) both, breathe 2.4s var(--ease) infinite; }
-  .reel-card.flash { animation:glowFlash .7s var(--ease-out); }
-  .reel-card video { width:182px; flex:none; aspect-ratio:9/16; border-radius:12px; background:#000; object-fit:cover; box-shadow:var(--shadow); }
-  .reel-vid { width:182px; flex:none; aspect-ratio:9/16; border-radius:12px; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:12px; background:var(--surface-2); border:1px dashed var(--border-2); color:var(--faint); }
-  .reel-vid.fail { border-color:var(--bad); color:var(--bad); } .reel-vid svg { width:30px; height:30px; }
-  .reel-card .meta { flex:1; min-width:0; display:flex; flex-direction:column; }
-  .reel-label { margin-bottom:9px; }
-  .cap { white-space:pre-wrap; background:var(--surface-2); border:1px solid var(--border); border-left:3px solid var(--acc);
-    border-radius:var(--r-xs); padding:13px 15px; font-size:14.5px; line-height:1.55; color:var(--ink); }
-  .reel-stats { color:var(--faint); font-size:12.5px; margin-top:12px; }
-  .ph-phase { color:var(--ink-soft); font-size:13.5px; font-weight:500; min-height:20px; transition:opacity var(--t); }
-  .ph-sub { color:var(--faint); font-size:12.5px; line-height:1.55; margin-top:6px; }
-  .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:auto; padding-top:16px; }
-  .val.done { background:var(--good-bg); color:var(--good); box-shadow:none; text-shadow:none; }
+  .cta { margin-top:18px; }
+  .status { margin-top:12px; color:var(--muted); font-size:13px; min-height:20px; display:flex; align-items:center; gap:8px; }
+  /* canvas */
+  .rmeta-audio { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .val.done { background:var(--good-bg); color:var(--good); box-shadow:none; }
   .val.done:hover { transform:none; background:var(--good-bg); }
   .val.pop { animation:pop .4s var(--spring); }
-  #emptyResult { max-width:940px; }
-  .frame916 { width:44px; height:78px; border:1.5px dashed var(--border-2); border-radius:8px; margin:0 auto 14px; position:relative; }
+  .dlbtn { flex:0 0 auto !important; padding:7px 11px; }
+  #emptyResult { border-style:dashed; box-shadow:none; }
+  .frame916 { width:42px; height:74px; border:1.5px dashed var(--border-2); border-radius:8px; margin:0 auto 14px; position:relative; }
   .frame916::after { content:''; position:absolute; left:50%; top:50%; width:14px; height:14px; transform:translate(-50%,-50%);
     border-radius:50%; background:var(--acc-soft); box-shadow:0 0 14px 2px var(--acc-soft); }
   /* ---------- library ---------- */
-  .libwrap { display:flex; gap:20px; align-items:flex-start; }
-  .folders { width:232px; flex:none; padding:10px; position:sticky; top:24px; }
-  .folders .ftitle { padding:8px 10px 10px; }
-  .fitem { display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--muted); padding:8px 9px; border-radius:9px;
+  .libwrap { display:flex; gap:18px; align-items:flex-start; }
+  .folders { width:224px; flex:none; padding:10px; position:sticky; top:calc(var(--topbar-h) + 20px); }
+  .folders .ftitle { padding:6px 10px 9px; }
+  .fitem { display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--muted); padding:7px 9px; border-radius:9px;
     cursor:pointer; transition:background var(--t-fast), color var(--t-fast); }
   .fitem .fic { flex:none; opacity:.85; transition:transform var(--t) var(--spring); }
   .fitem:hover { background:var(--surface-2); color:var(--ink-soft); } .fitem:hover .fic { transform:scale(1.12); }
@@ -129,77 +109,68 @@
   .fitem.on .ct { color:var(--acc-bright); background:var(--acc-soft); }
   .fbtn { opacity:0; font-size:14px; line-height:1; color:var(--faint); padding:2px 4px; border-radius:6px; transition:all var(--t-fast); transform:scale(.8); }
   .fitem:hover .fbtn { opacity:1; transform:scale(1); }
-  .fbtn.add:hover { color:var(--acc); background:var(--acc-soft); } .fbtn.del:hover { color:var(--bad); background:var(--bad-bg); }
+  .fbtn.add:hover { color:var(--acc-bright); background:var(--acc-soft); } .fbtn.del:hover { color:var(--bad); background:var(--bad-bg); }
   .newfolder { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; margin-top:6px; background:none;
-    border:1px dashed var(--border-2); color:var(--muted); border-radius:9px; padding:10px; font-size:13px; font-weight:550;
+    border:1px dashed var(--border-2); color:var(--muted); border-radius:9px; padding:9px; font-size:13px; font-weight:550;
     font-family:inherit; cursor:pointer; transition:border-color var(--t), color var(--t), background var(--t); }
   .newfolder:hover { border-color:var(--acc-line); color:var(--acc-bright); background:var(--acc-soft); }
   .libmain { flex:1; min-width:0; }
-  /* drive sync card */
-  .drivecard { padding:14px 16px; margin-bottom:12px; }
+  .drivecard { padding:12px 15px; margin-bottom:10px; }
   .drive-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .drive-head b { font-size:13.5px; }
-  .drive-sa { flex:1; text-align:right; color:var(--faint); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:140px; }
-  .drive-row { display:flex; align-items:center; gap:10px; padding:9px 2px 2px; margin-top:9px; border-top:1px solid var(--border); }
-  .drive-row .fname { font-weight:550; font-size:13px; display:flex; align-items:center; gap:7px; white-space:nowrap; }
-  .drive-row .dstat { flex:1; color:var(--faint); font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .drive-head b { font-size:13px; }
+  .drive-sa { flex:1; text-align:right; color:var(--faint); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:140px; }
+  .drive-row { display:flex; align-items:center; gap:10px; padding:8px 2px 2px; margin-top:8px; border-top:1px solid var(--border); }
+  .drive-row .fname { font-weight:550; font-size:12.5px; display:flex; align-items:center; gap:7px; white-space:nowrap; }
+  .drive-row .dstat { flex:1; color:var(--faint); font-size:11.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .drive-row .dstat .werr { color:var(--warn); }
-  /* upload zone */
-  .upzone { display:flex; flex-direction:column; align-items:center; gap:6px; border:1.5px dashed var(--border-2); border-radius:var(--r);
-    padding:30px; text-align:center; color:var(--muted); cursor:pointer; transition:border-color var(--t), background var(--t), color var(--t), box-shadow var(--t); }
-  .upzone svg { width:26px; height:26px; color:var(--faint); transition:color var(--t), transform var(--t) var(--spring); }
-  .upzone .uz-main { font-size:14px; } .upzone .uz-sub { font-size:12px; color:var(--faint); }
+  .upzone { display:flex; align-items:center; gap:12px; border:1.5px dashed var(--border-2); border-radius:var(--r-md);
+    padding:13px 18px; color:var(--muted); cursor:pointer; margin-bottom:16px;
+    transition:border-color var(--t), background var(--t), color var(--t), box-shadow var(--t); }
+  .upzone svg { width:20px; height:20px; color:var(--faint); flex:none; transition:color var(--t), transform var(--t) var(--spring); }
+  .upzone .uz-main { font-size:13.5px; } .upzone .uz-sub { font-size:11.5px; color:var(--faint); margin-left:auto; white-space:nowrap; }
   .upzone b { color:var(--acc-bright); font-weight:600; }
   .upzone:hover, .upzone.drag { border-color:var(--acc); background:var(--acc-soft); color:var(--ink-soft); }
-  .upzone:hover svg, .upzone.drag svg { color:var(--acc); transform:translateY(-3px) scale(1.06); }
+  .upzone:hover svg, .upzone.drag svg { color:var(--acc-bright); transform:translateY(-2px); }
   .upzone.drag { box-shadow:var(--glow-ring), 0 0 26px -6px var(--acc-glow); }
-  /* clip grid */
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(244px, 1fr)); gap:16px; margin-top:18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(228px, 1fr)); gap:14px; }
   .grid.stagger .clip { animation:cardIn .42s var(--ease-out) both; }
   .grid.stagger .clip:nth-child(2){animation-delay:.03s} .grid.stagger .clip:nth-child(3){animation-delay:.06s}
   .grid.stagger .clip:nth-child(4){animation-delay:.09s} .grid.stagger .clip:nth-child(5){animation-delay:.12s}
   .grid.stagger .clip:nth-child(6){animation-delay:.15s} .grid.stagger .clip:nth-child(7){animation-delay:.18s}
   .grid.stagger .clip:nth-child(8){animation-delay:.21s} .grid.stagger .clip:nth-child(n+9){animation-delay:.24s}
-  .clip { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden;
+  .clip { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;
     transition:transform var(--t), border-color var(--t), box-shadow var(--t), opacity var(--t); }
   .clip:hover { border-color:var(--border-2); transform:translateY(-3px); box-shadow:var(--shadow-lift); }
-  .clip.skel { min-height:220px; }
-  .thumb { position:relative; aspect-ratio:16/10; background:#080a09; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .thumb-fb { color:#28312b; }
+  .clip.skel { min-height:210px; }
+  .thumb { position:relative; aspect-ratio:16/10; background:#08090c; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .thumb-fb { color:#272c3a; }
   .thumb-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:scale(1.04);
     transition:opacity .45s var(--ease), transform .6s var(--ease); }
   .thumb-img.loaded { opacity:1; transform:scale(1); }
   .clip:hover .thumb-img.loaded { transform:scale(1.05); }
   .thumb::after { content:''; position:absolute; left:0; right:0; top:0; height:52px; pointer-events:none;
-    background:linear-gradient(180deg, rgba(7,9,8,.7), transparent); }
+    background:linear-gradient(180deg, rgba(6,7,10,.7), transparent); }
   .thumb .badge { position:absolute; top:9px; left:9px; z-index:2; box-shadow:0 1px 6px rgba(0,0,0,.4); }
   .thumb .cdel { position:absolute; top:7px; right:7px; z-index:2; display:flex; align-items:center; justify-content:center;
-    width:23px; height:23px; padding:0; color:#d4dbd6; background:rgba(7,9,8,.55); border-radius:7px; }
+    width:23px; height:23px; padding:0; color:#d4d8e2; background:rgba(6,7,10,.55); border-radius:7px; }
   .thumb .cdel:hover { color:#fff; background:var(--bad); transform:scale(1.08); }
-  .thumb .dur { position:absolute; bottom:8px; right:9px; z-index:2; background:rgba(7,9,8,.74); color:#fff; font-size:11px;
+  .thumb .dur { position:absolute; bottom:8px; right:9px; z-index:2; background:rgba(6,7,10,.74); color:#fff; font-size:11px;
     font-weight:600; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
   .thumb .prog { position:absolute; bottom:0; left:0; right:0; margin:0; border-radius:0; z-index:2; }
   .cdel { background:none; border:0; color:var(--faint); font-size:16px; line-height:1; cursor:pointer; transition:color var(--t), background var(--t), transform var(--t); }
-  .clip-body { padding:13px 15px 15px; }
-  .clip .sum { font-size:13px; color:var(--ink-soft); line-height:1.5; max-height:58px; overflow:hidden; }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-  .reject { color:var(--bad); font-size:12px; margin-top:11px; }
-  .move { margin-top:12px; font-size:12.5px; padding:8px 10px; padding-right:32px; background-position:right 11px center; }
+  .clip-body { padding:12px 14px 14px; }
+  .clip .sum { font-size:12.5px; color:var(--ink-soft); line-height:1.5; max-height:56px; overflow:hidden; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+  .reject { color:var(--bad); font-size:12px; margin-top:10px; }
+  .move { margin-top:11px; font-size:12px; padding:7px 10px; padding-right:30px; background-position:right 10px center; }
   /* ---------- embedded grading ---------- */
   .gradewrap { padding:0; max-width:none; }
-  iframe { width:100%; height:100vh; border:0; display:block; background:transparent; }
+  iframe { width:100%; height:calc(100vh - var(--topbar-h)); border:0; display:block; background:transparent; }
 </style>
 </head>
 <body class="grain">
   <nav class="side">
     <div class="brand"><img src="/assets/treelz-logo.svg" alt="treelz.ai" /></div>
-    <div class="profwrap">
-      <label class="u-label proflabel" for="profileSel">Profile</label>
-      <div class="profrow">
-        <select id="profileSel" class="profsel"></select>
-        <button id="profileNew" class="btn btn-soft profnew" title="New profile — its own clips, folders & voice">+</button>
-      </div>
-    </div>
     <button class="nav on" data-view="studio">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L18.7 9.7 13.9 11.6 12 16.4 10.1 11.6 5.3 9.7 10.1 7.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Studio</button>
     <button class="nav" data-view="library">
@@ -217,39 +188,57 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5M20 12H9M9 4H5a1 1 0 00-1 1v14a1 1 0 001 1h4"/></svg>Sign out · dfine</button>
   </nav>
   <main class="main">
+    <header class="topbar">
+      <span class="u-label tb-label">Profile</span>
+      <select id="profileSel" class="profsel"></select>
+      <button id="profileNew" class="btn btn-soft profnew" title="New profile — its own clips, folders & voice">+</button>
+      <span class="tb-spacer"></span>
+      <span class="statchip click" id="statClips" title="Indexed clips for this profile — click for the library" style="display:none"></span>
+      <span class="statchip click" id="statPending" title="Reels waiting for a grade — click to grade them" style="display:none"></span>
+      <span class="statchip" id="statRefs" title="References in the active voice's corpus" style="display:none"></span>
+      <span class="statchip click" id="statDrive" title="Google Drive sync" style="display:none"></span>
+    </header>
     <section class="view on" id="view-studio">
-      <div class="head"><h2>Generation Studio</h2><p class="vsub">Pick a voice, an audio, and a folder of clips, then generate. Each caption is best-of-5, cut to the beat with the audio baked in. Validate the keepers.</p></div>
-      <div class="panel gen">
-        <label class="u-label" style="margin-top:0">Voice</label>
-        <div class="voices" id="voices">
-          <div class="voice-card ghost" id="addProfileCard"><div class="voice-av gh">+</div><div class="voice-info"><div class="voice-name">New profile</div><div class="voice-tag">its own clips &amp; voice</div></div></div>
-        </div>
-        <div class="form-grid">
-          <div class="field"><label for="audio">Audio</label><select id="audio"></select></div>
-          <div class="field"><label for="genfolder">Generate from</label><select id="genfolder"></select></div>
-          <div class="field"><label for="notes">Notes — optional nudge to the caption topic / vibe</label><input id="notes" placeholder="e.g. crypto wins, gym, late nights…" /></div>
-          <div class="field"><label for="count">How many reels</label><div class="stepper"><button type="button" class="step" data-d="-1" aria-label="fewer">−</button><input id="count" type="number" min="1" max="12" value="1" /><button type="button" class="step" data-d="1" aria-label="more">+</button></div></div>
-        </div>
-        <label class="blanktoggle"><input type="checkbox" id="blankcap" /><span class="bt-track"><span class="bt-thumb"></span></span>Blank captions<span class="bt-sub">— skip the text overlay</span></label>
-        <button class="btn btn-primary btn-block cta" id="gen">Generate reels</button>
-        <div class="status" id="gstatus"></div>
-      </div>
-      <div id="result">
-        <div class="panel empty-block" id="emptyResult">
-          <div class="frame916"></div>
-          <div class="empty-title">Your reels land here</div>
-          <div class="empty-sub">Each one renders in 1080×1920 with the caption burned in — validate the keepers straight to Drive.</div>
+      <div class="head"><h2>Generation Studio</h2><p class="vsub">Configure on the left, generate, triage on the right. Each caption is best-of-5, cut to the beat with the audio baked in — validate the keepers straight to Drive.</p></div>
+      <div class="wb">
+        <aside class="wb-rail">
+          <div class="panel">
+            <label class="u-label rail-label">Voice</label>
+            <div id="voices">
+              <div class="vrow ghost" id="addProfileCard"><span class="vav">+</span><span class="vname">New profile</span><span class="vrefs">own clips &amp; voice</span></div>
+            </div>
+            <label class="u-label rail-label" for="audio">Audio</label>
+            <select id="audio"></select>
+            <label class="u-label rail-label" for="genfolder">Generate from</label>
+            <select id="genfolder"></select>
+            <label class="u-label rail-label" for="notes">Notes — optional nudge</label>
+            <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
+            <label class="u-label rail-label" for="count">How many reels</label>
+            <div class="stepper"><button type="button" class="step" data-d="-1" aria-label="fewer">−</button><input id="count" type="number" min="1" max="12" value="1" /><button type="button" class="step" data-d="1" aria-label="more">+</button></div>
+            <label class="blanktoggle"><input type="checkbox" id="blankcap" /><span class="bt-track"><span class="bt-thumb"></span></span>Blank captions<span class="bt-sub">— no text overlay</span></label>
+            <button class="btn btn-primary btn-block cta" id="gen">Generate reels</button>
+            <div class="status" id="gstatus"></div>
+          </div>
+        </aside>
+        <div class="wb-canvas">
+          <div id="result">
+            <div class="panel empty-block" id="emptyResult">
+              <div class="frame916"></div>
+              <div class="empty-title">Your reels land here</div>
+              <div class="empty-sub">Each batch renders as a row of 1080×1920 reels with the caption burned in. Validate the keepers — they upload straight to your Drive.</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
     <section class="view" id="view-library">
-      <div class="head"><h2>Clip Library</h2><p class="vsub">Organize footage into folders and sub-folders. Upload into the selected folder; generate from any folder in the Studio.</p></div>
+      <div class="head"><h2>Clip Library</h2><p class="vsub">Footage flows in from Drive (or drop files anywhere below), indexes automatically, and becomes searchable for generation. Organize with folders; generate from any folder in the Studio.</p></div>
       <div class="libwrap">
         <aside class="card folders" id="folders"></aside>
         <div class="libmain">
           <div id="drivecard" class="card drivecard" style="display:none">
             <div class="drive-head">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linejoin="round"><path d="M3 15.5L9 4h6l6 11.5-3 5H6z"/><path d="M9 4l6 11.5M15 4l-6.2 11.5M3.6 15.5h16.9" stroke-width="1.2" opacity=".55"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.8" stroke-linejoin="round"><path d="M3 15.5L9 4h6l6 11.5-3 5H6z"/><path d="M9 4l6 11.5M15 4l-6.2 11.5M3.6 15.5h16.9" stroke-width="1.2" opacity=".55"/></svg>
               <b>Google Drive sync</b>
               <span class="drive-sa" id="drivesa"></span>
               <button class="btn btn-ghost btn-sm" id="driveconnect">＋ Connect folder</button>
@@ -258,8 +247,8 @@
           </div>
           <div class="upzone" id="upzone">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
-            <div class="uz-main">Drop clips or click to upload into <b id="uptarget">All clips</b></div>
-            <div class="uz-sub">mp4 / mov — they index automatically</div>
+            <span class="uz-main">Drop clips or click to upload into <b id="uptarget">All clips</b></span>
+            <span class="uz-sub">mp4 / mov — they index automatically</span>
           </div>
           <input type="file" id="file" accept="video/*" multiple style="display:none" />
           <div class="grid" id="cliplib"></div>
@@ -310,38 +299,70 @@ function modal(opts) {
   });
 }
 
-document.querySelectorAll('.nav[data-view]').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.nav').forEach(x => x.classList.remove('on')); b.classList.add('on');
+function showView(v) {
+  document.querySelectorAll('.nav').forEach(x => x.classList.toggle('on', x.dataset.view === v));
   Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
-  const v = b.dataset.view; document.getElementById(views[v]).classList.add('on');
+  document.getElementById(views[v]).classList.add('on');
   if (v === 'library' && !libLoaded) { libLoaded = true; loadFolders().then(() => selectFolder(null)); loadDrive(); }
   if (v === 'grade' && !gradeLoaded) { gradeLoaded = true; const f = document.getElementById('gradeframe'); f.src = f.dataset.src; }
   if (v === 'reels' && !reelsLoaded) { reelsLoaded = true; const f = document.getElementById('reelframe'); f.src = f.dataset.src; }
-});
+}
+document.querySelectorAll('.nav[data-view]').forEach(b => b.onclick = () => showView(b.dataset.view));
 document.getElementById('logout').onclick = async () => { await fetch('/api/logout', {method:'POST'}); location.href = '/login'; };
 async function loadBuild() {
   try { const d = await (await fetch('/health')).json();
     if (d.commit) document.getElementById('buildtag').textContent = 'build ' + String(d.commit).slice(0, 7);
   } catch (_) {}
 }
+// ---------- live system stats (the numbers the operator actually watches) ----------
+function setStat(id, html, show) {
+  const el = document.getElementById(id);
+  if (!show) { el.style.display = 'none'; return; }
+  el.innerHTML = html; el.style.display = '';
+}
+async function loadStats() {
+  try {
+    const clips = await (await fetch('/api/clips/library')).json();
+    const n = clips.filter(c => c.status === 'indexed').length;
+    setStat('statClips', `<b>${n}</b> clips`, true);
+  } catch (_) { setStat('statClips', '', false); }
+  try {
+    const p = await (await fetch('/api/reels/pending')).json();
+    setStat('statPending', `<b>${p.length}</b> to grade`, true);
+  } catch (_) { setStat('statPending', '', false); }
+  try {
+    const a = await (await fetch('/api/refs/audit')).json();
+    const n = a.total_refs ?? a.total;
+    setStat('statRefs', `<b>${n}</b> refs`, n != null);
+  } catch (_) { setStat('statRefs', '', false); }
+  try {
+    const d = await (await fetch('/api/drive/status')).json();
+    const syncing = (d.connections || []).some(c => c.status === 'syncing');
+    setStat('statDrive', `<span class="dot${syncing ? ' live' : ''}" style="color:${syncing ? 'var(--acc)' : 'var(--good)'}"></span>${syncing ? 'syncing' : 'Drive'}`, !!d.configured);
+  } catch (_) { setStat('statDrive', '', false); }
+}
+document.getElementById('statPending').onclick = () => showView('reels');
+document.getElementById('statClips').onclick = () => showView('library');
+document.getElementById('statDrive').onclick = () => showView('library');
+setInterval(() => { if (!document.hidden) loadStats(); }, 90000);
 // ---------- voices (toggle which VOICE the active profile generates with) ----------
 async function loadVoices() {
   let d = null;
   try { d = await (await fetch('/api/voices')).json(); } catch (_) { return; }
   const wrap = document.getElementById('voices');
-  wrap.querySelectorAll('.voice-card[data-voice]').forEach(x => x.remove());
+  wrap.querySelectorAll('.vrow[data-voice]').forEach(x => x.remove());
   const ghost = document.getElementById('addProfileCard');
   (d.voices || []).forEach(v => {
     const el = document.createElement('div');
-    el.className = 'voice-card' + (v.active ? ' on' : '');
+    el.className = 'vrow' + (v.active ? ' on' : '');
     el.dataset.voice = v.profile_id;
     el.setAttribute('role', 'button'); el.tabIndex = 0;
-    el.innerHTML = `<div class="voice-av">${(v.label || '?').slice(0, 1).toUpperCase()}</div>
-      <div class="voice-info"><div class="voice-name">${v.label}</div><div class="voice-tag">${v.refs} references</div></div>
-      <svg class="voice-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
+    el.innerHTML = `<span class="vav">${(v.label || '?').slice(0, 1).toUpperCase()}</span>
+      <span class="vname">${v.label}</span><span class="vrefs t-num">${v.refs} refs</span>
+      <svg class="vcheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
     const pick = async () => {
       const r = await fetch('/api/voice', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voice_profile_id: v.profile_id }) });
-      if (r.ok) { toast('Voice: ' + v.label); loadVoices(); }
+      if (r.ok) { toast('Voice: ' + v.label); loadVoices(); loadStats(); }
     };
     el.onclick = pick;
     el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
@@ -378,7 +399,7 @@ async function loadDrive() {
       <span class="dstat">${stat}${c.last_error ? ' · <span class="werr">⚠ ' + c.last_error + '</span>' : ''}</span>
       <button class="btn btn-ghost btn-sm" data-sync="${c.connection_id}" ${busy ? 'disabled' : ''}>${busy ? 'Syncing…' : 'Sync now'}</button>
     </div>`;
-  }).join('') || '<div class="drive-row" style="border-top:0;color:var(--faint);font-size:12.5px">No folders connected — paste a Drive folder link shared with the email above.</div>';
+  }).join('') || '<div class="drive-row" style="border-top:0;color:var(--faint);font-size:12px">No folders connected — paste a Drive folder link shared with the email above.</div>';
   document.querySelectorAll('[data-sync]').forEach(b => b.onclick = async () => {
     b.disabled = true; b.textContent = 'Syncing…';
     await fetch('/api/drive/sync/' + b.dataset.sync, { method: 'POST' });
@@ -392,7 +413,7 @@ function pollDrive() {
   const tick = async () => {
     let st = null;
     try { st = await (await fetch('/api/drive/status')).json(); } catch (_) {}
-    await loadDrive(); loadFolders(); loadClips();   // clips land as the sync indexes them
+    await loadDrive(); loadFolders(); loadClips(); loadStats();   // clips land as the sync indexes them
     if (st && (st.connections || []).some(c => c.status === 'syncing')) setTimeout(tick, 8000);
     else drivePolling = false;
   };
@@ -511,11 +532,11 @@ async function loadClips() {
     wrap.dataset.loaded = '1';
     wrap.innerHTML = clips.length ? clips.map(clipCard).join('') : `<div class="empty-block" style="grid-column:1/-1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18M7.5 5v14M16.5 5v14"/></svg>
-      <div class="empty-title">No clips here yet</div><div class="empty-sub">Drop footage above — it uploads, indexes, and becomes searchable for generation automatically.</div></div>`;
+      <div class="empty-title">No clips here yet</div><div class="empty-sub">Connect a Drive folder above or drop footage — it uploads, indexes, and becomes searchable for generation automatically.</div></div>`;
     wrap.classList.add('stagger'); setTimeout(() => wrap.classList.remove('stagger'), 750);
     wireCards();
     clips.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
-  } catch (_) { wrap.innerHTML = '<p class="vsub empty">Could not load clips.</p>'; }
+  } catch (_) { wrap.innerHTML = '<div class="empty-block" style="grid-column:1/-1"><div class="empty-title">Could not load clips</div></div>'; }
 }
 async function pollClip(id) {
   for (let t = 0; t < 150; t++) {
@@ -523,7 +544,7 @@ async function pollClip(id) {
     let c; try { c = await (await fetch(`/api/clips/${id}/status`)).json(); } catch (_) { continue; }
     const el = document.querySelector(`.clip[data-id="${id}"]`);
     if (el) { el.outerHTML = clipCard(c); wireCards(); }
-    if (c.status === 'indexed' || c.status === 'rejected') { loadFolders(); return; }
+    if (c.status === 'indexed' || c.status === 'rejected') { loadFolders(); loadStats(); return; }
   }
 }
 function uploadFiles(files) {
@@ -550,9 +571,10 @@ function uploadFiles(files) {
 const uz = document.getElementById('upzone'), fi = document.getElementById('file');
 uz.onclick = () => fi.click();
 fi.onchange = () => { if (fi.files.length) uploadFiles(fi.files); fi.value = ''; };
-uz.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
-uz.ondragleave = () => uz.classList.remove('drag');
-uz.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+const libDrop = document.getElementById('view-library');
+libDrop.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
+libDrop.ondragleave = e => { if (!libDrop.contains(e.relatedTarget)) uz.classList.remove('drag'); };
+libDrop.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
 
 // ---------- studio ----------
 let AUDIOS = [];
@@ -567,12 +589,13 @@ async function loadAudios() {
 }
 function phCard(i, n, state) {
   if (state === 'generating') {
-    return `<div class="reel-vid"><div class="spin-lg"></div></div>
-      <div class="meta"><div class="u-label reel-label">Reel ${i} of ${n}</div><div class="ph-phase">Starting…</div>
-      <div class="prog det" style="margin-top:auto"><i></i></div></div>`;
+    return `<div class="rmedia idle"><div class="spin-lg"></div><div class="ph-phase">Starting…</div>
+      <div class="prog det"><i></i></div></div>
+      <div class="rbody"><span class="u-label">Reel ${i} of ${n}</span></div>`;
   }
-  return `<div class="reel-vid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg></div>
-    <div class="meta"><div class="u-label reel-label">Reel ${i} · queued</div><div class="ph-sub">waiting for the previous render</div></div>`;
+  return `<div class="rmedia idle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+    <div class="ph-sub">queued — waiting for the previous render</div></div>
+    <div class="rbody"><span class="u-label">Reel ${i} · queued</span></div>`;
 }
 function startProgress(card) {
   const phases = ['Writing the caption — best of 5', 'Matching clips to the caption', 'Cutting to the beat', 'Rendering in 1080p'];
@@ -605,16 +628,18 @@ function wireValidate(vb, d) {
   };
 }
 function fillReelCard(card, d, label) {
-  card.className = 'card reel-card flash';
-  card.innerHTML = `<video controls loop playsinline src="${d.reel_url}"></video>
-    <div class="meta"><div class="u-label reel-label">Caption</div><div class="cap"></div>
-      <div class="reel-stats">🎵 ${label||''} · ${d.duration}s · ${d.shots} shots</div>
-      <div class="actions"><button class="btn btn-primary val">✓ Validate → Drive</button><a class="btn btn-ghost dl" href="${d.reel_url}" download>↓ Download .mp4</a></div></div>`;
-  card.querySelector('.cap').textContent = d.caption || '— blank · no caption —';
+  card.className = 'card rcard flash';
+  card.innerHTML = `<div class="rmedia"><video controls loop playsinline src="${d.reel_url}"></video></div>
+    <div class="rbody"><div class="rcap"></div>
+      <div class="rmeta rmeta-audio" title="${(label||'').replace(/"/g,'&quot;')}">🎵 ${trim72(label)||'audio'} · ${d.duration}s · ${d.shots} shots</div>
+      <div class="ractions"><button class="btn btn-primary btn-sm val">✓ Validate → Drive</button><a class="btn btn-ghost btn-sm dlbtn" href="${d.reel_url}" download title="Download .mp4" aria-label="Download .mp4">↓</a></div></div>`;
+  card.querySelector('.rcap').textContent = d.caption || '— blank · no caption —';
   wireValidate(card.querySelector('.val'), d);
 }
+document.getElementById('notes').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gen').click(); });
 document.getElementById('gen').onclick = async () => {
   const btn = document.getElementById('gen'), st = document.getElementById('gstatus');
+  if (btn.disabled) return;
   const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value,10) || 1));
   const sel = document.getElementById('audio').value;
   const notes = document.getElementById('notes').value || null;
@@ -623,16 +648,20 @@ document.getElementById('gen').onclick = async () => {
   const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
   const audioFor = (i) => sel === 'mix' ? ((shuffled[(i-1) % shuffled.length] || {}).id) : sel;
   document.getElementById('emptyResult')?.remove();
-  const batch = document.createElement('div'); batch.className = 'results';
+  const when = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const audioLabel = sel === 'mix' ? 'mix' : trim72((AUDIOS.find(x => x.id === sel) || {}).description || 'audio');
+  const batch = document.createElement('section'); batch.className = 'batch';
+  batch.innerHTML = `<div class="batch-head"><span class="u-label">Batch · ${n} reel${n > 1 ? 's' : ''}</span><span class="bmeta">${audioLabel} · ${when}</span></div>`;
+  const grid = document.createElement('div'); grid.className = 'rgrid'; batch.appendChild(grid);
   const cards = [];
   for (let i = 0; i < n; i++) {
-    const c = document.createElement('div'); c.className = 'card reel-card'; c.style.animationDelay = (i * 55) + 'ms';
-    c.innerHTML = phCard(i+1, n, 'queued'); batch.appendChild(c); cards.push(c);
+    const c = document.createElement('div'); c.className = 'card rcard'; c.style.animationDelay = (i * 55) + 'ms';
+    c.innerHTML = phCard(i+1, n, 'queued'); grid.appendChild(c); cards.push(c);
   }
   document.getElementById('result').prepend(batch);
   btn.disabled = true; let done = 0, failed = 0;
   for (let i = 0; i < n; i++) {
-    cards[i].className = 'card reel-card generating'; cards[i].innerHTML = phCard(i+1, n, 'generating');
+    cards[i].className = 'card rcard generating'; cards[i].innerHTML = phCard(i+1, n, 'generating');
     const ctl = startProgress(cards[i]);
     const aid = audioFor(i+1);
     const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
@@ -643,14 +672,15 @@ document.getElementById('gen').onclick = async () => {
       ctl.done(); fillReelCard(cards[i], await r.json(), label); done++;
     } catch (e) {
       ctl.stop(); failed++;
-      cards[i].className = 'card reel-card';
-      cards[i].innerHTML = `<div class="reel-vid fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="meta"><div class="u-label reel-label" style="color:var(--bad)">Failed</div><div class="ph-sub">${e.message}</div></div>`;
+      cards[i].className = 'card rcard';
+      cards[i].innerHTML = `<div class="rmedia fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg><div class="ph-sub" style="color:var(--bad)">${e.message}</div></div><div class="rbody"><span class="u-label" style="color:var(--bad)">Failed</span></div>`;
     }
   }
   st.textContent = `Done — ${done} generated${failed ? `, ${failed} failed` : ''}.`;
   if (done) toast(`${done} reel${done > 1 ? 's' : ''} generated`);
   if (failed) toast(`${failed} reel${failed > 1 ? 's' : ''} failed`, 'err');
   btn.disabled = false;
+  loadStats();
 };
 
 // ---------- profiles (the active creator: own clips, folders, voice) ----------
@@ -675,7 +705,7 @@ document.getElementById('profileSel').onchange = (e) => switchProfile(e.target.v
 document.getElementById('profileNew').onclick = newProfile;
 const _apc = document.getElementById('addProfileCard'); if (_apc) _apc.onclick = newProfile;
 
-loadProfiles(); loadAudios(); loadFolders(); loadBuild();
+loadProfiles(); loadAudios(); loadFolders(); loadBuild(); loadStats();
 </script>
 </body>
 </html>

@@ -8,11 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/ui.css?v=1">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   header { display:flex; align-items:center; gap:14px; padding:16px 30px; border-bottom:1px solid var(--border);
-    position:sticky; top:0; z-index:5; backdrop-filter:blur(6px); background:rgba(10,12,11,.9); }
-  header img { width:30px; height:30px; border-radius:7px; filter:drop-shadow(0 0 10px rgba(123,241,168,.18)); }
+    position:sticky; top:0; z-index:5; backdrop-filter:blur(6px); background:rgba(10,11,13,.9); }
   header b { font-size:17px; font-weight:700; letter-spacing:-.3px; } header b span { color:var(--acc); }
   header .crumb { color:var(--faint); font-size:14px; } header .crumb b { color:var(--muted); font-weight:600; font-size:14px; }
   .back { margin-left:auto; }
@@ -30,9 +29,9 @@
     overflow:hidden; cursor:pointer; user-select:none; }
   .tl-seg { position:absolute; top:0; bottom:0; border-right:2px solid var(--acc); display:flex; align-items:flex-start; }
   .tl-seg:last-child { border-right:0; }
-  .tl-seg.alt { background:rgba(123,241,168,.025); }
+  .tl-seg.alt { background:rgba(125,123,255,.03); }
   .tl-seg .lab { font-size:10px; font-weight:700; color:var(--acc-bright); padding:4px 6px; opacity:.9; }
-  .tl-beat { position:absolute; top:50%; transform:translateY(-50%); width:1px; height:10px; background:rgba(123,241,168,.22); }
+  .tl-beat { position:absolute; top:50%; transform:translateY(-50%); width:1px; height:10px; background:rgba(125,123,255,.24); }
   .tl-drop { position:absolute; top:0; bottom:0; width:2px; background:var(--gold); opacity:.8; box-shadow:0 0 8px 0 rgba(255,215,106,.4); }
   .tl-play { position:absolute; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 8px rgba(255,255,255,.7); pointer-events:none; }
   .tl-controls { display:flex; align-items:center; gap:10px; margin-top:12px; }
