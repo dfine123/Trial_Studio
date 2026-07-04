@@ -147,11 +147,37 @@ async def lifespan(app: FastAPI):
             s.commit()
     except Exception:  # noqa: BLE001 — table may not exist yet on first boot
         pass
+    if settings.demo_mode:
+        try:    # demo service: seed the Base voice + audio library (idempotent)
+            from app import demo
+            demo.boot()
+        except Exception as exc:  # noqa: BLE001 — boot must not block; /health still comes up
+            print(f"[demo] boot seed failed: {exc}", flush=True)
     yield
 
 
 app = FastAPI(title="Trial Studio — Indexing", version="0.0.1", lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory=_WEB_DIR), name="assets")
+
+
+# ── DEMO MODE gate: path WHITELIST + per-request user scoping (dormant unless DEMO_MODE=1) ──
+@app.middleware("http")
+async def demo_gate(request: Request, call_next):
+    if not settings.demo_mode:
+        return await call_next(request)
+    from fastapi.responses import JSONResponse
+    from app import demo
+    allowed, needs_auth = demo.route_allowed(request.method, request.url.path)
+    if not allowed:
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    uid = demo.session_uid(request)
+    if needs_auth and uid is None:
+        return JSONResponse({"detail": "sign in first"}, status_code=401)
+    token = profiles.set_request_uid(uid)
+    try:
+        return await call_next(request)
+    finally:
+        profiles.reset_request_uid(token)
 
 
 # ── treelz.ai auth (local single-user demo gate) ──────────────
@@ -279,6 +305,12 @@ def api_clips_library(folder_id: str | None = None):
 async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None = Form(None)):
     """Upload a clip -> save locally -> index in a background thread (run_pipeline). The UI polls
     /api/clips/{id}/status to drive the indexing progress bar. Optionally filed into a folder."""
+    if settings.demo_mode:
+        from app import demo
+        if demo.clips_used(profiles.active_id()) >= settings.demo_max_clips:
+            raise HTTPException(status_code=400,
+                                detail=f"library full — the demo caps at {settings.demo_max_clips} clips "
+                                       "(delete a clip to make room)")
     user_id = profiles.active_id()
     clip_id = uuid.uuid4()
     ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
@@ -314,12 +346,19 @@ async def api_clips_upload(file: UploadFile = File(...), folder_id: str | None =
     return {"clip_id": str(clip_id), "status": "uploaded", "filename": file.filename}
 
 
+def _demo_owns_clip(c) -> None:
+    """DEMO: a session may only touch its own clips (prod operator is unaffected)."""
+    if settings.demo_mode and c is not None and c.user_id != profiles.active_id():
+        raise HTTPException(status_code=404, detail="clip not found")
+
+
 @app.get("/api/clips/{clip_id}/status")
 def api_clip_status(clip_id: uuid.UUID):
     with SessionLocal() as s:
         c = s.get(Clip, clip_id)
         if c is None:
             raise HTTPException(status_code=404, detail="clip not found")
+        _demo_owns_clip(c)
         return {
             "id": str(c.id), "status": c.status, "vibe_tags": c.vibe_tags or [],
             "setting": c.setting, "time_of_day": c.time_of_day, "summary": c.summary,
@@ -526,6 +565,7 @@ def api_delete_clip(clip_id: uuid.UUID):
     """Delete a clip + its segments (cascade), best-effort removing the uploaded file + thumb."""
     with SessionLocal() as s:
         c = s.get(Clip, clip_id)
+        _demo_owns_clip(c)
         if c is not None:
             path = c.r2_key
             s.delete(c)
@@ -548,6 +588,9 @@ def api_clip_thumb(clip_id: uuid.UUID):
     """Lazy poster-frame thumbnail — ffmpeg extracts one frame the first time, cached on the volume."""
     import subprocess
 
+    if settings.demo_mode:
+        with SessionLocal() as s:
+            _demo_owns_clip(s.get(Clip, clip_id))
     thumb_dir = os.path.join("var", "thumbs")
     thumb_path = os.path.join(thumb_dir, f"{clip_id}.jpg")
     if not os.path.exists(thumb_path):
@@ -734,9 +777,82 @@ def templates_page(request: Request):
 
 @app.get("/")
 def home(request: Request):
+    if settings.demo_mode:
+        return FileResponse(os.path.join(_WEB_DIR, "demo.html"))   # handles its own auth screen
     if not _is_authed(request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(_WEB_DIR, "app.html"))
+
+
+# ── DEMO accounts + status (all dormant unless DEMO_MODE=1; the middleware whitelists them) ──
+class DemoAuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+def _demo_only():
+    if not settings.demo_mode:
+        raise HTTPException(status_code=404, detail="not found")
+
+
+@app.post("/api/demo/signup")
+def api_demo_signup(req: DemoAuthRequest, response: Response):
+    _demo_only()
+    from app import demo
+    uid = demo.signup(req.username, req.password)
+    response.set_cookie("demo_session", demo.mint_session(uid), httponly=True,
+                        max_age=2592000, samesite="lax")
+    return {"ok": True, "username": req.username.strip().lower()}
+
+
+@app.post("/api/demo/login")
+def api_demo_login(req: DemoAuthRequest, response: Response):
+    _demo_only()
+    from app import demo
+    uid = demo.login(req.username, req.password)
+    response.set_cookie("demo_session", demo.mint_session(uid), httponly=True,
+                        max_age=2592000, samesite="lax")
+    return {"ok": True, "username": req.username.strip().lower()}
+
+
+@app.post("/api/demo/logout")
+def api_demo_logout(response: Response):
+    _demo_only()
+    response.delete_cookie("demo_session")
+    return {"ok": True}
+
+
+@app.get("/api/demo/me")
+def api_demo_me():
+    _demo_only()
+    uid = profiles.active_id()
+    with SessionLocal() as s:
+        u = s.get(models.User, uid)
+    return {"username": (u.handle if u else None), "user_id": str(uid)}
+
+
+@app.get("/api/demo/status")
+def api_demo_status():
+    _demo_only()
+    from app import demo
+    uid = profiles.active_id()
+    with SessionLocal() as s:
+        indexed = s.scalar(select(func.count()).select_from(Clip)
+                           .where(Clip.user_id == uid, Clip.status == "indexed")) or 0
+    st = demo.quota_state(uid)
+    st.update({"clips_used": demo.clips_used(uid), "clips_max": settings.demo_max_clips,
+               "clips_indexed": indexed, "clip_seconds_max": settings.demo_max_clip_seconds})
+    return st
+
+
+@app.get("/api/demo/reels")
+def api_demo_reels():
+    _demo_only()
+    from app.corpus import reels as reel_store
+    uid = profiles.active_id()
+    rows = reel_store._load(uid)
+    return {"reels": [{"reel_url": r.get("reel_url"), "caption": r.get("caption")}
+                      for r in reversed(rows) if r.get("reel_url")]}
 
 
 @app.get("/api/audios")
@@ -760,6 +876,13 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
 
     `backend` (TEST only): 'sonnet' | 'openai' routes the whole pipeline to that model + an isolated
     reels/taste/rotation store; None = production Opus (unchanged)."""
+    if settings.demo_mode:
+        from app import demo
+        demo.check_quota(profiles.active_id())    # 429 with Retry-After during the cooldown
+        backend = None                            # demo never routes to test models
+        req.no_caption = False                    # the caption IS the demo
+        req.audio_id = None                       # audio is auto-matched to the caption
+        req.folder_id = None
     from app.caption import backend as _bk
     with SessionLocal() as s:
         audio = s.get(Audio, req.audio_id) if req.audio_id else s.scalar(select(Audio).order_by(func.random()).limit(1))
@@ -829,6 +952,10 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
         except Exception:   # noqa: BLE001 — recording must never break generation
             pass
 
+    if settings.demo_mode:
+        from app import demo
+        demo.count_reel(profiles.active_id())     # only a SUCCESSFUL reel consumes quota
+
     return {
         "reel_url": f"/reels/{name}",
         "caption": res["caption"],
@@ -839,7 +966,13 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
 
 @app.api_route("/reels/{name}", methods=["GET", "HEAD"])
 def get_reel(name: str):
-    path = os.path.join(_REELS_DIR, os.path.basename(name))
+    safe = os.path.basename(name)
+    if settings.demo_mode:   # a demo session may only fetch ITS OWN reels
+        from app.corpus import reels as reel_store
+        mine = {os.path.basename(r.get("reel_url") or "") for r in reel_store._load(profiles.active_id())}
+        if safe not in mine:
+            raise HTTPException(status_code=404, detail="reel not found")
+    path = os.path.join(_REELS_DIR, safe)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="reel not found")
     return FileResponse(path, media_type="video/mp4")
@@ -1313,6 +1446,18 @@ def api_debug_re_embed(dry: bool = False):
         except Exception:  # noqa: BLE001 — one clip must not stop the repair
             failed += 1
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
+
+
+@app.get("/api/debug/corpus-dump")
+def api_corpus_dump(request: Request):
+    """Operator-only: the ACTIVE VOICE's full corpus + persona (used to export the Base voice as
+    the demo seed). Requires the operator session cookie."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.corpus.store import load_refs
+    pid = profiles.voice_id()
+    return {"voice_profile_id": str(pid), "persona": profiles.read_persona(pid),
+            "refs": load_refs(profiles.corpus_path(pid))}
 
 
 @app.get("/api/debug/length-audit")

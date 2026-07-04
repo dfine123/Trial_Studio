@@ -14,6 +14,7 @@ from app.db import Base, engine
 _ALTERS = [
     "ALTER TABLE clips ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES clip_folders(id) ON DELETE SET NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_label VARCHAR(64)",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
 ]
 
 

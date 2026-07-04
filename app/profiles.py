@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import uuid
+from contextvars import ContextVar
 
 from sqlalchemy import select
 
@@ -21,6 +22,18 @@ from app.db import SessionLocal
 from app.models import User
 
 _ACTIVE_PATH = os.path.join("var", "active_profile.json")
+
+# request-scoped profile override (DEMO multi-user sessions) — None everywhere else
+_REQUEST_UID: ContextVar[uuid.UUID | None] = ContextVar("request_uid", default=None)
+
+
+def set_request_uid(uid: uuid.UUID | None):
+    """Bind this request to a profile (demo session). Returns the token for reset."""
+    return _REQUEST_UID.set(uid)
+
+
+def reset_request_uid(token) -> None:
+    _REQUEST_UID.reset(token)
 
 # pre-profiles global voice files -> migrated into the first ('Spence') profile's dir once
 _LEGACY = {
@@ -154,7 +167,15 @@ def ensure_default_profile() -> uuid.UUID:
 
 def active_id() -> uuid.UUID:
     """The profile everything is scoped to right now (persisted), or the default profile. Self-heals
-    if the persisted id was deleted out-of-band (e.g. a crash mid-delete) -> falls back to default."""
+    if the persisted id was deleted out-of-band (e.g. a crash mid-delete) -> falls back to default.
+
+    DEMO MODE: the demo middleware sets a REQUEST-scoped uid (each signed-in friend is their own
+    profile) — that always wins over the operator's persisted global active-profile file, which is
+    single-operator state and would let concurrent users stomp each other. ContextVars propagate
+    into the generation worker threads via the existing copy_context() pattern."""
+    uid = _REQUEST_UID.get()
+    if uid is not None:
+        return uid
     global _default_id
     if _default_id is None:
         ensure_default_profile()

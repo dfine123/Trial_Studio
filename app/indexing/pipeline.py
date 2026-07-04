@@ -177,6 +177,13 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
             clip.rejection_reason = qcres.reason
             session.commit()
             return clip.status
+        if settings.demo_mode and settings.demo_max_clip_seconds and \
+                (p.duration or 0.0) > settings.demo_max_clip_seconds:
+            clip.status = "rejected"
+            clip.rejection_reason = (f"clip too long for the demo — "
+                                     f"{int(settings.demo_max_clip_seconds)}s max (this one is {p.duration:.0f}s)")
+            session.commit()
+            return clip.status
 
         # Segmentation (+ long-take windowing) — cv2-heavy, one at a time
         _t(f"[idx] {clip_id} qc passed {p.width}x{p.height} {p.fps}fps {p.duration}s — segmenting…", flush=True)

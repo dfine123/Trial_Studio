@@ -106,6 +106,17 @@ class Settings(BaseSettings):
     treelz_password: str = "cool123"
     treelz_secret: str = "treelz-local-dev-secret"   # signs the session cookie; override via env in prod
 
+    # ── DEMO MODE (the friends-demo deployment: same repo, second Railway service) ──
+    # DEMO_MODE=1 flips the service into the public demo: open signup (each account = its own
+    # profile generating with the seeded Base voice), a locked-down route whitelist (no operator
+    # surfaces, no debug endpoints), per-user caps below. Prod runs with this OFF — everything
+    # demo is dormant.
+    demo_mode: bool = False
+    demo_max_clips: int = 50              # per-user clip library cap (upload rejected past this)
+    demo_max_clip_seconds: float = 30.0   # per-clip duration cap (QC-rejected past this)
+    demo_reels_per_window: int = 15       # reels per user per window...
+    demo_cooldown_hours: float = 24.0     # ...then this cooldown, then the counter fully resets
+
     @property
     def sqlalchemy_url(self) -> str:
         """Normalize a bare Postgres URL (e.g. Railway's) to the psycopg driver."""
