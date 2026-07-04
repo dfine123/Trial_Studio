@@ -4,62 +4,60 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>treelz.ai — sign in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌱%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=1">
 <style>
-  :root { color-scheme:dark;
-    --bg:#0b0e13; --surface:#141922; --surface-2:#1a202b; --border:#222b38; --border-2:#303b4b;
-    --ink:#e9eef6; --muted:#8a94a7; --faint:#5c6675;
-    --blue:#4d8bff; --blue-bright:#73a4ff; --blue-deep:#2f63d6; --blue-soft:rgba(77,139,255,.13); --blue-glow:rgba(77,139,255,.45);
-    --bad:#fa6d83; }
-  * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--ink);
-    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; -webkit-font-smoothing:antialiased;
-    background:radial-gradient(1100px 560px at 50% -10%, #16243b 0%, #0b0e13 60%); }
-  .card { width:384px; max-width:92vw; background:var(--surface); border:1px solid var(--border); border-radius:20px;
-    padding:38px 32px; box-shadow:0 28px 80px -24px rgba(0,0,0,.7); }
-  .brand { display:flex; align-items:center; gap:13px; justify-content:center; margin-bottom:5px; }
-  .brand img { width:46px; height:46px; border-radius:11px; }
-  .brand h1 { font-size:26px; margin:0; font-weight:700; letter-spacing:-.7px; }
-  .brand h1 span { color:var(--blue); }
-  .sub { text-align:center; color:var(--muted); font-size:13.5px; margin:4px 0 28px; }
-  label { display:block; font-size:12px; font-weight:550; color:var(--muted); margin:16px 0 7px; letter-spacing:.1px; }
-  input { width:100%; background:var(--surface-2); color:var(--ink); font-family:inherit; border:1px solid var(--border);
-    border-radius:11px; padding:13px; font-size:15px; transition:.15s; }
-  input::placeholder { color:var(--faint); }
-  input:hover { border-color:var(--border-2); }
-  input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft); }
-  button { width:100%; margin-top:26px; padding:14px; font-size:15px; font-weight:650; font-family:inherit; border:0;
-    border-radius:12px; color:#fff; cursor:pointer; transition:.16s;
-    background:linear-gradient(180deg,var(--blue),var(--blue-deep)); box-shadow:0 10px 26px -8px var(--blue-glow); }
-  button:hover { background:linear-gradient(180deg,var(--blue-bright),var(--blue)); transform:translateY(-1px); }
-  button:disabled { opacity:.55; cursor:default; transform:none; }
+  body { display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  /* ambient glow — two slow orbs behind the card */
+  .orb { position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0; }
+  .orb.a { width:420px; height:420px; left:calc(50% - 400px); top:-140px; background:rgba(123,241,168,.10); animation:orb 11s var(--ease) infinite; }
+  .orb.b { width:340px; height:340px; right:calc(50% - 430px); bottom:-120px; background:rgba(123,241,168,.07); animation:orb 14s var(--ease) infinite reverse; }
+  .card-login { position:relative; z-index:1; width:392px; max-width:92vw; padding:38px 32px 32px; animation:cardIn .5s var(--ease-out) both; }
+  .card-login.shake { animation:shake .5s var(--ease); }
+  .brand { display:flex; align-items:center; justify-content:center; margin-bottom:5px; }
+  .brand h1 { font-size:27px; letter-spacing:-.7px; }
+  .brand h1 span { color:var(--acc); text-shadow:0 0 18px var(--acc-glow); }
+  .sub { text-align:center; color:var(--muted); font-size:13.5px; margin:4px 0 26px; }
+  label { margin:16px 0 7px; }
+  input { padding:13px; font-size:15px; }
+  .btn-block { margin-top:26px; }
   .err { color:var(--bad); font-size:13px; margin-top:15px; min-height:18px; text-align:center; }
 </style>
 </head>
-<body>
-<form class="card" id="f">
-  <div class="brand"><img src="/assets/treelz-logo.svg" alt="treelz" /><h1>treelz<span>.ai</span></h1></div>
+<body class="grain">
+<div class="orb a"></div><div class="orb b"></div>
+<form class="card card-login" id="f">
+  <div class="brand"><h1>treelz<span>.ai</span></h1></div>
   <p class="sub">sign in to your studio</p>
-  <label>Username</label>
+  <label for="u">Username</label>
   <input id="u" autocomplete="username" autofocus />
-  <label>Password</label>
+  <label for="p">Password</label>
   <input id="p" type="password" autocomplete="current-password" />
-  <button type="submit" id="btn">Sign in</button>
-  <div class="err" id="err"></div>
+  <button type="submit" class="btn btn-primary btn-block" id="btn">Sign in</button>
+  <div class="err" id="err" role="alert"></div>
 </form>
 <script>
 document.getElementById('f').onsubmit = async (e) => {
   e.preventDefault();
-  const btn = document.getElementById('btn'), err = document.getElementById('err');
-  btn.disabled = true; err.textContent = '';
+  const card = document.getElementById('f'), btn = document.getElementById('btn'), err = document.getElementById('err');
+  btn.disabled = true; err.textContent = ''; card.classList.remove('shake');
+  btn.innerHTML = '<span class="spin" style="border-top-color:var(--acc-ink);border-color:rgba(5,36,15,.25);border-top-color:var(--acc-ink)"></span>Signing in…';
   try {
     const r = await fetch('/api/login', { method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value }) });
-    if (!r.ok) { err.textContent = 'Wrong username or password'; btn.disabled = false; return; }
+    if (!r.ok) {
+      err.textContent = 'Wrong username or password';
+      btn.disabled = false; btn.textContent = 'Sign in';
+      card.classList.add('shake'); return;
+    }
     location.href = '/';
-  } catch (_) { err.textContent = 'Something went wrong — try again'; btn.disabled = false; }
+  } catch (_) {
+    err.textContent = 'Something went wrong — try again';
+    btn.disabled = false; btn.textContent = 'Sign in'; card.classList.add('shake');
+  }
 };
 </script>
 </body>

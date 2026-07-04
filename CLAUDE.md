@@ -108,6 +108,23 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   queues server-side free, zero 429s. `INDEX_CONCURRENCY=6` in-flight saturates it (cv2 stages
   serialize on a 1-slot lock inside the pipeline for memory). Wider than ~6 adds nothing.
 
+## Front-end design system (2026-07-04 redesign)
+
+- **`app/static/ui.css` is the single source of truth** — tokens (near-black neutral base with a
+  3–4% green cast, ONE light-green accent `--acc:#7bf1a8` with restrained glow), buttons
+  (`.btn` + `-primary/-soft/-ghost/-danger/-sm/-block`), cards, badges (`b-good/warn/bad/neutral`),
+  chips, toasts, modals, progress/skeletons, empty states, focus rings, motion. ALL six pages
+  (app, login, grade, grade_reels, promote, templates) link it (`/assets/ui.css?v=N` — bump N on
+  change). Never introduce a per-page palette; glow only on CTA/focus/selection/live states.
+  Text on green fills is dark (`--acc-ink`), never white.
+- Grading pages render INSIDE app iframes — they share the page background so the seam is
+  invisible; in-iframe links that should escape the frame use `target="_top"`.
+- Reel grading uses a segmented 1–10 rating (one click; 1–4 red / 5–7 neutral / 8–10 green),
+  posting the same `{reel_id, rating, notes}` contract.
+- **Design-review harness**: `node tools/design_preview.cjs` → http://localhost:4173 serves the
+  real static pages with stubbed APIs + fixture media (regen instructions in the file header) —
+  screenshot/QA every page and state with zero prod risk.
+
 ## Ops runbook
 
 - **Deploy** = push to main (Railway auto-builds). `railway` CLI is linked from this directory

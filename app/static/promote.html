@@ -3,32 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Promote to corpus — Trial Studio</title>
+<title>Promote to corpus — treelz.ai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌱%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=1">
 <style>
-  :root { --bg:#0b0d10; --card:#15181d; --line:#262b33; --txt:#e8eaed; --dim:#8b929c; --accent:#22c55e; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
-  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; position:sticky; top:0; background:var(--bg); z-index:5; }
-  header h1 { font-size:18px; margin:0; font-weight:700; }
-  .sub { color:var(--dim); font-size:13px; }
-  a.link { color:var(--dim); text-decoration:none; font-size:13px; margin-left:auto; }
-  a.link:hover { color:var(--txt); }
+  header { padding:14px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px;
+    position:sticky; top:0; z-index:5; backdrop-filter:blur(6px); background:rgba(10,12,11,.9); }
+  header h1 { font-size:17px; letter-spacing:-.3px; }
+  .sub { color:var(--muted); font-size:12.5px; }
+  header a.link { margin-left:auto; font-size:12.5px; }
   .wrap { max-width:860px; margin:0 auto; padding:24px; display:flex; flex-direction:column; gap:14px; }
-  .row { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; gap:16px; align-items:center; }
-  .cap { flex:1; white-space:pre-wrap; }
-  .rating { font-weight:700; font-size:18px; color:var(--accent); width:64px; text-align:center; }
-  button { background:var(--accent); color:#06220f; border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; font-size:14px; }
-  button:disabled { opacity:.5; cursor:default; }
-  .empty { text-align:center; color:var(--dim); padding:70px 20px; }
+  .row { padding:16px 18px; display:flex; gap:16px; align-items:center; animation:cardIn .4s var(--ease-out) both; }
+  .cap { flex:1; white-space:pre-wrap; font-size:14.5px; line-height:1.55; }
+  .rating { font-weight:700; font-size:17px; color:var(--acc); width:64px; text-align:center; flex:none;
+    font-variant-numeric:tabular-nums; text-shadow:0 0 16px var(--acc-glow); }
 </style>
 </head>
-<body>
+<body class="grain">
 <header>
   <h1>Promote to corpus</h1>
   <span class="sub">your 9–10 rated lines → new references (the voice compounds from your wins)</span>
   <a class="link" href="/grade-reels">← reel grading</a>
 </header>
-<div class="wrap" id="wrap"><div class="empty">Loading…</div></div>
+<div class="wrap" id="wrap"><div class="empty-block">Loading…</div></div>
 <script>
 const wrap = document.getElementById('wrap');
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -36,11 +36,17 @@ async function load(){
   let rows = [];
   try { rows = (await (await fetch('/api/corpus/promotable')).json()).promotable || []; } catch(_){}
   wrap.innerHTML = '';
-  if(!rows.length){ wrap.innerHTML = '<div class="empty">Nothing waiting — every 9–10 you’ve graded is already in the corpus.</div>'; return; }
+  if(!rows.length){
+    wrap.innerHTML = `<div class="empty-block">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+      <div class="empty-title">Nothing waiting</div>
+      <div class="empty-sub">Every 9–10 you've graded is already in the corpus — the learn loop promotes them automatically.</div></div>`;
+    return;
+  }
   rows.forEach(r => {
     const el = document.createElement('div');
-    el.className = 'row';
-    el.innerHTML = `<div class="rating">${r.rating}/10</div><div class="cap">${esc(r.caption)}</div><button>Promote</button>`;
+    el.className = 'card row';
+    el.innerHTML = `<div class="rating">${r.rating}/10</div><div class="cap">${esc(r.caption)}</div><button class="btn btn-primary btn-sm">Promote</button>`;
     el.querySelector('button').onclick = async (e) => {
       e.target.disabled = true; e.target.textContent = 'Promoting…';
       try {
