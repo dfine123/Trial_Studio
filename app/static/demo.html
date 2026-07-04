@@ -11,12 +11,12 @@
 <link rel="stylesheet" href="/assets/ui.css?v=2">
 <style>
   body { display:flex; flex-direction:column; align-items:center; min-height:100dvh; }
-  .shell { width:100%; max-width:560px; padding:0 16px calc(96px + env(safe-area-inset-bottom)); }
+  .shell { width:100%; max-width:560px; padding:0 18px calc(100px + env(safe-area-inset-bottom)); }
   /* ---------- auth ---------- */
   .auth { display:flex; flex-direction:column; justify-content:center; min-height:88dvh; max-width:400px; margin:0 auto; width:100%; }
   .brand-lg { text-align:center; margin-bottom:6px; font-size:30px; letter-spacing:-.8px; }
   .brand-lg span { color:var(--acc); text-shadow:0 0 20px var(--acc-glow); }
-  .tagline { text-align:center; color:var(--muted); font-size:14px; margin:0 0 26px; }
+  .tagline { text-align:center; color:var(--muted); font-size:14.5px; line-height:1.6; margin:0 0 26px; }
   .auth .card { padding:24px 20px; }
   .auth label { margin:14px 0 7px; } .auth label:first-child { margin-top:0; }
   .auth input { padding:14px; font-size:16px; }   /* 16px stops iOS zoom-on-focus */
@@ -25,41 +25,81 @@
   .authswap a { color:var(--acc-bright); text-decoration:none; font-weight:600; cursor:pointer; }
   .autherr { color:var(--bad); font-size:13px; text-align:center; min-height:18px; margin-top:14px; }
   .card.shake { animation:shake .5s var(--ease); }
-  /* ---------- app ---------- */
+  /* ---------- app chrome ---------- */
   .topbar-demo { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:10px;
-    padding:14px 2px 12px; background:rgba(10,11,13,.88); backdrop-filter:blur(9px);
-    border-bottom:1px solid var(--border); margin:0 -16px 18px; padding-left:16px; padding-right:16px; }
+    padding:14px 2px 12px; background:rgba(10,11,13,.9); backdrop-filter:blur(9px);
+    border-bottom:1px solid var(--border); margin:0 -18px 0; padding-left:18px; padding-right:18px; }
   .brand-sm { font-size:17px; font-weight:700; letter-spacing:-.4px; }
   .brand-sm span { color:var(--acc); }
   .quota { margin-left:auto; }
   .signout { background:none; border:0; color:var(--faint); cursor:pointer; padding:6px; font-size:15px; }
-  .signout:hover { color:var(--bad); }
-  h2 { font-size:16px; letter-spacing:-.2px; margin:22px 0 4px; }
-  .hsub { color:var(--faint); font-size:12.5px; margin:0 0 12px; }
-  /* clip strip */
-  .strip { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 10px; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
-  .ctile { position:relative; flex:0 0 108px; height:150px; border-radius:12px; overflow:hidden;
+  /* stepper */
+  .stepper { display:flex; align-items:flex-start; justify-content:center; gap:0; padding:20px 0 8px; }
+  .stp { display:flex; flex-direction:column; align-items:center; gap:7px; width:96px; background:none; border:0;
+    font-family:inherit; cursor:default; }
+  .stp .num { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700; background:var(--surface-2); color:var(--faint); border:1px solid var(--border-2);
+    transition:all var(--t); }
+  .stp .lbl { font-size:11px; font-weight:600; color:var(--faint); text-align:center; line-height:1.3; }
+  .stp.on .num { background:var(--grad); color:#fff; border-color:transparent; box-shadow:0 0 18px -4px var(--acc-glow); }
+  .stp.on .lbl { color:var(--ink); }
+  .stp.done { cursor:pointer; }
+  .stp.done .num { background:var(--good-bg); color:var(--good); border-color:transparent; }
+  .stp.done .lbl { color:var(--muted); }
+  .stp-line { flex:0 0 26px; height:1.5px; background:var(--border-2); margin-top:15px; }
+  .stp-line.done { background:var(--good); opacity:.5; }
+  /* ---------- stages ---------- */
+  .stage { display:none; animation:fade .35s var(--ease-out); }
+  .stage.on { display:block; }
+  .hero { text-align:center; padding:26px 4px 6px; }
+  .hero h1 { font-size:23px; letter-spacing:-.5px; margin-bottom:10px; }
+  .hero p { color:var(--muted); font-size:14.5px; line-height:1.65; margin:0 auto; max-width:420px; }
+  .hero p b { color:var(--ink-soft); }
+  /* stage 1 — how it works + big drop */
+  .how { display:flex; justify-content:center; gap:8px; margin:22px 0; }
+  .how .hstep { flex:1; max-width:150px; background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:14px 10px; text-align:center; }
+  .how .hic { font-size:22px; margin-bottom:7px; }
+  .how .ht { font-size:11.5px; color:var(--muted); line-height:1.45; }
+  .how .ht b { color:var(--ink-soft); display:block; margin-bottom:2px; font-size:12px; }
+  .bigupload { display:flex; flex-direction:column; align-items:center; gap:10px; border:1.5px dashed var(--acc-line);
+    background:var(--acc-soft); border-radius:var(--r); padding:38px 20px; text-align:center; color:var(--ink-soft);
+    cursor:pointer; transition:border-color var(--t), background var(--t), transform var(--t); margin-top:4px; }
+  .bigupload:active { transform:scale(.99); }
+  .bigupload.drag { border-color:var(--acc); }
+  .bigupload svg { width:30px; height:30px; color:var(--acc-bright); }
+  .bigupload .bu-main { font-size:15.5px; font-weight:650; }
+  .bigupload .bu-sub { font-size:12.5px; color:var(--muted); }
+  /* stage 2 — getting ready */
+  .readybar { margin:18px 0 8px; }
+  .readybig { text-align:center; font-size:34px; font-weight:800; letter-spacing:-1px; margin:14px 0 2px;
+    font-variant-numeric:tabular-nums; }
+  .readybig .of { color:var(--faint); font-size:17px; font-weight:600; }
+  .readysub { text-align:center; color:var(--muted); font-size:13px; margin-bottom:14px; }
+  .prog.ready { height:8px; border-radius:6px; }
+  .prog.ready > i { animation:none; transition:width .6s var(--ease); background:var(--grad);
+    box-shadow:0 0 12px 0 var(--acc-glow); width:0%; }
+  .tilegrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:10px; margin-top:16px; }
+  .ctile { position:relative; aspect-ratio:9/13; border-radius:12px; overflow:hidden;
     background:var(--surface-2); border:1px solid var(--border); }
   .ctile img { width:100%; height:100%; object-fit:cover; display:block; }
   .ctile .st { position:absolute; left:6px; top:6px; z-index:2; }
   .ctile .prog { position:absolute; bottom:0; left:0; right:0; border-radius:0; height:4px; }
   .ctile .del { position:absolute; top:5px; right:5px; z-index:2; width:22px; height:22px; border:0; border-radius:6px;
     background:rgba(6,7,10,.6); color:#d4d8e2; font-size:13px; line-height:1; cursor:pointer; }
-  .ctile.rej { opacity:.6; }
-  .addtile { flex:0 0 108px; height:150px; border-radius:12px; border:1.5px dashed var(--border-2); background:none;
-    color:var(--muted); font-size:26px; cursor:pointer; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:4px; transition:border-color var(--t), color var(--t); }
-  .addtile small { font-size:10.5px; font-weight:600; letter-spacing:.03em; }
-  .addtile:hover, .addtile.drag { border-color:var(--acc-line); color:var(--acc-bright); }
-  .bigupload { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--border-2);
-    border-radius:var(--r); padding:36px 20px; text-align:center; color:var(--muted); cursor:pointer;
-    transition:border-color var(--t), background var(--t); }
-  .bigupload:hover, .bigupload.drag { border-color:var(--acc); background:var(--acc-soft); }
-  .bigupload svg { width:28px; height:28px; color:var(--faint); }
-  .bigupload b { color:var(--acc-bright); }
-  .bigupload .bu-sub { font-size:12px; color:var(--faint); }
-  /* reels feed */
-  .rfeed { display:flex; flex-direction:column; gap:16px; }
+  .ctile.rej { opacity:.55; }
+  .addtile { aspect-ratio:9/13; border-radius:12px; border:1.5px dashed var(--border-2); background:none;
+    color:var(--muted); font-size:24px; cursor:pointer; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:4px; transition:border-color var(--t), color var(--t); font-family:inherit; }
+  .addtile small { font-size:10.5px; font-weight:600; }
+  .addtile:hover { border-color:var(--acc-line); color:var(--acc-bright); }
+  /* stage 3 — reels */
+  .s3top { display:flex; align-items:center; gap:10px; margin:20px 0 4px; }
+  .s3top h1 { font-size:20px; letter-spacing:-.4px; }
+  .clipslink { margin-left:auto; font-size:12.5px; color:var(--muted); background:none; border:1px solid var(--border);
+    border-radius:20px; padding:6px 12px; cursor:pointer; font-family:inherit; transition:color var(--t), border-color var(--t); }
+  .clipslink:hover { color:var(--acc-bright); border-color:var(--acc-line); }
+  .rfeed { display:flex; flex-direction:column; gap:16px; margin-top:14px; }
   .rcard { overflow:hidden; padding:0; display:flex; flex-direction:column; animation:cardIn .45s var(--ease-out) both; }
   .rmedia { position:relative; aspect-ratio:9/16; background:#000; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:12px; color:var(--faint); }
@@ -69,7 +109,12 @@
   .rcap { white-space:pre-wrap; font-size:14px; line-height:1.5; border-left:3px solid var(--acc); padding-left:11px; }
   .ractions { display:flex; gap:8px; }
   .ractions .btn { flex:1; }
-  /* generating card (phase scenes — same language as the studio) */
+  .firstreel { text-align:center; padding:34px 18px 24px; }
+  .firstreel .fr916 { width:46px; height:80px; border:1.5px dashed var(--acc-line); border-radius:9px; margin:0 auto 16px;
+    display:flex; align-items:center; justify-content:center; color:var(--acc-bright); font-size:19px; }
+  .firstreel h3 { font-size:16.5px; margin-bottom:7px; }
+  .firstreel p { color:var(--muted); font-size:13px; line-height:1.6; max-width:330px; margin:0 auto; }
+  /* generating card scenes (same motion language as the studio) */
   @property --aur { syntax:'<angle>'; initial-value:0deg; inherits:false; }
   .rcard.generating { overflow:visible; position:relative; z-index:0; }
   .rcard.generating::before { content:''; position:absolute; inset:-2px; border-radius:18px; z-index:-1;
@@ -124,14 +169,16 @@
   .rmedia .prog { position:absolute; bottom:0; left:0; right:0; border-radius:0; }
   .rcard.flash video { animation:vidin .55s var(--ease-out) both; }
   @keyframes vidin { from { opacity:0; transform:scale(1.05); } }
-  /* sticky generate bar */
+  /* sticky action bar — ONE primary action per stage */
   .genbar { position:fixed; left:0; right:0; bottom:0; z-index:60; display:flex; justify-content:center;
     padding:12px 16px calc(12px + env(safe-area-inset-bottom));
-    background:linear-gradient(180deg, rgba(10,11,13,0), rgba(10,11,13,.92) 34%); pointer-events:none; }
+    background:linear-gradient(180deg, rgba(10,11,13,0), rgba(10,11,13,.94) 34%); pointer-events:none; }
   .genbar .btn { pointer-events:auto; width:100%; max-width:528px; padding:16px; font-size:15.5px; font-weight:700;
     border-radius:14px; }
-  .genbar .btn:disabled { opacity:.75; }
-  .genbar .btn.cooldown { background:var(--surface-2); color:var(--muted); box-shadow:none; border:1px solid var(--border-2); }
+  .genbar .btn:disabled { opacity:.7; }
+  .genbar .btn.waiting { background:var(--surface-2); color:var(--muted); box-shadow:none; border:1px solid var(--border-2); }
+  .genbar .sub { position:absolute; bottom:calc(74px + env(safe-area-inset-bottom)); left:0; right:0; text-align:center;
+    color:var(--faint); font-size:11.5px; pointer-events:none; }
   .hidden { display:none !important; }
 </style>
 </head>
@@ -140,13 +187,13 @@
 
   <div class="auth" id="authView">
     <h1 class="brand-lg">treelz<span>.ai</span></h1>
-    <p class="tagline">your clips + a voice that writes the caption.<br/>upload footage, tap generate, post the keepers.</p>
+    <p class="tagline">turn your camera roll into ready-to-post reels.<br/>add clips once — get 15 reels a day.</p>
     <form class="card" id="authForm">
-      <label for="au">Username</label>
-      <input id="au" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="lowercase, 3–24 chars" />
-      <label for="ap">Password</label>
+      <label for="au">Pick a username</label>
+      <input id="au" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="lowercase, no spaces" />
+      <label for="ap">Pick a password</label>
       <input id="ap" type="password" autocomplete="new-password" placeholder="at least 6 characters" />
-      <button type="submit" class="btn btn-primary btn-block" id="authBtn">Create account</button>
+      <button type="submit" class="btn btn-primary btn-block" id="authBtn">Get started</button>
       <div class="autherr" id="authErr"></div>
     </form>
     <p class="authswap" id="authSwap">already have an account? <a>sign in</a></p>
@@ -155,25 +202,67 @@
   <div id="appView" class="hidden">
     <div class="topbar-demo">
       <span class="brand-sm">treelz<span>.ai</span></span>
-      <span class="statchip quota" id="quotaPill"></span>
+      <span class="statchip quota hidden" id="quotaPill"></span>
       <button class="signout" id="signout" title="Sign out">⎋</button>
     </div>
 
-    <h2>Your clips <span id="clipCount" style="color:var(--faint);font-weight:600;font-size:12.5px"></span></h2>
-    <p class="hsub">b-roll of you / your world — 30s max per clip. They index automatically (a minute or two each).</p>
-    <div id="clipArea"></div>
-    <input type="file" id="file" accept="video/*" multiple style="display:none" />
+    <div class="stepper" id="stepper">
+      <button class="stp" data-stage="1"><span class="num">1</span><span class="lbl">Add your clips</span></button>
+      <span class="stp-line"></span>
+      <button class="stp" data-stage="2"><span class="num">2</span><span class="lbl">We get them ready</span></button>
+      <span class="stp-line"></span>
+      <button class="stp" data-stage="3"><span class="num">3</span><span class="lbl">Make reels</span></button>
+    </div>
 
-    <h2 style="margin-top:26px">Your reels</h2>
-    <p class="hsub">each one: a caption written in the voice, your clips cut to the beat, audio matched to the line.</p>
-    <div class="rfeed" id="rfeed"></div>
+    <!-- STAGE 1 — add clips -->
+    <section class="stage" id="stage1">
+      <div class="hero">
+        <h1>First, add some clips of you</h1>
+        <p>Short videos from your camera roll — you walking, driving, at the gym, whatever shows your world. <b>10–30 clips</b> works best, <b>30 seconds max</b> each.</p>
+      </div>
+      <div class="how">
+        <div class="hstep"><div class="hic">📱</div><div class="ht"><b>You add clips</b>straight from your phone</div></div>
+        <div class="hstep"><div class="hic">✨</div><div class="ht"><b>We learn them</b>takes a minute or two</div></div>
+        <div class="hstep"><div class="hic">🎬</div><div class="ht"><b>You get reels</b>caption + music included</div></div>
+      </div>
+      <div class="bigupload" id="upzone1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
+        <div class="bu-main">Tap here to add clips</div>
+        <div class="bu-sub">you can pick a bunch at once</div>
+      </div>
+    </section>
+
+    <!-- STAGE 2 — getting ready -->
+    <section class="stage" id="stage2">
+      <div class="hero">
+        <h1 id="s2title">Getting your clips ready…</h1>
+        <p id="s2sub">we're learning what's in each clip so your reels use the right footage. this takes a minute or two per clip — feel free to add more while you wait.</p>
+      </div>
+      <div class="readybar">
+        <div class="readybig"><span id="readyN">0</span><span class="of"> of <span id="readyM">0</span> ready</span></div>
+        <div class="prog ready"><i id="readyBar"></i></div>
+        <div class="readysub" id="readyHint"></div>
+      </div>
+      <div class="tilegrid" id="tiles"></div>
+    </section>
+
+    <!-- STAGE 3 — reels -->
+    <section class="stage" id="stage3">
+      <div class="s3top">
+        <h1>Your reels</h1>
+        <button class="clipslink" id="clipslink">clips</button>
+      </div>
+      <p class="hsub" style="color:var(--faint);font-size:12.5px;margin:2px 0 0">tap the button below — we write the caption, pick your best clips, cut them to music.</p>
+      <div class="rfeed" id="rfeed"></div>
+    </section>
   </div>
 </div>
 
-<div class="genbar hidden" id="genbar"><button class="btn btn-primary" id="gen">Generate a reel</button></div>
+<input type="file" id="file" accept="video/*" multiple style="display:none" />
+<div class="genbar hidden" id="genbar"><span class="sub" id="barsub"></span><button class="btn btn-primary" id="cta">…</button></div>
 
 <script>
-let ME = null, STATUS = null, CLIPS = [], REELS = [], generating = false;
+let ME = null, STATUS = null, CLIPS = [], REELS = [], stage = 1, generating = false, celebrated = false;
 const $ = (id) => document.getElementById(id);
 
 function toast(msg, type='ok') {
@@ -192,11 +281,13 @@ async function api(method, path, body) {
   if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || ('HTTP ' + r.status)); }
   return r.json();
 }
+const indexedCount = () => CLIPS.filter(c => c.status === 'indexed').length;
+const liveCount = () => CLIPS.filter(c => c.status !== 'rejected').length;
 
 /* ---------- auth ---------- */
 let signupMode = true;
 $('authSwap').onclick = (e) => { e.preventDefault(); signupMode = !signupMode;
-  $('authBtn').textContent = signupMode ? 'Create account' : 'Sign in';
+  $('authBtn').textContent = signupMode ? 'Get started' : 'Sign in';
   $('authSwap').innerHTML = signupMode ? 'already have an account? <a>sign in</a>' : 'new here? <a>create an account</a>';
   $('ap').autocomplete = signupMode ? 'new-password' : 'current-password'; $('authErr').textContent = ''; };
 $('authForm').onsubmit = async (e) => {
@@ -209,73 +300,113 @@ $('authForm').onsubmit = async (e) => {
     location.reload();
   } catch (ex) { err.textContent = ex.message; btn.disabled = false; card.classList.add('shake'); }
 };
-$('signout') && ($('signout').onclick = async () => { await fetch('/api/demo/logout', {method:'POST'}); location.reload(); });
+$('signout').onclick = async () => { await fetch('/api/demo/logout', {method:'POST'}); location.reload(); };
 
-/* ---------- status / quota ---------- */
-function fmtWait(s) { const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; }
-function paintQuota() {
-  if (!STATUS) return;
-  const pill = $('quotaPill'), gen = $('gen');
-  const left = STATUS.reels_max - STATUS.reels_used;
-  if (!STATUS.can_generate && STATUS.resets_in_seconds) {
-    pill.innerHTML = `<b>resets in ${fmtWait(STATUS.resets_in_seconds)}</b>`;
-    gen.textContent = `New reels in ${fmtWait(STATUS.resets_in_seconds)}`;
-    gen.disabled = true; gen.classList.add('cooldown');
-  } else {
-    pill.innerHTML = `<b>${left}</b>&nbsp;reel${left === 1 ? '' : 's'} left`;
-    if (!generating) {
-      const ready = CLIPS.some(c => c.status === 'indexed');
-      gen.textContent = ready ? 'Generate a reel' : 'Add clips to start';
-      gen.disabled = !ready; gen.classList.remove('cooldown');
-    }
-  }
+/* ---------- the stage router: ONE screen, ONE primary action ---------- */
+function computeStage() {
+  if (REELS.length || indexedCount()) return 3;
+  if (CLIPS.length) return 2;
+  return 1;
 }
-async function loadStatus() { try { STATUS = await api('GET', '/api/demo/status'); paintQuota(); } catch (_) {} }
+function paintStepper() {
+  const unlocked = computeStage();
+  document.querySelectorAll('.stp').forEach(s => {
+    const i = +s.dataset.stage;
+    s.classList.toggle('on', i === stage);
+    s.classList.toggle('done', i !== stage && i <= unlocked);
+    s.onclick = (i <= unlocked && i !== stage) ? () => setStage(i) : null;
+  });
+  document.querySelectorAll('.stp-line').forEach((l, idx) => l.classList.toggle('done', idx + 1 < unlocked));
+}
+function setStage(n) {
+  stage = n;
+  [1,2,3].forEach(i => $('stage' + i).classList.toggle('on', i === n));
+  paintBar(); paintStage();
+}
+function paintStage() {
+  if (stage === 2) paintTiles();
+  if (stage === 3) { paintReels(); $('clipslink').textContent = `clips (${liveCount()})`; }
+  $('quotaPill').classList.toggle('hidden', stage !== 3 || !STATUS);
+}
+/* the single sticky action per stage */
+function paintBar() {
+  paintStepper();   // stepper unlocks live with the data (first indexed clip, first reel)
+  const bar = $('genbar'), cta = $('cta'), sub = $('barsub');
+  bar.classList.remove('hidden');
+  cta.classList.remove('waiting'); cta.disabled = false; sub.textContent = '';
+  if (stage === 1) {
+    cta.textContent = 'Add clips';
+    cta.onclick = () => $('file').click();
+    return;
+  }
+  if (stage === 2) {
+    const n = indexedCount(), m = liveCount();
+    if (n === 0) {
+      cta.textContent = 'Getting your clips ready…'; cta.disabled = true; cta.classList.add('waiting');
+      sub.textContent = 'this usually takes a minute or two';
+    } else {
+      cta.textContent = n < m ? `Start making reels (${n} ready)` : 'Start making reels';
+      cta.onclick = () => setStage(3, true);
+    }
+    return;
+  }
+  // stage 3
+  if (generating) { cta.textContent = 'Making your reel…'; cta.disabled = true; return; }
+  if (STATUS && !STATUS.can_generate && STATUS.resets_in_seconds) {
+    cta.textContent = `More reels in ${fmtWait(STATUS.resets_in_seconds)}`;
+    cta.disabled = true; cta.classList.add('waiting');
+    sub.textContent = 'you used all 15 — they refill automatically';
+    return;
+  }
+  const left = STATUS ? (STATUS.reels_max - STATUS.reels_used) : '';
+  cta.textContent = REELS.length ? `Make another reel` : 'Make my first reel';
+  sub.textContent = left !== '' ? `${left} left today` : '';
+  cta.onclick = generate;
+}
+function fmtWait(s) { const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; }
+
+/* ---------- status ---------- */
+async function loadStatus() {
+  try { STATUS = await api('GET', '/api/demo/status'); } catch (_) { return; }
+  const left = STATUS.reels_max - STATUS.reels_used;
+  $('quotaPill').innerHTML = STATUS.can_generate ? `<b>${left}</b>&nbsp;reel${left === 1 ? '' : 's'} left`
+    : `<b>resets in ${fmtWait(STATUS.resets_in_seconds || 0)}</b>`;
+  paintStage(); paintBar();
+}
 setInterval(() => { if (ME && !document.hidden) loadStatus(); }, 60000);
 
-/* ---------- clips ---------- */
-function clipTile(c) {
+/* ---------- clips (stage 2) ---------- */
+function tile(c) {
   const real = c.id && !String(c.id).startsWith('tmp-');
   const img = real ? `<img src="/api/clips/${c.id}/thumb" loading="lazy" alt="" onerror="this.remove()">` : '';
   const busy = c.status === 'indexing' || c.status === 'uploaded' || c.status === 'uploading';
-  const badge = c.status === 'indexed' ? '<span class="badge b-good st">✓</span>'
+  const badge = c.status === 'indexed' ? '<span class="badge b-good st">✓ ready</span>'
     : c.status === 'rejected' ? '<span class="badge b-bad st">✗</span>'
-    : `<span class="badge b-warn st">${c.status === 'uploading' ? 'uploading' : 'indexing'}</span>`;
+    : `<span class="badge b-warn st">${c.status === 'uploading' ? 'uploading' : 'learning…'}</span>`;
   return `<div class="ctile${c.status === 'rejected' ? ' rej' : ''}" data-id="${c.id}" data-reason="${(c.rejection_reason || '').replace(/"/g, '&quot;')}">
     ${img}${badge}${real ? `<button class="del" data-del="${c.id}">×</button>` : ''}${busy ? '<div class="prog"><i></i></div>' : ''}
   </div>`;
 }
-function paintClips() {
-  const area = $('clipArea');
-  const used = CLIPS.filter(c => c.status !== 'rejected').length;
-  $('clipCount').textContent = `${used}/${STATUS ? STATUS.clips_max : 50}`;
-  if (!CLIPS.length) {
-    area.innerHTML = `<div class="bigupload" id="upzone">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
-      <div><b>Tap to add clips</b> from your camera roll</div>
-      <div class="bu-sub">10–30 clips of you / your world gets the best reels</div>
-    </div>`;
-  } else {
-    area.innerHTML = `<div class="strip">${CLIPS.map(clipTile).join('')}
-      <button class="addtile" id="upzone">＋<small>add</small></button></div>`;
-  }
-  const uz = $('upzone');
-  uz.onclick = () => $('file').click();
-  uz.ondragover = (e) => { e.preventDefault(); uz.classList.add('drag'); };
-  uz.ondragleave = () => uz.classList.remove('drag');
-  uz.ondrop = (e) => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
-  area.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
+function paintTiles() {
+  const n = indexedCount(), m = liveCount();
+  $('readyN').textContent = n; $('readyM').textContent = m;
+  $('readyBar').style.width = m ? (100 * n / m) + '%' : '0%';
+  $('readyHint').textContent = n === 0 ? 'you can add more clips while you wait'
+    : n < m ? 'ready ones can be used already — no need to wait for all of them'
+    : 'all set — nice library 👌';
+  if (n > 0) { $('s2title').textContent = n < m ? 'Almost there…' : 'Your clips are ready 🎉'; }
+  $('tiles').innerHTML = CLIPS.map(tile).join('') + `<button class="addtile" id="addmore">＋<small>add more</small></button>`;
+  $('addmore').onclick = () => $('file').click();
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
     e.stopPropagation();
     await fetch('/api/clips/' + b.dataset.del, { method: 'DELETE' });
     CLIPS = CLIPS.filter(c => String(c.id) !== b.dataset.del);
-    paintClips(); loadStatus(); toast('Clip removed');
+    paintStage(); paintBar(); loadStatus();
   });
-  area.querySelectorAll('.ctile.rej').forEach(t => t.onclick = () => toast(t.dataset.reason || 'clip rejected', 'err'));
-  paintQuota();
+  document.querySelectorAll('.ctile.rej').forEach(t => t.onclick = () => toast(t.dataset.reason || "we couldn't use that clip", 'err'));
 }
 async function loadClips() {
   try { CLIPS = await api('GET', '/api/clips/library'); } catch (_) { CLIPS = []; }
-  paintClips();
   CLIPS.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
 }
 const polling = new Set();
@@ -287,20 +418,23 @@ async function pollClip(id) {
       await new Promise(r => setTimeout(r, 4000));
       let c; try { c = await api('GET', `/api/clips/${id}/status`); } catch (_) { continue; }
       const i = CLIPS.findIndex(x => String(x.id) === String(id));
-      if (i >= 0) { CLIPS[i] = c; paintClips(); }
+      if (i >= 0) { CLIPS[i] = c; }
       if (c.status === 'indexed' || c.status === 'rejected') {
-        if (c.status === 'rejected') toast(c.rejection_reason || 'a clip was rejected', 'err');
-        loadStatus(); return;
+        if (c.status === 'rejected') toast(c.rejection_reason || "we couldn't use one clip", 'err');
+        if (c.status === 'indexed' && !celebrated) { celebrated = true; toast('First clip ready — you can start making reels 🎬'); }
+        paintStage(); paintBar(); loadStatus(); return;
       }
+      if (stage === 2) paintStage();
     }
   } finally { polling.delete(id); }
 }
 function uploadFiles(files) {
+  if (!files.length) return;
   [...files].forEach(async (file) => {
-    const used = CLIPS.filter(c => c.status !== 'rejected').length;
-    if (STATUS && used >= STATUS.clips_max) { toast(`library full — ${STATUS.clips_max} clips max`, 'err'); return; }
+    if (STATUS && liveCount() >= STATUS.clips_max) { toast(`that's the max (${STATUS.clips_max} clips) — remove one to add more`, 'err'); return; }
     const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
-    CLIPS.unshift({ id: tmpId, status: 'uploading' }); paintClips();
+    CLIPS.unshift({ id: tmpId, status: 'uploading' });
+    if (stage === 1) setStage(2); else { paintStage(); paintBar(); }
     try {
       const fd = new FormData(); fd.append('file', file);
       const r = await fetch('/api/clips/upload', { method: 'POST', body: fd });
@@ -308,42 +442,51 @@ function uploadFiles(files) {
       const d = await r.json();
       const i = CLIPS.findIndex(c => c.id === tmpId);
       if (i >= 0) CLIPS[i] = { id: d.clip_id, status: 'indexing' };
-      paintClips(); pollClip(d.clip_id); loadStatus();
+      paintStage(); pollClip(d.clip_id); loadStatus();
     } catch (ex) {
-      CLIPS = CLIPS.filter(c => c.id !== tmpId); paintClips();
+      CLIPS = CLIPS.filter(c => c.id !== tmpId);
+      paintStage(); paintBar();
       toast(ex.message, 'err');
     }
   });
 }
-$('file').onchange = () => { if ($('file').files.length) uploadFiles($('file').files); $('file').value = ''; };
+$('file').onchange = () => { uploadFiles($('file').files); $('file').value = ''; };
+const uz1 = $('upzone1');
+uz1.onclick = () => $('file').click();
+uz1.ondragover = (e) => { e.preventDefault(); uz1.classList.add('drag'); };
+uz1.ondragleave = () => uz1.classList.remove('drag');
+uz1.ondrop = (e) => { e.preventDefault(); uz1.classList.remove('drag'); uploadFiles(e.dataTransfer.files); };
+$('clipslink').onclick = () => setStage(2, true);
 
-/* ---------- reels ---------- */
+/* ---------- reels (stage 3) ---------- */
 function reelCard(r) {
   const el = document.createElement('div');
   el.className = 'card rcard';
   el.innerHTML = `<div class="rmedia"><video controls loop playsinline preload="metadata" src="${r.reel_url}"></video></div>
     <div class="rbody">${r.caption ? '<div class="rcap"></div>' : ''}
-      <div class="ractions"><a class="btn btn-primary btn-sm" href="${r.reel_url}" download>↓ Download</a></div></div>`;
+      <div class="ractions"><a class="btn btn-primary btn-sm" href="${r.reel_url}" download>↓ Save video</a></div></div>`;
   if (r.caption) el.querySelector('.rcap').textContent = r.caption;
   return el;
 }
 function paintReels() {
   const feed = $('rfeed');
   feed.querySelectorAll('.rcard:not(.generating)').forEach(n => n.remove());
+  feed.querySelector('.firstreel')?.remove();
   if (!REELS.length && !generating) {
-    feed.innerHTML = `<div class="empty-block" style="padding:34px 16px"><div class="empty-title">No reels yet</div>
-      <div class="empty-sub">once a clip shows ✓, hit the button below.</div></div>`;
+    feed.insertAdjacentHTML('beforeend', `<div class="card firstreel">
+      <div class="fr916">▶</div>
+      <h3>Ready when you are</h3>
+      <p>your first reel takes about 2–3 minutes to make. we'll show you what's happening the whole time.</p>
+    </div>`);
     return;
   }
-  feed.querySelector('.empty-block')?.remove();
   REELS.forEach(r => feed.appendChild(reelCard(r)));
 }
 async function loadReels() {
   try { REELS = (await api('GET', '/api/demo/reels')).reels || []; } catch (_) { REELS = []; }
-  paintReels();
 }
 
-/* ---------- generation (with the studio's phase scenes) ---------- */
+/* ---------- generation ---------- */
 function genCardHTML() {
   return `<div class="rmedia idle">
     <div class="gscene gs-write on"><div class="capmini"><i class="ln l1"></i><i class="ln l2"></i><i class="ln l3"></i><b class="caret"></b></div></div>
@@ -355,13 +498,13 @@ function genCardHTML() {
     <div class="prog det"><i></i></div></div>`;
 }
 function startScenes(card) {
-  const phases = ['Writing your caption…', 'Matching your clips to it', 'Cutting to the beat', 'Rendering in 1080p'];
+  const phases = ['Writing your caption…', 'Picking your best clips', 'Cutting them to the music', 'Putting it all together'];
   const scenes = ['gs-write', 'gs-match', 'gs-beat', 'gs-render'];
   const FLAVOR = [
-    ['channeling the voice…', 'best of 5, judged cold'],
-    ['reading your footage…', 'clips that play off the line'],
-    ['finding the drop…', 'every cut lands on a beat'],
-    ['1080×1920, caption burned in', 'almost there…'],
+    ['this is the fun part', 'short + punchy, like you'],
+    ['reading your footage…', 'clips that match the line'],
+    ['finding the beat…', 'every cut lands on it'],
+    ['final touches…', 'almost there'],
   ];
   const steps = [16000, 11000, 7000];
   const label = card.querySelector('.ph-phase'), bar = card.querySelector('.prog.det > i'), fl = card.querySelector('.ph-flavor');
@@ -381,23 +524,20 @@ function startScenes(card) {
   return () => { alive = false; clearInterval(iv); clearInterval(fiv); timers.forEach(clearTimeout); };
 }
 async function waitForNewReel(known, tries = 24) {
-  // the edge can drop a long response while the server finishes the render — poll for the new reel
   for (let t = 0; t < tries; t++) {
     await new Promise(r => setTimeout(r, 10000));
     try {
       const rs = (await api('GET', '/api/demo/reels')).reels || [];
-      const fresh = rs.find(r => !known.has(r.reel_url));
-      if (fresh) return rs;
+      if (rs.find(r => !known.has(r.reel_url))) return rs;
     } catch (_) {}
   }
   return null;
 }
-$('gen').onclick = async () => {
+async function generate() {
   if (generating) return;
   generating = true;
-  const gen = $('gen');
-  gen.disabled = true; gen.textContent = 'Generating…';
-  $('rfeed').querySelector('.empty-block')?.remove();
+  paintBar();
+  $('rfeed').querySelector('.firstreel')?.remove();
   const card = document.createElement('div');
   card.className = 'card rcard generating';
   card.innerHTML = genCardHTML();
@@ -405,29 +545,27 @@ $('gen').onclick = async () => {
   const stop = startScenes(card);
   const known = new Set(REELS.map(r => r.reel_url));
   try {
-    let ok = false;
     try {
       const r = await fetch('/api/generate', { method: 'POST', headers: {'content-type': 'application/json'}, body: '{}' });
       if (r.status === 429) { const d = await r.json().catch(() => ({})); throw Object.assign(new Error(d.detail || 'limit reached'), { final: true }); }
       if (!r.ok) throw new Error((await r.text()).slice(0, 180));
-      ok = true;
     } catch (ex) {
       if (ex.final) throw ex;
-      // network/edge drop — the server usually finishes anyway; wait for the reel to appear
       const rs = await waitForNewReel(known);
-      if (!rs) throw new Error('generation hit a snag — your reel may still appear in a minute');
-      REELS = rs; ok = true;
+      if (!rs) throw new Error("hit a snag — your reel may still show up in a minute");
+      REELS = rs;
     }
-    if (ok) { stop(); card.remove(); await loadReels(); await loadStatus(); toast('Reel ready 🎬'); }
+    stop(); card.remove();
+    await loadReels(); await loadStatus();
+    paintReels(); toast('Your reel is ready 🎬');
   } catch (ex) {
     stop(); card.remove(); paintReels();
     toast(ex.message, 'err');
   } finally {
     generating = false;
-    gen.textContent = 'Generate a reel'; gen.disabled = false;
-    paintQuota(); loadStatus();
+    paintBar(); loadStatus();
   }
-};
+}
 
 /* ---------- boot ---------- */
 (async () => {
@@ -435,9 +573,9 @@ $('gen').onclick = async () => {
     ME = await api('GET', '/api/demo/me');
     $('authView').classList.add('hidden');
     $('appView').classList.remove('hidden');
-    $('genbar').classList.remove('hidden');
-    await loadStatus(); await loadClips(); await loadReels();
-    paintQuota();
+    await Promise.all([loadStatus(), loadClips(), loadReels()]);
+    celebrated = indexedCount() > 0;
+    setStage(computeStage());
   } catch (_) {
     $('authView').classList.remove('hidden');
   }

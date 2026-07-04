@@ -1,23 +1,17 @@
-// Design-review harness: serves the REAL static pages (app/static) with stubbed APIs +
-// sample media so every page and state can be exercised/screenshotted with ZERO prod risk.
-//   node tools/design_preview.cjs   →   http://localhost:4173
-// Sample media is gitignored — regenerate into tmp/fixtures with ffmpeg:
-//   ffmpeg -f lavfi -i "gradients=size=540x960:duration=4:c0=0x0f1512:c1=0x2a5c3f:c2=0x7bf1a8:nb_colors=3" \
-//          -f lavfi -i "sine=frequency=180:duration=4" -c:v libx264 -pix_fmt yuv420p -c:a aac sample.mp4
-//   ffmpeg -f lavfi -i "sine=frequency=220:duration=14.2" -q:a 6 sample.mp3
-//   ffmpeg -f lavfi -i "gradients=size=320x200:duration=0.1:c0=0x14201a:c1=0x1e3a2a" -frames:v 1 thumb.jpg
-// Missing fixtures just 404 (players render empty) — the UI itself still fully reviews.
+// Design-review harness: serves the REAL static pages with stubbed APIs + sample media,
+// so every page and state can be screenshotted without touching prod. Not shipped.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const STATIC = path.join(__dirname, '..', 'app', 'static');
-const FIXTURES = path.join(__dirname, '..', 'tmp', 'fixtures');
+const FIXTURES = path.join(__dirname, 'fixtures');
 const PORT = 4173;
 
 const PAGES = {
   '/': 'app.html', '/login': 'login.html', '/grade': 'grade.html',
   '/grade-reels': 'grade_reels.html', '/promote': 'promote.html', '/templates': 'templates.html',
+  '/demo': 'demo.html', '/lab': 'lab.html',
 };
 
 const CAPS = [
@@ -93,6 +87,17 @@ const API = {
   ] },
   'GET /api/templates': [ { id: 't1', name: 'relatable → flex', segments: 3, audio_id: 'a1' }, { id: 't2', name: 'decode bait', segments: 2, audio_id: 'a3' } ],
   'GET /api/refs/audit': { total_refs: 120, retired_found: 0 },
+  // demo-wizard stubs
+  'GET /api/demo/me': { username: 'previewfriend', user_id: 'p-demo' },
+  'POST /api/demo/signup': { ok: true, username: 'previewfriend' },
+  'POST /api/demo/login': { ok: true, username: 'previewfriend' },
+  'POST /api/demo/logout': { ok: true },
+  'GET /api/demo/status': { reels_used: 3, reels_max: 15, cooldown_until: null, resets_in_seconds: null,
+    can_generate: true, clips_used: 7, clips_max: 50, clips_indexed: 5, clip_seconds_max: 30 },
+  'GET /api/demo/reels': { reels: [
+    { reel_url: '/fixtures/sample.mp4', caption: 'we ain\'t unemployed\nwe self-employed with zero clients' },
+    { reel_url: '/fixtures/sample.mp4', caption: 'a security deposit is your landlord holding $500 hostage' },
+  ] },
 };
 
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.jpg': 'image/jpeg', '.png': 'image/png' };
@@ -115,6 +120,9 @@ http.createServer((req, res) => {
   if (p.startsWith('/assets/')) return file(res, path.join(STATIC, p.slice(8)));
   if (p.startsWith('/fixtures/')) return file(res, path.join(FIXTURES, path.basename(p)));
   if (/^\/api\/clips\/[^/]+\/thumb$/.test(p)) return file(res, path.join(FIXTURES, 'thumb.jpg'));
+  if (/^\/api\/clips\/[^/]+\/status$/.test(p)) {
+    return send(res, 200, { id: p.split('/')[3], status: 'indexed', vibe_tags: ['preview'], duration: 8 });
+  }
   if (/^\/api\/audio\/[^/]+\/beats$/.test(p)) {
     const beats = Array.from({ length: 28 }, (_, i) => +(i * 0.52).toFixed(2));
     return send(res, 200, { id: 'a1', duration: 14.2, file_url: '/fixtures/sample.mp3', beat_map: beats, beat_drop_ts: 6.24 });
