@@ -64,8 +64,11 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   were 150 in-prompt length examples and created a measured ratchet (pool drifted 17.5→19.9 mean
   words while refs held ~17; chooser was CLEAN at 0.518 mean length-rank — the 2026-07-04 audit).
   `GET /api/debug/length-audit` = the corpus-vs-pool-vs-chosen length forensics, rerun it before
-  blaming any layer for length drift. Gambling anchor cap: ≤1 for batches ≤6. Reels use best-of-5
-  independent candidates (`generate_independent(k=5)`), batch grading uses `generate(n)`.
+  blaming any layer for length drift. **Anchor-regurgitation guard**: candidates whose word-set
+  containment vs ANY corpus ref ≥ .8 are dropped pre-chooser (round 2 found 3 of 13 "winners" were
+  near-verbatim ref copies — an elite anchor comes back as itself and the chooser rightly picks
+  it). Gambling anchor cap: ≤1 for batches ≤6. Reels use best-of-5 independent candidates
+  (`generate_independent(k=5)`), batch grading uses `generate(n)`.
 - **Selection** (`app/caption/chooser.py`): best-caption-first; per-profile persona injected at call
   time (modular); ONE veto: clearly soft/self-pitying/off-persona. Never judges format/topic/length.
 - **Editor** (`app/caption/refine.py`): subtractive-only (trims over-extended tails, strips
@@ -187,11 +190,12 @@ _REFRESH_TOKEN` (Drive export), knobs: `INDEX_CONCURRENCY` (6), `SYNC_MAX_CLIP_S
 - **Spence** (first profile): the original voice — young terminally-online get-rich guy; gambling is
   ONE flavor (10% of refs, persona names it). 153 refs (94 originals + promotions), ~190 graded reels.
 - **Austin** (`1743bd43-…`): the BASE voice = Spence minus gambling emphasis (persona has no gambling
-  clause; verbatim-seeded 84 non-gambling originals). 224 indexed clips (215 Drive-synced). Round 1:
-  136 reels graded, 23% ≥8 / 41% ≤4 (base voice confirmed working, zero gambling/off-voice notes);
-  learn promoted him to 124 refs. Dominant remaining quality theme: "good premise, flat FINAL BEAT"
-  — being attacked via promotion grounding; if it persists next round, run a measured experiment on
-  landings (blind-panel A/B methodology, never a prompt rule).
+  clause; verbatim-seeded 84 non-gambling originals). 224+ indexed clips (215 Drive-synced). Round 1:
+  136 reels graded, 21% ≥8 / 38% ≤4. Round 2 (2026-07-04, 37 reels): **35% ≥8 (29% organic after
+  excluding 3 ref regurgitations) / 38% ≤4, mean 5.43→5.86**; zero length/clip/audio/off-voice
+  complaints; learn promoted 10+1 → corpus 131 refs. Dominant miss theme is STILL "decent premise,
+  flat delivery/landing" (8 of 14 noted misses) — standing levers are winner-promotion grounding +
+  kill attribution; the craft-deepening prompt experiment was A/B-refuted, don't re-add it.
 - **Check**: 40 bootstrap-reskinned refs, no clips/grades yet.
 - Test rig (dormant): `?backend=sonnet|openai` isolates a full pipeline on another model
   (claude-sonnet-5 / gpt-5.5) with suffixed state files. Operator verdict: both worse than Opus.
