@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>treelz.ai — demo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎬%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
+<style>
+  body { display:flex; flex-direction:column; align-items:center; min-height:100dvh; }
+  .shell { width:100%; max-width:560px; padding:0 16px calc(96px + env(safe-area-inset-bottom)); }
+  /* ---------- auth ---------- */
+  .auth { display:flex; flex-direction:column; justify-content:center; min-height:88dvh; max-width:400px; margin:0 auto; width:100%; }
+  .brand-lg { text-align:center; margin-bottom:6px; font-size:30px; letter-spacing:-.8px; }
+  .brand-lg span { color:var(--acc); text-shadow:0 0 20px var(--acc-glow); }
+  .tagline { text-align:center; color:var(--muted); font-size:14px; margin:0 0 26px; }
+  .auth .card { padding:24px 20px; }
+  .auth label { margin:14px 0 7px; } .auth label:first-child { margin-top:0; }
+  .auth input { padding:14px; font-size:16px; }   /* 16px stops iOS zoom-on-focus */
+  .auth .btn-block { margin-top:22px; }
+  .authswap { text-align:center; color:var(--muted); font-size:13.5px; margin-top:16px; }
+  .authswap a { color:var(--acc-bright); text-decoration:none; font-weight:600; cursor:pointer; }
+  .autherr { color:var(--bad); font-size:13px; text-align:center; min-height:18px; margin-top:14px; }
+  .card.shake { animation:shake .5s var(--ease); }
+  /* ---------- app ---------- */
+  .topbar-demo { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:10px;
+    padding:14px 2px 12px; background:rgba(10,11,13,.88); backdrop-filter:blur(9px);
+    border-bottom:1px solid var(--border); margin:0 -16px 18px; padding-left:16px; padding-right:16px; }
+  .brand-sm { font-size:17px; font-weight:700; letter-spacing:-.4px; }
+  .brand-sm span { color:var(--acc); }
+  .quota { margin-left:auto; }
+  .signout { background:none; border:0; color:var(--faint); cursor:pointer; padding:6px; font-size:15px; }
+  .signout:hover { color:var(--bad); }
+  h2 { font-size:16px; letter-spacing:-.2px; margin:22px 0 4px; }
+  .hsub { color:var(--faint); font-size:12.5px; margin:0 0 12px; }
+  /* clip strip */
+  .strip { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 10px; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  .ctile { position:relative; flex:0 0 108px; height:150px; border-radius:12px; overflow:hidden;
+    background:var(--surface-2); border:1px solid var(--border); }
+  .ctile img { width:100%; height:100%; object-fit:cover; display:block; }
+  .ctile .st { position:absolute; left:6px; top:6px; z-index:2; }
+  .ctile .prog { position:absolute; bottom:0; left:0; right:0; border-radius:0; height:4px; }
+  .ctile .del { position:absolute; top:5px; right:5px; z-index:2; width:22px; height:22px; border:0; border-radius:6px;
+    background:rgba(6,7,10,.6); color:#d4d8e2; font-size:13px; line-height:1; cursor:pointer; }
+  .ctile.rej { opacity:.6; }
+  .addtile { flex:0 0 108px; height:150px; border-radius:12px; border:1.5px dashed var(--border-2); background:none;
+    color:var(--muted); font-size:26px; cursor:pointer; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:4px; transition:border-color var(--t), color var(--t); }
+  .addtile small { font-size:10.5px; font-weight:600; letter-spacing:.03em; }
+  .addtile:hover, .addtile.drag { border-color:var(--acc-line); color:var(--acc-bright); }
+  .bigupload { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--border-2);
+    border-radius:var(--r); padding:36px 20px; text-align:center; color:var(--muted); cursor:pointer;
+    transition:border-color var(--t), background var(--t); }
+  .bigupload:hover, .bigupload.drag { border-color:var(--acc); background:var(--acc-soft); }
+  .bigupload svg { width:28px; height:28px; color:var(--faint); }
+  .bigupload b { color:var(--acc-bright); }
+  .bigupload .bu-sub { font-size:12px; color:var(--faint); }
+  /* reels feed */
+  .rfeed { display:flex; flex-direction:column; gap:16px; }
+  .rcard { overflow:hidden; padding:0; display:flex; flex-direction:column; animation:cardIn .45s var(--ease-out) both; }
+  .rmedia { position:relative; aspect-ratio:9/16; background:#000; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px; color:var(--faint); }
+  .rmedia video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .rmedia.idle { background:var(--surface-2); }
+  .rbody { padding:13px 14px 14px; display:flex; flex-direction:column; gap:10px; }
+  .rcap { white-space:pre-wrap; font-size:14px; line-height:1.5; border-left:3px solid var(--acc); padding-left:11px; }
+  .ractions { display:flex; gap:8px; }
+  .ractions .btn { flex:1; }
+  /* generating card (phase scenes — same language as the studio) */
+  @property --aur { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+  .rcard.generating { overflow:visible; position:relative; z-index:0; }
+  .rcard.generating::before { content:''; position:absolute; inset:-2px; border-radius:18px; z-index:-1;
+    background:conic-gradient(from var(--aur), transparent 0deg, var(--acc-a) 70deg, var(--acc-b) 150deg, transparent 230deg);
+    filter:blur(6px); opacity:.75; animation:aurora 3.2s linear infinite; }
+  .rcard.generating::after { content:''; position:absolute; inset:-1px; border-radius:17px; z-index:-1; background:var(--bg0); }
+  @keyframes aurora { to { --aur:360deg; } }
+  .rcard.generating .rmedia { border-radius:16px 16px 0 0; overflow:hidden; aspect-ratio:auto; min-height:300px; }
+  .gscene { display:none; height:104px; width:100%; position:relative; align-items:center; justify-content:center; }
+  .gscene.on { display:flex; animation:fade .35s var(--ease-out); }
+  .capmini { position:relative; width:128px; height:76px; background:var(--surface-2); border:1px solid var(--border-2);
+    border-radius:10px; padding:13px 14px; display:flex; flex-direction:column; gap:9px; }
+  .capmini .ln { display:block; height:7px; border-radius:4px; background:linear-gradient(90deg, var(--acc-a), var(--acc-b));
+    opacity:.75; transform-origin:left; animation:typeln 3s var(--ease) infinite; }
+  .capmini .ln.l2 { width:78%; animation-delay:.35s; } .capmini .ln.l3 { width:52%; opacity:.5; animation-delay:.7s; }
+  @keyframes typeln { 0%{transform:scaleX(0)} 30%,82%{transform:scaleX(1)} 100%{transform:scaleX(0)} }
+  .capmini .caret { position:absolute; right:11px; bottom:10px; width:7px; height:13px; border-radius:2px;
+    background:var(--acc-bright); box-shadow:0 0 8px var(--acc-glow); animation:caretblink .85s steps(2, jump-none) infinite; }
+  @keyframes caretblink { 50% { opacity:0; } }
+  .gs-match .fr { position:absolute; left:calc(50% - 29px); top:calc(50% - 18px); width:58px; height:37px;
+    border-radius:7px; background:var(--surface-2); border:1px solid var(--acc-line);
+    box-shadow:0 6px 16px -6px rgba(0,0,0,.6); animation:frdeal 3.3s var(--ease) infinite; }
+  .gs-match .fr::before, .gs-match .fr::after { content:''; position:absolute; left:6px; right:6px; height:1.5px;
+    background:var(--acc-soft); }
+  .gs-match .fr::before { top:7px; } .gs-match .fr::after { bottom:7px; }
+  .gs-match .f2 { animation-delay:.55s; } .gs-match .f3 { animation-delay:1.1s; }
+  @keyframes frdeal { 0%{transform:translate(84px,-14px) rotate(10deg);opacity:0} 18%{opacity:1}
+    30%,78%{transform:translate(0,0) rotate(0)} 45%,78%{transform:translate(-15px,5px) rotate(-6.5deg)}
+    100%{transform:translate(-15px,5px) rotate(-6.5deg);opacity:0} }
+  .gs-beat .eq { display:flex; align-items:flex-end; gap:6px; height:46px; }
+  .gs-beat .eq i { width:7px; border-radius:4px; height:100%; transform-origin:bottom;
+    background:linear-gradient(180deg, var(--acc-b), var(--acc-a)); animation:eqbar 1s var(--ease) infinite; }
+  .gs-beat .eq i:nth-child(2){animation-delay:.14s} .gs-beat .eq i:nth-child(3){animation-delay:.28s}
+  .gs-beat .eq i:nth-child(4){animation-delay:.1s} .gs-beat .eq i:nth-child(5){animation-delay:.24s}
+  .gs-beat .eq i:nth-child(6){animation-delay:.36s}
+  @keyframes eqbar { 0%,100%{transform:scaleY(.25)} 45%{transform:scaleY(1)} }
+  .gs-beat .cutline { position:absolute; top:22px; bottom:22px; width:1.5px; background:#fff; opacity:.85;
+    box-shadow:0 0 8px rgba(255,255,255,.8); left:calc(50% - 46px); animation:cutsweep 2.2s linear infinite; }
+  @keyframes cutsweep { to { transform:translateX(92px); } }
+  .gs-render .rframe { position:relative; width:52px; height:92px; border-radius:9px; border:1.5px solid var(--border-2);
+    overflow:hidden; background:var(--surface-2); }
+  .gs-render .fill { position:absolute; left:0; right:0; bottom:0; height:30%;
+    background:linear-gradient(180deg, rgba(125,123,255,.28), rgba(91,138,255,.55)); animation:renderfill 4.6s var(--ease) infinite; }
+  @keyframes renderfill { 0%{height:6%} 55%{height:78%} 100%{height:100%} }
+  .gs-render .scan { position:absolute; left:0; right:0; top:0; height:2px; background:var(--acc-bright);
+    box-shadow:0 0 10px 1px var(--acc-glow); animation:scanline 1.5s var(--ease) infinite; }
+  @keyframes scanline { to { transform:translateY(90px); } }
+  .ph-phase { color:var(--ink-soft); font-size:12.5px; font-weight:550; padding:0 16px; text-align:center; }
+  .ph-phase.tick { animation:tickin .32s var(--ease-out); }
+  @keyframes tickin { from { opacity:0; transform:translateY(8px); } }
+  .ph-flavor { color:var(--faint); font-size:11px; padding:0 16px; text-align:center; min-height:16px; transition:opacity .25s var(--ease); }
+  .rmedia .prog { position:absolute; bottom:0; left:0; right:0; border-radius:0; }
+  .rcard.flash video { animation:vidin .55s var(--ease-out) both; }
+  @keyframes vidin { from { opacity:0; transform:scale(1.05); } }
+  /* sticky generate bar */
+  .genbar { position:fixed; left:0; right:0; bottom:0; z-index:60; display:flex; justify-content:center;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg, rgba(10,11,13,0), rgba(10,11,13,.92) 34%); pointer-events:none; }
+  .genbar .btn { pointer-events:auto; width:100%; max-width:528px; padding:16px; font-size:15.5px; font-weight:700;
+    border-radius:14px; }
+  .genbar .btn:disabled { opacity:.75; }
+  .genbar .btn.cooldown { background:var(--surface-2); color:var(--muted); box-shadow:none; border:1px solid var(--border-2); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body class="grain">
+<div class="shell">
+
+  <div class="auth" id="authView">
+    <h1 class="brand-lg">treelz<span>.ai</span></h1>
+    <p class="tagline">your clips + a voice that writes the caption.<br/>upload footage, tap generate, post the keepers.</p>
+    <form class="card" id="authForm">
+      <label for="au">Username</label>
+      <input id="au" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="lowercase, 3–24 chars" />
+      <label for="ap">Password</label>
+      <input id="ap" type="password" autocomplete="new-password" placeholder="at least 6 characters" />
+      <button type="submit" class="btn btn-primary btn-block" id="authBtn">Create account</button>
+      <div class="autherr" id="authErr"></div>
+    </form>
+    <p class="authswap" id="authSwap">already have an account? <a>sign in</a></p>
+  </div>
+
+  <div id="appView" class="hidden">
+    <div class="topbar-demo">
+      <span class="brand-sm">treelz<span>.ai</span></span>
+      <span class="statchip quota" id="quotaPill"></span>
+      <button class="signout" id="signout" title="Sign out">⎋</button>
+    </div>
+
+    <h2>Your clips <span id="clipCount" style="color:var(--faint);font-weight:600;font-size:12.5px"></span></h2>
+    <p class="hsub">b-roll of you / your world — 30s max per clip. They index automatically (a minute or two each).</p>
+    <div id="clipArea"></div>
+    <input type="file" id="file" accept="video/*" multiple style="display:none" />
+
+    <h2 style="margin-top:26px">Your reels</h2>
+    <p class="hsub">each one: a caption written in the voice, your clips cut to the beat, audio matched to the line.</p>
+    <div class="rfeed" id="rfeed"></div>
+  </div>
+</div>
+
+<div class="genbar hidden" id="genbar"><button class="btn btn-primary" id="gen">Generate a reel</button></div>
+
+<script>
+let ME = null, STATUS = null, CLIPS = [], REELS = [], generating = false;
+const $ = (id) => document.getElementById(id);
+
+function toast(msg, type='ok') {
+  let box = $('toasts');
+  if (!box) { box = document.createElement('div'); box.id = 'toasts'; box.setAttribute('role','status'); document.body.appendChild(box); }
+  const t = document.createElement('div'); t.className = 'toast ' + type;
+  t.innerHTML = `<span class="ic">${type === 'err' ? '!' : '✓'}</span><span></span>`;
+  t.lastChild.textContent = msg;
+  box.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 380); }, 3600);
+}
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: body ? {'content-type':'application/json'} : undefined,
+    body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || ('HTTP ' + r.status)); }
+  return r.json();
+}
+
+/* ---------- auth ---------- */
+let signupMode = true;
+$('authSwap').onclick = (e) => { e.preventDefault(); signupMode = !signupMode;
+  $('authBtn').textContent = signupMode ? 'Create account' : 'Sign in';
+  $('authSwap').innerHTML = signupMode ? 'already have an account? <a>sign in</a>' : 'new here? <a>create an account</a>';
+  $('ap').autocomplete = signupMode ? 'new-password' : 'current-password'; $('authErr').textContent = ''; };
+$('authForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = $('authBtn'), err = $('authErr'), card = $('authForm');
+  btn.disabled = true; err.textContent = ''; card.classList.remove('shake');
+  try {
+    await api('POST', signupMode ? '/api/demo/signup' : '/api/demo/login',
+              { username: $('au').value, password: $('ap').value });
+    location.reload();
+  } catch (ex) { err.textContent = ex.message; btn.disabled = false; card.classList.add('shake'); }
+};
+$('signout') && ($('signout').onclick = async () => { await fetch('/api/demo/logout', {method:'POST'}); location.reload(); });
+
+/* ---------- status / quota ---------- */
+function fmtWait(s) { const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; }
+function paintQuota() {
+  if (!STATUS) return;
+  const pill = $('quotaPill'), gen = $('gen');
+  const left = STATUS.reels_max - STATUS.reels_used;
+  if (!STATUS.can_generate && STATUS.resets_in_seconds) {
+    pill.innerHTML = `<b>resets in ${fmtWait(STATUS.resets_in_seconds)}</b>`;
+    gen.textContent = `New reels in ${fmtWait(STATUS.resets_in_seconds)}`;
+    gen.disabled = true; gen.classList.add('cooldown');
+  } else {
+    pill.innerHTML = `<b>${left}</b>&nbsp;reel${left === 1 ? '' : 's'} left`;
+    if (!generating) {
+      const ready = CLIPS.some(c => c.status === 'indexed');
+      gen.textContent = ready ? 'Generate a reel' : 'Add clips to start';
+      gen.disabled = !ready; gen.classList.remove('cooldown');
+    }
+  }
+}
+async function loadStatus() { try { STATUS = await api('GET', '/api/demo/status'); paintQuota(); } catch (_) {} }
+setInterval(() => { if (ME && !document.hidden) loadStatus(); }, 60000);
+
+/* ---------- clips ---------- */
+function clipTile(c) {
+  const real = c.id && !String(c.id).startsWith('tmp-');
+  const img = real ? `<img src="/api/clips/${c.id}/thumb" loading="lazy" alt="" onerror="this.remove()">` : '';
+  const busy = c.status === 'indexing' || c.status === 'uploaded' || c.status === 'uploading';
+  const badge = c.status === 'indexed' ? '<span class="badge b-good st">✓</span>'
+    : c.status === 'rejected' ? '<span class="badge b-bad st">✗</span>'
+    : `<span class="badge b-warn st">${c.status === 'uploading' ? 'uploading' : 'indexing'}</span>`;
+  return `<div class="ctile${c.status === 'rejected' ? ' rej' : ''}" data-id="${c.id}" data-reason="${(c.rejection_reason || '').replace(/"/g, '&quot;')}">
+    ${img}${badge}${real ? `<button class="del" data-del="${c.id}">×</button>` : ''}${busy ? '<div class="prog"><i></i></div>' : ''}
+  </div>`;
+}
+function paintClips() {
+  const area = $('clipArea');
+  const used = CLIPS.filter(c => c.status !== 'rejected').length;
+  $('clipCount').textContent = `${used}/${STATUS ? STATUS.clips_max : 50}`;
+  if (!CLIPS.length) {
+    area.innerHTML = `<div class="bigupload" id="upzone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
+      <div><b>Tap to add clips</b> from your camera roll</div>
+      <div class="bu-sub">10–30 clips of you / your world gets the best reels</div>
+    </div>`;
+  } else {
+    area.innerHTML = `<div class="strip">${CLIPS.map(clipTile).join('')}
+      <button class="addtile" id="upzone">＋<small>add</small></button></div>`;
+  }
+  const uz = $('upzone');
+  uz.onclick = () => $('file').click();
+  uz.ondragover = (e) => { e.preventDefault(); uz.classList.add('drag'); };
+  uz.ondragleave = () => uz.classList.remove('drag');
+  uz.ondrop = (e) => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+  area.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
+    e.stopPropagation();
+    await fetch('/api/clips/' + b.dataset.del, { method: 'DELETE' });
+    CLIPS = CLIPS.filter(c => String(c.id) !== b.dataset.del);
+    paintClips(); loadStatus(); toast('Clip removed');
+  });
+  area.querySelectorAll('.ctile.rej').forEach(t => t.onclick = () => toast(t.dataset.reason || 'clip rejected', 'err'));
+  paintQuota();
+}
+async function loadClips() {
+  try { CLIPS = await api('GET', '/api/clips/library'); } catch (_) { CLIPS = []; }
+  paintClips();
+  CLIPS.filter(c => c.status === 'indexing' || c.status === 'uploaded').forEach(c => pollClip(c.id));
+}
+const polling = new Set();
+async function pollClip(id) {
+  if (polling.has(id)) return;
+  polling.add(id);
+  try {
+    for (let t = 0; t < 150; t++) {
+      await new Promise(r => setTimeout(r, 4000));
+      let c; try { c = await api('GET', `/api/clips/${id}/status`); } catch (_) { continue; }
+      const i = CLIPS.findIndex(x => String(x.id) === String(id));
+      if (i >= 0) { CLIPS[i] = c; paintClips(); }
+      if (c.status === 'indexed' || c.status === 'rejected') {
+        if (c.status === 'rejected') toast(c.rejection_reason || 'a clip was rejected', 'err');
+        loadStatus(); return;
+      }
+    }
+  } finally { polling.delete(id); }
+}
+function uploadFiles(files) {
+  [...files].forEach(async (file) => {
+    const used = CLIPS.filter(c => c.status !== 'rejected').length;
+    if (STATUS && used >= STATUS.clips_max) { toast(`library full — ${STATUS.clips_max} clips max`, 'err'); return; }
+    const tmpId = 'tmp-' + Math.random().toString(36).slice(2);
+    CLIPS.unshift({ id: tmpId, status: 'uploading' }); paintClips();
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch('/api/clips/upload', { method: 'POST', body: fd });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || 'upload failed'); }
+      const d = await r.json();
+      const i = CLIPS.findIndex(c => c.id === tmpId);
+      if (i >= 0) CLIPS[i] = { id: d.clip_id, status: 'indexing' };
+      paintClips(); pollClip(d.clip_id); loadStatus();
+    } catch (ex) {
+      CLIPS = CLIPS.filter(c => c.id !== tmpId); paintClips();
+      toast(ex.message, 'err');
+    }
+  });
+}
+$('file').onchange = () => { if ($('file').files.length) uploadFiles($('file').files); $('file').value = ''; };
+
+/* ---------- reels ---------- */
+function reelCard(r) {
+  const el = document.createElement('div');
+  el.className = 'card rcard';
+  el.innerHTML = `<div class="rmedia"><video controls loop playsinline preload="metadata" src="${r.reel_url}"></video></div>
+    <div class="rbody">${r.caption ? '<div class="rcap"></div>' : ''}
+      <div class="ractions"><a class="btn btn-primary btn-sm" href="${r.reel_url}" download>↓ Download</a></div></div>`;
+  if (r.caption) el.querySelector('.rcap').textContent = r.caption;
+  return el;
+}
+function paintReels() {
+  const feed = $('rfeed');
+  feed.querySelectorAll('.rcard:not(.generating)').forEach(n => n.remove());
+  if (!REELS.length && !generating) {
+    feed.innerHTML = `<div class="empty-block" style="padding:34px 16px"><div class="empty-title">No reels yet</div>
+      <div class="empty-sub">once a clip shows ✓, hit the button below.</div></div>`;
+    return;
+  }
+  feed.querySelector('.empty-block')?.remove();
+  REELS.forEach(r => feed.appendChild(reelCard(r)));
+}
+async function loadReels() {
+  try { REELS = (await api('GET', '/api/demo/reels')).reels || []; } catch (_) { REELS = []; }
+  paintReels();
+}
+
+/* ---------- generation (with the studio's phase scenes) ---------- */
+function genCardHTML() {
+  return `<div class="rmedia idle">
+    <div class="gscene gs-write on"><div class="capmini"><i class="ln l1"></i><i class="ln l2"></i><i class="ln l3"></i><b class="caret"></b></div></div>
+    <div class="gscene gs-match"><div class="fr f1"></div><div class="fr f2"></div><div class="fr f3"></div></div>
+    <div class="gscene gs-beat"><div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="cutline"></div></div>
+    <div class="gscene gs-render"><div class="rframe"><i class="fill"></i><i class="scan"></i></div></div>
+    <div class="ph-phase">Writing your caption…</div>
+    <div class="ph-flavor"></div>
+    <div class="prog det"><i></i></div></div>`;
+}
+function startScenes(card) {
+  const phases = ['Writing your caption…', 'Matching your clips to it', 'Cutting to the beat', 'Rendering in 1080p'];
+  const scenes = ['gs-write', 'gs-match', 'gs-beat', 'gs-render'];
+  const FLAVOR = [
+    ['channeling the voice…', 'best of 5, judged cold'],
+    ['reading your footage…', 'clips that play off the line'],
+    ['finding the drop…', 'every cut lands on a beat'],
+    ['1080×1920, caption burned in', 'almost there…'],
+  ];
+  const steps = [16000, 11000, 7000];
+  const label = card.querySelector('.ph-phase'), bar = card.querySelector('.prog.det > i'), fl = card.querySelector('.ph-flavor');
+  let w = 6, alive = true, ph = 0, fi = 0;
+  const setFlavor = () => { if (!fl) return; fl.style.opacity = '0';
+    setTimeout(() => { if (!alive) return; const pool = FLAVOR[ph] || []; fl.textContent = pool[fi % pool.length] || ''; fl.style.opacity = '1'; fi++; }, 220); };
+  const setScene = (p) => {
+    card.querySelectorAll('.gscene').forEach(s => s.classList.toggle('on', s.classList.contains(scenes[p])));
+    if (label) { label.textContent = phases[p]; label.classList.remove('tick'); void label.offsetWidth; label.classList.add('tick'); }
+    fi = 0; setFlavor();
+  };
+  setScene(0);
+  const iv = setInterval(() => { if (!alive) return; w += (93 - w) * 0.02; if (bar) bar.style.width = w.toFixed(1) + '%'; }, 130);
+  const fiv = setInterval(() => { if (alive) setFlavor(); }, 4200);
+  const timers = []; let acc = 0;
+  steps.forEach((d, p) => { acc += d; timers.push(setTimeout(() => { if (alive) { ph = p + 1; setScene(ph); } }, acc)); });
+  return () => { alive = false; clearInterval(iv); clearInterval(fiv); timers.forEach(clearTimeout); };
+}
+async function waitForNewReel(known, tries = 24) {
+  // the edge can drop a long response while the server finishes the render — poll for the new reel
+  for (let t = 0; t < tries; t++) {
+    await new Promise(r => setTimeout(r, 10000));
+    try {
+      const rs = (await api('GET', '/api/demo/reels')).reels || [];
+      const fresh = rs.find(r => !known.has(r.reel_url));
+      if (fresh) return rs;
+    } catch (_) {}
+  }
+  return null;
+}
+$('gen').onclick = async () => {
+  if (generating) return;
+  generating = true;
+  const gen = $('gen');
+  gen.disabled = true; gen.textContent = 'Generating…';
+  $('rfeed').querySelector('.empty-block')?.remove();
+  const card = document.createElement('div');
+  card.className = 'card rcard generating';
+  card.innerHTML = genCardHTML();
+  $('rfeed').prepend(card);
+  const stop = startScenes(card);
+  const known = new Set(REELS.map(r => r.reel_url));
+  try {
+    let ok = false;
+    try {
+      const r = await fetch('/api/generate', { method: 'POST', headers: {'content-type': 'application/json'}, body: '{}' });
+      if (r.status === 429) { const d = await r.json().catch(() => ({})); throw Object.assign(new Error(d.detail || 'limit reached'), { final: true }); }
+      if (!r.ok) throw new Error((await r.text()).slice(0, 180));
+      ok = true;
+    } catch (ex) {
+      if (ex.final) throw ex;
+      // network/edge drop — the server usually finishes anyway; wait for the reel to appear
+      const rs = await waitForNewReel(known);
+      if (!rs) throw new Error('generation hit a snag — your reel may still appear in a minute');
+      REELS = rs; ok = true;
+    }
+    if (ok) { stop(); card.remove(); await loadReels(); await loadStatus(); toast('Reel ready 🎬'); }
+  } catch (ex) {
+    stop(); card.remove(); paintReels();
+    toast(ex.message, 'err');
+  } finally {
+    generating = false;
+    gen.textContent = 'Generate a reel'; gen.disabled = false;
+    paintQuota(); loadStatus();
+  }
+};
+
+/* ---------- boot ---------- */
+(async () => {
+  try {
+    ME = await api('GET', '/api/demo/me');
+    $('authView').classList.add('hidden');
+    $('appView').classList.remove('hidden');
+    $('genbar').classList.remove('hidden');
+    await loadStatus(); await loadClips(); await loadReels();
+    paintQuota();
+  } catch (_) {
+    $('authView').classList.remove('hidden');
+  }
+})();
+</script>
+</body>
+</html>
