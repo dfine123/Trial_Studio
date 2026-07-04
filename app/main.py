@@ -171,7 +171,7 @@ async def demo_gate(request: Request, call_next):
     if not allowed:
         return JSONResponse({"detail": "not found"}, status_code=404)
     uid = demo.session_uid(request)
-    if needs_auth and uid is None:
+    if needs_auth and uid is None and not _is_authed(request):   # the OPERATOR may pass too (admin)
         return JSONResponse({"detail": "sign in first"}, status_code=401)
     token = profiles.set_request_uid(uid)
     try:
@@ -845,6 +845,88 @@ def api_demo_status():
     return st
 
 
+# ── DEMO ADMIN (operator-only: env-cred cookie via /api/login; demo sessions can't pass) ──
+@app.get("/admin")
+def admin_page():
+    return FileResponse(os.path.join(_WEB_DIR, "admin.html"))   # the page gates itself via the API
+
+
+def _operator_only(request: Request) -> None:
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+
+
+@app.get("/api/admin/overview")
+def api_admin_overview(request: Request):
+    """Accounts + activity: every demo signup (password_hash marks demo accounts) with clip counts,
+    reel usage, quota state; aggregate stat cards on top."""
+    _operator_only(request)
+    import time as _time
+    from app import demo
+    from app.corpus import reels as reel_store
+    now = _time.time()
+    accounts, tot_clips, tot_indexed, tot_rejected, tot_reels, cooling = [], 0, 0, 0, 0, 0
+    with SessionLocal() as s:
+        users = s.scalars(select(models.User).where(models.User.password_hash.isnot(None))
+                          .order_by(models.User.created_at.desc())).all()
+        for u in users:
+            counts = dict(s.execute(select(Clip.status, func.count()).where(Clip.user_id == u.id)
+                                    .group_by(Clip.status)).all())
+            n_all = sum(counts.values())
+            n_ok = counts.get("indexed", 0)
+            n_rej = counts.get("rejected", 0)
+            recs = reel_store._load(u.id)
+            q = demo.quota_state(u.id)
+            last_reel = None
+            for r in recs[::-1]:
+                p = os.path.join(_REELS_DIR, os.path.basename(r.get("reel_url") or ""))
+                if os.path.exists(p):
+                    last_reel = os.path.getmtime(p)
+                    break
+            if q["cooldown_until"]:
+                cooling += 1
+            tot_clips += n_all; tot_indexed += n_ok; tot_rejected += n_rej; tot_reels += len(recs)
+            accounts.append({
+                "username": u.handle, "created_at": u.created_at.isoformat() if u.created_at else None,
+                "clips_total": n_all, "clips_indexed": n_ok, "clips_rejected": n_rej,
+                "clips_busy": n_all - n_ok - n_rej,
+                "reels_total": len(recs), "reels_window": q["reels_used"], "reels_max": q["reels_max"],
+                "cooldown_seconds": q["resets_in_seconds"],
+                "last_reel_ago": int(now - last_reel) if last_reel else None,
+            })
+    reels_24h = 0
+    try:
+        reels_24h = sum(1 for f in os.listdir(_REELS_DIR)
+                        if f.endswith(".mp4") and now - os.path.getmtime(os.path.join(_REELS_DIR, f)) < 86400)
+    except OSError:
+        pass
+    return {"totals": {"accounts": len(accounts), "clips": tot_clips, "clips_indexed": tot_indexed,
+                       "clips_rejected": tot_rejected, "reels": tot_reels, "reels_24h": reels_24h,
+                       "in_cooldown": cooling},
+            "accounts": accounts}
+
+
+@app.get("/api/admin/reels")
+def api_admin_reels(request: Request, limit: int = 30):
+    """The live feed: latest reels across every demo account (caption + who made it + playable url)."""
+    _operator_only(request)
+    import time as _time
+    from app.corpus import reels as reel_store
+    now = _time.time()
+    out = []
+    with SessionLocal() as s:
+        users = s.scalars(select(models.User).where(models.User.password_hash.isnot(None))).all()
+        for u in users:
+            for r in reel_store._load(u.id):
+                p = os.path.join(_REELS_DIR, os.path.basename(r.get("reel_url") or ""))
+                if not os.path.exists(p):
+                    continue
+                out.append({"username": u.handle, "caption": r.get("caption"),
+                            "reel_url": r.get("reel_url"), "ago": int(now - os.path.getmtime(p))})
+    out.sort(key=lambda x: x["ago"])
+    return {"reels": out[:max(1, min(100, limit))]}
+
+
 @app.get("/api/demo/reels")
 def api_demo_reels():
     _demo_only()
@@ -965,9 +1047,9 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
 
 
 @app.api_route("/reels/{name}", methods=["GET", "HEAD"])
-def get_reel(name: str):
+def get_reel(name: str, request: Request):
     safe = os.path.basename(name)
-    if settings.demo_mode:   # a demo session may only fetch ITS OWN reels
+    if settings.demo_mode and not _is_authed(request):   # demo sessions fetch ONLY their own reels; the operator sees all
         from app.corpus import reels as reel_store
         mine = {os.path.basename(r.get("reel_url") or "") for r in reel_store._load(profiles.active_id())}
         if safe not in mine:

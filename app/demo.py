@@ -212,8 +212,10 @@ def count_reel(uid: uuid.UUID) -> dict:
 
 
 # ── the route whitelist (everything else 404s on the demo service) ───────────
-_OPEN_EXACT = {"/", "/health", "/api/demo/signup", "/api/demo/login"}
-_OPEN_PREFIX = ("/assets/",)
+# /admin + /api/admin/* + /api/login are OPEN at the router level but gate themselves on the
+# OPERATOR cookie (env creds) — a demo session can never satisfy them.
+_OPEN_EXACT = {"/", "/health", "/api/demo/signup", "/api/demo/login", "/admin", "/api/login"}
+_OPEN_PREFIX = ("/assets/", "/api/admin/")
 _AUTH_EXACT = {"/api/demo/logout", "/api/demo/me", "/api/demo/status", "/api/demo/reels",
                "/api/clips/upload", "/api/clips/library", "/api/generate"}
 _AUTH_PREFIX = ("/reels/",)

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>demo admin — treelz.ai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📟%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
+<style>
+  body { display:flex; flex-direction:column; align-items:center; }
+  .wrap { width:100%; max-width:920px; padding:20px 18px 80px; }
+  /* login */
+  .gate { display:flex; flex-direction:column; justify-content:center; min-height:80dvh; max-width:380px; margin:0 auto; width:100%; }
+  .gate h1 { text-align:center; font-size:22px; margin-bottom:18px; }
+  .gate h1 span { color:var(--acc); }
+  .gate .card { padding:22px 20px; }
+  .gate label { margin:12px 0 7px; } .gate label:first-child { margin-top:0; }
+  .gate input { padding:13px; font-size:16px; }
+  .gate .btn-block { margin-top:20px; }
+  .gerr { color:var(--bad); font-size:13px; text-align:center; min-height:18px; margin-top:12px; }
+  /* dash */
+  .dashhead { display:flex; align-items:baseline; gap:12px; margin:8px 0 16px; }
+  .dashhead h1 { font-size:20px; letter-spacing:-.4px; }
+  .dashhead h1 span { color:var(--acc); }
+  .refresh { margin-left:auto; }
+  .updated { color:var(--faint); font-size:11.5px; }
+  .statrow { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:20px; }
+  .stat { padding:14px 16px; }
+  .stat .v { font-size:24px; font-weight:800; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
+  .stat .k { color:var(--faint); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+  .stat.hot .v { color:var(--acc-bright); text-shadow:0 0 16px var(--acc-glow); }
+  h2 { font-size:15px; margin:22px 0 10px; }
+  /* accounts table */
+  .tblwrap { overflow-x:auto; border-radius:var(--r); }
+  table { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); overflow:hidden; font-size:13px; }
+  th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--faint);
+    padding:11px 14px; border-bottom:1px solid var(--border); background:var(--surface-2); white-space:nowrap; }
+  td { padding:11px 14px; border-bottom:1px solid var(--border); color:var(--ink-soft); white-space:nowrap;
+    font-variant-numeric:tabular-nums; }
+  tr:last-child td { border-bottom:0; }
+  td .u { font-weight:650; color:var(--ink); }
+  td .dim { color:var(--faint); }
+  .pill { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:20px; }
+  .pill.ok { background:var(--good-bg); color:var(--good); }
+  .pill.cool { background:var(--warn-bg); color:var(--warn); }
+  .pill.zero { background:var(--surface-2); color:var(--faint); }
+  /* reels feed */
+  .feed { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:14px; }
+  .fcard { overflow:hidden; padding:0; }
+  .fcard video { width:100%; aspect-ratio:9/16; object-fit:cover; background:#000; display:block; }
+  .fmeta { padding:10px 12px 12px; }
+  .fmeta .who { font-size:11px; color:var(--acc-bright); font-weight:700; }
+  .fmeta .ago { color:var(--faint); font-weight:500; float:right; }
+  .fmeta .cap { font-size:12px; color:var(--ink-soft); line-height:1.45; margin-top:5px; white-space:pre-wrap; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body class="grain">
+<div class="wrap">
+
+  <div class="gate" id="gate">
+    <h1>treelz<span>.ai</span> · demo admin</h1>
+    <form class="card" id="gform">
+      <label for="gu">Operator username</label>
+      <input id="gu" autocomplete="username" autocapitalize="none" />
+      <label for="gp">Password</label>
+      <input id="gp" type="password" autocomplete="current-password" />
+      <button type="submit" class="btn btn-primary btn-block" id="gbtn">Open dashboard</button>
+      <div class="gerr" id="gerr"></div>
+    </form>
+  </div>
+
+  <div id="dash" class="hidden">
+    <div class="dashhead">
+      <h1>demo<span> admin</span></h1>
+      <span class="updated" id="updated"></span>
+      <button class="btn btn-ghost btn-sm refresh" id="refresh">↻ Refresh</button>
+    </div>
+    <div class="statrow" id="stats"></div>
+    <h2>Accounts</h2>
+    <div class="tblwrap"><table id="tbl">
+      <thead><tr><th>User</th><th>Joined</th><th>Clips</th><th>Reels (window)</th><th>Reels total</th><th>Last reel</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <h2>Latest reels</h2>
+    <div class="feed" id="feed"></div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+function ago(s) {
+  if (s == null) return '—';
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+function fmtWait(s) { const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; }
+function esc(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
+
+async function load() {
+  let ov;
+  try {
+    const r = await fetch('/api/admin/overview');
+    if (r.status === 401) { $('gate').classList.remove('hidden'); $('dash').classList.add('hidden'); return; }
+    ov = await r.json();
+  } catch (_) { return; }
+  $('gate').classList.add('hidden'); $('dash').classList.remove('hidden');
+  const t = ov.totals;
+  $('stats').innerHTML = [
+    ['accounts', t.accounts, true], ['reels made', t.reels, true], ['reels · 24h', t.reels_24h, false],
+    ['clips ready', t.clips_indexed, false], ['clips rejected', t.clips_rejected, false], ['in cooldown', t.in_cooldown, false],
+  ].map(([k, v, hot]) => `<div class="card stat${hot ? ' hot' : ''}"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  $('tbl').querySelector('tbody').innerHTML = ov.accounts.map(a => {
+    const joined = a.created_at ? new Date(a.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const status = a.cooldown_seconds ? `<span class="pill cool">cooldown ${fmtWait(a.cooldown_seconds)}</span>`
+      : a.reels_total ? '<span class="pill ok">active</span>' : '<span class="pill zero">no reels yet</span>';
+    return `<tr><td><span class="u">${esc(a.username)}</span></td><td class="dim">${joined}</td>
+      <td>${a.clips_indexed}<span class="dim">/${a.clips_total}${a.clips_rejected ? ' · ' + a.clips_rejected + '✗' : ''}${a.clips_busy ? ' · ' + a.clips_busy + '…' : ''}</span></td>
+      <td>${a.reels_window}<span class="dim">/${a.reels_max}</span></td>
+      <td>${a.reels_total}</td><td class="dim">${ago(a.last_reel_ago)}</td><td>${status}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--faint);padding:26px">no signups yet — send the link out</td></tr>';
+  try {
+    const fr = await (await fetch('/api/admin/reels?limit=24')).json();
+    $('feed').innerHTML = (fr.reels || []).map(r => `<div class="card fcard">
+      <video src="${r.reel_url}" controls preload="metadata" playsinline></video>
+      <div class="fmeta"><span class="who">@${esc(r.username)}</span><span class="ago">${ago(r.ago)}</span>
+      ${r.caption ? `<div class="cap">${esc(r.caption)}</div>` : ''}</div></div>`).join('')
+      || '<p style="color:var(--faint);font-size:13px">nothing generated yet</p>';
+  } catch (_) {}
+  $('updated').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+$('gform').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = $('gbtn'), err = $('gerr');
+  btn.disabled = true; err.textContent = '';
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({ username: $('gu').value, password: $('gp').value }) });
+    if (!r.ok) throw new Error('wrong credentials');
+    await load();
+  } catch (ex) { err.textContent = ex.message; }
+  btn.disabled = false;
+};
+$('refresh').onclick = load;
+setInterval(() => { if (!document.hidden && !$('dash').classList.contains('hidden')) load(); }, 60000);
+load();
+</script>
+</body>
+</html>
