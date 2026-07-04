@@ -1277,6 +1277,30 @@ def api_debug_re_embed(dry: bool = False):
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
 
 
+class CorpusRemove(BaseModel):
+    ref_ids: list[str]
+
+
+@app.post("/api/debug/corpus-remove")
+def api_corpus_remove(req: CorpusRemove):
+    """Surgically remove specific refs from the ACTIVE VOICE's corpus (operator-directed consolidation
+    — e.g. same-joke renditions stacking a family's rotation slots). Not a low-score cull."""
+    from app.corpus.store import load_refs
+    pid = profiles.voice_id()
+    path = profiles.corpus_path(pid)
+    refs = load_refs(path)
+    want = set(req.ref_ids)
+    kept = [r for r in refs if r.get("ref_id") not in want]
+    removed = [r.get("ref_id") for r in refs if r.get("ref_id") in want]
+    if removed:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for r in kept:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    return {"voice_profile_id": str(pid), "removed": removed, "total": len(kept)}
+
+
 @app.post("/api/debug/corpus-dedup")
 def api_corpus_dedup(dry: bool = True):
     """Remove NEAR-duplicate refs from the ACTIVE VOICE's corpus — the same joke promoted twice in
