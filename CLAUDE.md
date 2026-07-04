@@ -125,6 +125,11 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - Useful debug endpoints: `/api/refs/audit` (corpus size + retired check), `/api/refs/rotation`
   (per-ref keep/kill/usage/status), `/api/chooser/eval` (selection benchmark), `/api/debug/clip-sim`,
   `/api/debug/re-embed`, `/api/reels/{pending,graded,learn}`, `/api/drive/status`.
+- Corpus maintenance: `POST /api/debug/corpus-dedup?dry=true|false` (near-dup twins, keeps earliest)
+  + `POST /api/debug/corpus-remove {ref_ids}` (operator-directed same-joke consolidation — used
+  2026-07-04 to tune down two over-represented Austin families: equivalence 6→4 refs, status-burn
+  5→3, each keeping its best exemplars; promote._add_ref now near-dup-guards future promotions so
+  one joke never stacks multiple corpus slots).
 
 ## Environment variables (values live in Railway — NEVER commit them; repo is public)
 
