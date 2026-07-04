@@ -28,6 +28,19 @@ from app.corpus.genlog import log_generated, recent_generated
 from app.corpus.store import load_refs
 
 
+def _drop_ref_copies(cands: list[dict]) -> list[dict]:
+    """Drop candidates that regurgitate a corpus REFERENCE near-verbatim (the anchor is a spark,
+    never the output). An elite anchor sometimes comes back as itself, and the chooser rightly
+    picks it — it IS a proven line — so the creator would end up re-posting their own reference
+    (round-2 grading: 3 of 13 'winners' were corpus copies). Mechanical curation, not a prompt
+    rule; if everything got dropped (pathological), keep the originals rather than return nothing."""
+    from app.corpus.promote import _too_similar
+    ref_texts = [(r.get("caption") or "") for r in load_refs() if (r.get("caption") or "").strip()]
+    kept = [c for c in cands
+            if not any(_too_similar(c.get("text") or "", t) for t in ref_texts)]
+    return kept or cands
+
+
 def _avoid_block(window: int = 150, stub_words: int = 9) -> str:
     """The anti-repeat list as PREMISE STUBS (each line's first few words), not full captions.
 
@@ -295,7 +308,7 @@ def generate(
             c["anchor_ref"] = rid                       # back-compat (singular)
             c["anchor_refs"] = [rid] if rid else []     # provenance -> exact grade attribution
             out.append(c)
-    out = refine(out)  # subtractive edit; preserves provenance fields (dict(c)) + order/count
+    out = refine(_drop_ref_copies(out))  # drop anchor regurgitations, then subtractive edit
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")     # hash the FINAL (post-refine) text
     log_generated([c.get("text", "") for c in out])
@@ -351,7 +364,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
         futs = [ex.submit(contextvars.copy_context().run, one, a) for a in anchors]
         raw = [c for c in (f.result() for f in futs) if c]
-    out = [c for c in refine(raw) if (c.get("text") or "").strip()]
+    out = [c for c in refine(_drop_ref_copies(raw)) if (c.get("text") or "").strip()]
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])
