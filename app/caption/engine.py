@@ -27,6 +27,22 @@ from app.caption.refine import refine
 from app.corpus.genlog import log_generated, recent_generated
 from app.corpus.store import load_refs
 
+
+def _avoid_block(window: int = 150, stub_words: int = 9) -> str:
+    """The anti-repeat list as PREMISE STUBS (each line's first few words), not full captions.
+
+    Its job is premise anti-repeat; the premise lives in the opener. Full texts also acted as 150
+    in-prompt length examples — measured ratchet: as output ran longer, the window filled with long
+    lines and generation drifted further above the corpus (pool mean 17.5 -> 19.9 words while refs
+    held at ~17). Uniform stubs carry the premise signal with ZERO length signal. Grounding for
+    length lives where it belongs: the references."""
+    stubs = []
+    for c in recent_generated(window):
+        ws = (c or "").replace("\n", " / ").split()
+        if ws:
+            stubs.append(" ".join(ws[:stub_words]) + ("…" if len(ws) > stub_words else ""))
+    return "\n".join("- " + s for s in dict.fromkeys(stubs)) or "(none yet)"
+
 _GAMBLING_TERMS = (
     "parlay", "casino", "blackjack", "dealer", "slot", "sportsbook", "vegas", "lottery",
     "gambl", "on black", "on red", "the odds", "comp room", "referral code", "the under",
@@ -239,7 +255,7 @@ def generate(
     )
     anchors = _pick_anchors(refs, n)
     anchor_block = _render_anchors(anchors)   # craft-deepened when _CRAFT is on (A/B); plain otherwise
-    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(150)) or "(none yet)"
+    avoid = _avoid_block()
     note = (notes or "").strip()
     craft_note = (" Each anchor also names THE CRAFT of its landing — the exact move that makes it hit; "
                   "land yours with that same craft (as exact and concrete — no fuzzy noun, no almost-right payoff)."
@@ -260,7 +276,7 @@ def generate(
         "share of your best references are dead-simple and under 12 words, so when an idea lands short, LEAVE it "
         "short:\n\n"
         + anchor_block
-        + f"\n\n(Don't rehash these exact recent lines: {avoid})\n\n"
+        + f"\n\n(Don't rehash these recent premises — openers of your last lines: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
         '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
     )
@@ -301,7 +317,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     ref_block = "\n\n".join(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
     )
-    avoid = "\n".join("- " + c.replace("\n", " / ") for c in recent_generated(150)) or "(none yet)"
+    avoid = _avoid_block()
     note = (notes or "").strip()
 
     def one(anchor: dict) -> dict | None:
@@ -317,7 +333,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             "lines are often dead-simple and SHORT — when the idea lands in 10 words, that's the caption; never "
             "pad past the joke. Keep your exact specificity; never generic, corporate, or poetic:\n\n"
             + _anchor_render("ANCHOR", anchor) + "\n\n"
-            f"(Don't rehash these exact recent lines: {avoid})\n\n"
+            f"(Don't rehash these recent premises — openers of your last lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
         text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500)
