@@ -163,6 +163,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   CSS transitions/animations FREEZE mid-flight — computed styles can read stale mid-transition
   values; disable the element's transition before asserting colors.
 
+## The friends demo (DEMO_MODE — second Railway service, same repo)
+
+- **https://trial-studio-demo-production.up.railway.app** · service `Trial-Studio-Demo` +
+  `Postgres-kTDA` + volume `trial-studio-demo-volume:/app/var`, all CLI-provisioned; every push
+  deploys prod AND demo. Full runbook: [docs/DEMO.md](docs/DEMO.md).
+- `DEMO_MODE=1` flips the service: open signup (User rows w/ pbkdf2 `password_hash`; each account
+  IS a profile, bound per-request via `profiles.set_request_uid` ContextVar — the global
+  active-profile file is single-operator state and is bypassed), route WHITELIST (operator pages +
+  debug endpoints 404), mobile-first `demo.html` at `/`. Voice = the shared Base profile seeded
+  from `corpus/demo_base/` (exported Austin corpus). Caps: 50 clips / 30s each / 15 reels →
+  24h cooldown → full reset (failures never consume; quota in `demo_quota.json` per profile).
+- Prod runs DEMO dormant — verified: demo endpoints 404, all operator surfaces intact.
+
 ## Ops runbook
 
 - **Deploy** = push to main (Railway auto-builds). `railway` CLI is linked from this directory
