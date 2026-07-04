@@ -1277,6 +1277,77 @@ def api_debug_re_embed(dry: bool = False):
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
 
 
+@app.get("/api/debug/length-audit")
+def api_debug_length_audit():
+    """Caption-length forensics across the three layers (canon: measure corpus-vs-pool-vs-chosen
+    BEFORE blaming a layer). corpus = the active voice's references (split originals/promoted);
+    pool = every generated candidate (genlog, time-ordered thirds show drift); chooser = for each
+    reel batch, the CHOSEN caption's length rank among its own candidates (0=shortest, 1=longest;
+    a length-neutral chooser averages ~0.5)."""
+    from app.corpus import reels as reel_store
+    from app.corpus.store import load_refs
+
+    def wc(t):
+        return len((t or "").split())
+
+    def stats(ws):
+        ws = sorted(ws)
+        n = len(ws)
+        if not n:
+            return {"n": 0}
+        return {"n": n, "mean": round(sum(ws) / n, 1), "median": ws[n // 2],
+                "p25": ws[n // 4], "p75": ws[(3 * n) // 4]}
+
+    refs = load_refs(profiles.corpus_path())
+    orig = [wc(r.get("caption")) for r in refs if not str(r.get("ref_id", "")).startswith("p")]
+    promo = [wc(r.get("caption")) for r in refs if str(r.get("ref_id", "")).startswith("p")]
+
+    gen_path = profiles.genlog_path()
+    gen_rows = []
+    if os.path.exists(gen_path):
+        with open(gen_path, encoding="utf-8") as f:
+            gen_rows = [json.loads(x) for x in f if x.strip()]
+    gws = [wc(r.get("text")) for r in gen_rows]
+    third = max(1, len(gws) // 3)
+
+    ranks, chosen_ws, pool_ws, longest_hits, shortest_hits, reel_rows = [], [], [], 0, 0, []
+    for rec in reel_store._load():
+        cands = [c for c in (rec.get("candidates") or []) if (c.get("text") or "").strip()]
+        ch = next((c for c in cands if c.get("chosen")), None)
+        if not ch or len(cands) < 2:
+            continue
+        lens = [wc(c["text"]) for c in cands]
+        cl = wc(ch["text"])
+        below = sum(1 for x in lens if x < cl)
+        ties = sum(1 for x in lens if x == cl) - 1
+        rank = (below + 0.5 * ties) / (len(lens) - 1)
+        ranks.append(rank)
+        chosen_ws.append(cl)
+        pool_ws.extend(lens)
+        longest_hits += int(cl == max(lens))
+        shortest_hits += int(cl == min(lens))
+        reel_rows.append({"rank": round(rank, 2), "chosen_words": cl,
+                          "batch": sorted(lens), "rated": bool(rec.get("grade"))})
+    half = max(1, len(ranks) // 2)
+    return {
+        "corpus": {"originals": stats(orig), "promoted": stats(promo),
+                   "all": stats(orig + promo)},
+        "pool_genlog": {"all": stats(gws),
+                        "first_third": stats(gws[:third]),
+                        "last_third": stats(gws[-third:])},
+        "chooser": {
+            "reels_measured": len(ranks),
+            "mean_length_rank": round(sum(ranks) / len(ranks), 3) if ranks else None,
+            "picked_longest_pct": round(100 * longest_hits / len(ranks), 1) if ranks else None,
+            "picked_shortest_pct": round(100 * shortest_hits / len(ranks), 1) if ranks else None,
+            "older_half_rank": round(sum(ranks[:half]) / half, 3) if ranks else None,
+            "recent_half_rank": round(sum(ranks[half:]) / max(1, len(ranks) - half), 3) if ranks else None,
+            "chosen_words": stats(chosen_ws), "batch_words": stats(pool_ws),
+            "recent_reels": reel_rows[-12:],
+        },
+    }
+
+
 @app.get("/api/debug/clip-probe")
 def api_debug_clip_probe(ids: str | None = None, reel_id: str | None = None):
     """Diagnose clips against their REAL files: DB duration vs container vs video-stream duration,
