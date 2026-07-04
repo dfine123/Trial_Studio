@@ -39,10 +39,17 @@ def compose_reel(
     cmd += ["-ss", "0", "-t", f"{reel_duration:.3f}", "-i", audio_path]        # input audio_idx: audio
 
     chains = []
-    for i in range(n):
+    for i, sh in enumerate(shots):
+        d = float(sh["duration"])
+        # tpad+trim guarantee: every shot fills its slot EXACTLY. If a source runs dry (bad
+        # duration metadata, window past the last frame) the last frame clone-holds for the
+        # remainder instead of shortening the video stream — a reel must never end up with
+        # less video than audio (that renders as a long freeze on the final frame).
         chains.append(
             f"[{i}:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height},setsar=1,fps={fps},setpts=PTS-STARTPTS,format=yuv420p[v{i}]"
+            f"crop={width}:{height},setsar=1,fps={fps},"
+            f"tpad=stop_mode=clone:stop_duration={d:.3f},trim=duration={d:.3f},"
+            f"setpts=PTS-STARTPTS,format=yuv420p[v{i}]"
         )
     chains.append("".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[cat]")
     if has_cap:                                              # overlay the caption only when present

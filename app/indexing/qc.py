@@ -40,12 +40,40 @@ def _parse_fps(stream: dict) -> float:
     return 0.0
 
 
+def video_stream_duration(stream: dict, fmt: dict) -> float:
+    """The VIDEO stream's real decodable length — NOT the container duration.
+
+    Gotcha: phone/Drive footage routinely has an audio stream (and thus a container duration)
+    that outlives the last video frame. Cutting in that phantom tail yields zero frames and a
+    reel that freezes while the audio plays on. Prefer the stream's own duration, then
+    nb_frames/fps, and only then the container; when both exist, trust the smaller.
+    """
+    fmt_dur = 0.0
+    try:
+        fmt_dur = float(fmt.get("duration") or 0.0)
+    except (TypeError, ValueError):
+        pass
+    v_dur = 0.0
+    try:
+        v_dur = float(stream.get("duration") or 0.0)
+    except (TypeError, ValueError):
+        pass
+    if not v_dur:
+        nb = stream.get("nb_frames")
+        fps = _parse_fps(stream)
+        if nb and str(nb).isdigit() and fps:
+            v_dur = int(nb) / fps
+    if v_dur and fmt_dur:
+        return min(v_dur, fmt_dur)
+    return v_dur or fmt_dur
+
+
 def ffprobe(path: str) -> ProbeResult:
     cmd = [
         "ffprobe", "-v", "error",
         "-select_streams", "v:0",
         "-show_entries",
-        "stream=width,height,r_frame_rate,avg_frame_rate,bit_rate,duration:format=duration,bit_rate",
+        "stream=width,height,r_frame_rate,avg_frame_rate,bit_rate,duration,nb_frames:format=duration,bit_rate",
         "-of", "json",
         path,
     ]
@@ -57,7 +85,7 @@ def ffprobe(path: str) -> ProbeResult:
     width = int(stream.get("width") or 0)
     height = int(stream.get("height") or 0)
     fps = _parse_fps(stream)
-    duration = float(fmt.get("duration") or stream.get("duration") or 0.0)
+    duration = video_stream_duration(stream, fmt)
 
     bitrate = None
     for src in (stream.get("bit_rate"), fmt.get("bit_rate")):

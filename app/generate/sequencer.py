@@ -85,6 +85,7 @@ def select_segments(
     min_seg: float = 0.8,
     temperature: float = 2.0,
     clip_emb: dict[str, list] | None = None,
+    clip_dur: dict[str, float] | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -115,11 +116,23 @@ def select_segments(
     clip_used: dict[str, int] = {}
     used_vecs: list[list] = []   # embeddings of clips already in this reel (visual de-dup)
 
+    # QUALITY FLOOR — footage that "shows nothing" never plays behind a caption. Zero-metric
+    # segments are phantom footage (sampling found no frames); near-black or hopelessly blurry
+    # ones read as dead air. Tiered so a small/dim library degrades gracefully instead of emptying.
+    def _watchable(s: dict, floor: float) -> bool:
+        u = s.get("usability_score")
+        lum = s.get("luminance")
+        if u is not None and u < floor:
+            return False
+        return not (lum is not None and lum < 0.05)
+    watchable = [s for s in segments if _watchable(s, 0.22)] or \
+                [s for s in segments if _watchable(s, 0.08)] or list(segments)
+
     for slot in slots:
         length = slot.duration
         # prefer segments long enough to fill the slot; relax if none qualify
-        pool = [s for s in segments if (s.get("duration") or 0.0) >= length] or \
-               [s for s in segments if (s.get("duration") or 0.0) >= min_seg] or list(segments)
+        pool = [s for s in watchable if (s.get("duration") or 0.0) >= length] or \
+               [s for s in watchable if (s.get("duration") or 0.0) >= min_seg] or list(watchable)
         # DISTINCT footage within a reel — by ID *and* by LOOK. Different clip ids can be near-identical
         # takes of the same scene (embedding cosine >= threshold = "the same clip" to a viewer), so the
         # preference chain is: visually-distinct unused -> id-distinct unused -> not-consecutive -> pool.
@@ -143,6 +156,11 @@ def select_segments(
         seg_dur = seg.get("duration") or length
         offset = max(0.0, (seg_dur - length) / 2.0)    # center the sub-window in the segment
         src_start = (seg.get("start_ts") or 0.0) + offset
+        # never cut past the clip's REAL footage — shift the window left instead (a window past
+        # the last frame renders zero frames and the reel freezes)
+        real_end = (clip_dur or {}).get(seg["clip_id"])
+        if real_end:
+            src_start = max(0.0, min(src_start, real_end - length - 0.05))
         chosen.append(
             {
                 "slot": slot.idx,

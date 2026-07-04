@@ -1277,6 +1277,111 @@ def api_debug_re_embed(dry: bool = False):
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
 
 
+@app.get("/api/debug/clip-probe")
+def api_debug_clip_probe(ids: str | None = None, reel_id: str | None = None):
+    """Diagnose clips against their REAL files: DB duration vs container vs video-stream duration,
+    how far segments reach, embedding state, and per-segment quality. Pass ?ids=a,b,c or
+    ?reel_id=<reel> (probes the clips that reel used)."""
+    from app.corpus import reels as reel_store
+    from app.indexing.qc import ffprobe as _ffprobe
+    from app.models import Segment
+    want: list[str] = [x.strip() for x in (ids or "").split(",") if x.strip()]
+    if reel_id:
+        rec = next((r for r in reel_store._load() if r.get("reel_id") == reel_id), None)
+        if rec is None:
+            raise HTTPException(status_code=404, detail="reel not found")
+        want += [c.get("clip_id") for c in (rec.get("clips") or []) if c.get("clip_id")]
+    out = []
+    with SessionLocal() as s:
+        for cid in want:
+            clip = s.get(Clip, uuid.UUID(cid))
+            if clip is None:
+                out.append({"clip_id": cid, "error": "not found"})
+                continue
+            segs = s.scalars(select(Segment).where(Segment.clip_id == clip.id).order_by(Segment.idx)).all()
+            row = {
+                "clip_id": cid, "summary": (clip.summary or "")[:70],
+                "db_duration": clip.duration,
+                "max_segment_end": max((sg.end_ts or 0.0) for sg in segs) if segs else None,
+                "segments": [{"start": sg.start_ts, "end": sg.end_ts,
+                              "usability": sg.usability_score, "luminance": sg.luminance} for sg in segs],
+                "embedding": ("none" if not clip.embedding else
+                              "constant" if len(set(clip.embedding[:64])) <= 1 else "ok"),
+            }
+            if clip.r2_key and os.path.exists(clip.r2_key):
+                try:
+                    import subprocess as _sp
+                    p = _ffprobe(clip.r2_key)
+                    fmt = _sp.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                   "-of", "default=nokey=1:noprint_wrappers=1", clip.r2_key],
+                                  capture_output=True, text=True)
+                    row["video_stream_duration"] = round(p.duration, 3)
+                    row["container_duration"] = round(float(fmt.stdout.strip() or 0.0), 3)
+                    row["overrun"] = bool(row["max_segment_end"] and
+                                          row["max_segment_end"] > p.duration + 0.05)
+                except Exception as exc:  # noqa: BLE001
+                    row["probe_error"] = str(exc)[:120]
+            else:
+                row["probe_error"] = "source file missing"
+            out.append(row)
+    return {"clips": out}
+
+
+@app.post("/api/debug/repair-durations")
+def api_debug_repair_durations(dry: bool = True):
+    """Repair phantom footage across ALL indexed clips: re-probe each source's real VIDEO-STREAM
+    duration (containers routinely outlive the last video frame); fix Clip.duration and clamp/drop
+    segments that reach past it. Those phantom windows are what froze reels mid-play. Idempotent."""
+    from app.indexing.qc import ffprobe as _ffprobe
+    from app.models import Segment
+    scanned = fixed_clips = trimmed = dropped = missing = 0
+    changes = []
+    with SessionLocal() as s:
+        clips = s.scalars(select(Clip).where(Clip.status == "indexed")).all()
+        for clip in clips:
+            scanned += 1
+            if not (clip.r2_key and os.path.exists(clip.r2_key)):
+                missing += 1
+                continue
+            try:
+                real = _ffprobe(clip.r2_key).duration
+            except Exception:  # noqa: BLE001
+                missing += 1
+                continue
+            if not real:
+                missing += 1
+                continue
+            over = (clip.duration or 0.0) - real
+            segs = s.scalars(select(Segment).where(Segment.clip_id == clip.id)).all()
+            seg_over = [sg for sg in segs if (sg.end_ts or 0.0) > real + 0.05]
+            if over <= 0.05 and not seg_over:
+                continue
+            change = {"clip_id": str(clip.id), "summary": (clip.summary or "")[:50],
+                      "db_duration": clip.duration, "real_duration": round(real, 3),
+                      "segments_trimmed": 0, "segments_dropped": 0}
+            if not dry:
+                clip.duration = round(real, 3)
+            fixed_clips += 1
+            for sg in seg_over:
+                if (sg.start_ts or 0.0) >= real - 0.5:      # fully (or almost fully) phantom
+                    change["segments_dropped"] += 1
+                    dropped += 1
+                    if not dry:
+                        s.delete(sg)
+                else:                                        # trim the phantom tail off
+                    change["segments_trimmed"] += 1
+                    trimmed += 1
+                    if not dry:
+                        sg.end_ts = round(real, 3)
+                        sg.duration = round(real - (sg.start_ts or 0.0), 3)
+            changes.append(change)
+        if not dry:
+            s.commit()
+    return {"dry": dry, "scanned": scanned, "clips_fixed": fixed_clips,
+            "segments_trimmed": trimmed, "segments_dropped": dropped,
+            "source_missing": missing, "changes": changes}
+
+
 class CorpusRemove(BaseModel):
     ref_ids: list[str]
 

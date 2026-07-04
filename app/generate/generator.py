@@ -136,6 +136,7 @@ def _load_segments(clip_ids: list[str] | None = None):
             "id": str(seg.id), "clip_id": cid,
             "start_ts": seg.start_ts, "end_ts": seg.end_ts, "duration": seg.duration,
             "usability_score": seg.usability_score, "energy": seg.energy,
+            "luminance": seg.luminance,
             "is_hero": seg.is_hero, "vibe_tags": clip.vibe_tags or [],
         })
         clip_dur[cid] = clip.duration
@@ -173,9 +174,16 @@ _MATCH_SYS = """You match flashy b-roll CLIPS to a CAPTION for a 9:16 reel. The 
 Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
 
 
-def _match_clips_to_caption(caption_text: str, clip_meta: dict, max_clips: int = 40) -> list[str]:
-    """Rank clip_ids by how well each fits behind the caption (clips react to the caption)."""
-    items = list(clip_meta.items())
+def _match_clips_to_caption(caption_text: str, clip_meta: dict,
+                            clip_quality: dict[str, float] | None = None,
+                            max_clips: int = 160) -> list[str]:
+    """Rank clip_ids by how well each fits behind the caption (clips react to the caption).
+
+    Candidates are ordered by clip QUALITY (best segment usability) before the cap, so a large
+    library offers the ranker its most watchable footage — and if the ranking call fails, the
+    fallback order is that same quality order, never arbitrary DB order."""
+    q = clip_quality or {}
+    items = sorted(clip_meta.items(), key=lambda kv: q.get(kv[0], 0.0), reverse=True)
     if len(items) <= 1:
         return [cid for cid, _ in items]
     items = items[:max_clips]
@@ -186,11 +194,11 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict, max_clips: int =
         lines.append(f"[{i}] {summ}  | vibe: {vibe}")
     user = f"CAPTION:\n{caption_text}\n\nCLIPS:\n" + "\n".join(lines)
     try:
-        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=600)
+        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=1200)
         start, end = out.find("{"), out.rfind("}")
         order = json.loads(out[start:end + 1]).get("ranked", []) if start != -1 else []
         ranked = [items[i][0] for i in order if isinstance(i, int) and 0 <= i < len(items)]
-    except Exception:  # noqa: BLE001 — matching is best-effort; fall back to usability order
+    except Exception:  # noqa: BLE001 — matching is best-effort; fall back to quality order
         ranked = []
     seen = set(ranked)
     ranked += [cid for cid, _ in items if cid not in seen]
@@ -285,10 +293,16 @@ def generate_reel(
     # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes
     # the best-fitting clip per slot, rotating among near-equal fits (by usage) so a small library still
     # varies. Blank reels have no caption to fit, so selection falls back to pure least-used variety.
-    ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta)
+    clip_quality: dict[str, float] = {}
+    for s0 in segs:
+        u = s0.get("usability_score") or 0.0
+        if u > clip_quality.get(s0["clip_id"], 0.0):
+            clip_quality[s0["clip_id"]] = u
+    ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta, clip_quality)
     fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
-                             fit_rank=fit_rank, usage=_load_clip_usage(), clip_emb=clip_emb)
+                             fit_rank=fit_rank, usage=_load_clip_usage(), clip_emb=clip_emb,
+                             clip_dur=clip_dur)
     _log_clip_usage([c["clip_id"] for c in chosen])
 
     if sources is None:
