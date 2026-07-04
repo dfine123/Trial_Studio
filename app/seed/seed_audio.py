@@ -97,6 +97,57 @@ SEED_AUDIOS = [
         "thematic_tags": ["backhanded-motivation", "absurd-grind", "ironic-hype"],
         "ig_audio_url": None,
     },
+    # ── batch 3 (2026-07-04). The quoted line in each description is the operator's VIBE HINT —
+    #    it grounds the attitude the track suits (for caption steering + audio matching); captions
+    #    aligned with that vibe fit, they don't have to mirror the example. ──
+    {
+        "file": "samples/audio/drake_more_slowed_rap.mp3",
+        "description": "Drake-type extra-slowed rap — deadpan, self-aware degenerate-confession energy "
+                       "(vibe: \"maybe it's the gambling that's addicted to me, ever thought about that?\")",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["slowed", "deadpan-confession", "self-aware-degen", "late-night"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/super_slowed_intro.mp3",
+        "description": "Super slowed intro — heavy, lock-in urgency, already-behind motivation "
+                       "(vibe: \"lock in bro you're only 3 years late\")",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["super-slowed", "lock-in", "urgency", "behind-schedule"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/ambient_house_instrumental.mp3",
+        "description": "Ambient house — calm, blunt-positive reassurance / POV energy "
+                       "(vibe: \"the grass gon be greener on whatever side we on\")",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["ambient", "blunt-positive", "pov", "we-gon-be-fine"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/slowed_trap_rap.mp3",
+        "description": "Slowed trap rap — flex energy, ironic OR genuine, high-stakes degen swagger "
+                       "(vibe: \"how me and bro living after we risked our parents' houses on blackjack\")",
+        "structure": "steady", "energy_arc": "low",
+        "thematic_tags": ["slowed-trap", "ironic-flex", "flex", "high-stakes"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/upbeat_hiphop_instrumental.mp3",
+        "description": "Upbeat hip-hop — playful bit energy, joking-with-the-boys reaction vibe "
+                       "(vibe: \"giving bro advice but adding 'that's just me tho' in case it ruins his life\")",
+        "structure": "steady", "energy_arc": "high",
+        "thematic_tags": ["upbeat", "playful", "bit-energy", "bro-reaction"],
+        "ig_audio_url": None,
+    },
+    {
+        "file": "samples/audio/ethereal_poppy_house.mp3",
+        "description": "Ethereal poppy house — aspirational destiny, main-character it's-game-over energy "
+                       "(vibe: \"when a millionaire tells you you sound like a younger version of him\")",
+        "structure": "steady", "energy_arc": "rising",
+        "thematic_tags": ["ethereal", "aspirational", "destiny", "main-character"],
+        "ig_audio_url": None,
+    },
 ]
 
 
