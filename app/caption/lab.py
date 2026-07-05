@@ -73,17 +73,19 @@ def _cid(text: str) -> str:
 _CODEX_SYS = """You are distilling the OPERATING PRINCIPLES of one creator's caption voice from hard evidence: his reference catalog (each line with a decoded note on why it landed) and an operator's real grades — lines that HIT (rated 8-10) and lines that MISSED (rated 1-4, with the operator's own notes on exactly why). Produce THE CODEX: the consolidated understanding a writer would need to produce NEW lines at the catalog's peak level — written to GENERATE from, never to imitate from.
 
 HARD RULES:
-- Decode MECHANISMS, never formats. No cataloging of shapes or templates of any kind. Every principle must hold across ANY shape a line could take.
+- Decode PRINCIPLES, not templates. Never output a catalog of his existing shapes to refill — but you MUST decode what FORM and TEXTURE do in this voice, because the shape and the sound ARE part of the jokes. The test: a principle should let a writer invent a shape he's never used and have it still be unmistakably his.
 - Every principle must EXPAND what is writable — generative, opening territory — never a restriction to what has already been done.
 - Ground everything in the evidence (quote short fragments as proof where it sharpens the point), but the output is UNDERSTANDING, not examples to copy.
 
 Sections:
 1. THE CORE — the position and psychology that makes this voice hit: where he stands relative to the subject and the reader, what the reader FEELS in the half-second after the line lands, and why they send it to someone.
-2. THE CRAFT — how the surprise is actually constructed; what specificity is DOING (proof, not decoration); the economy logic (what earns its place); where and how the turn detonates; what separates a payoff that SNAPS from one that lands flat.
-3. THE TRIPWIRES — the operator's own named failure modes, decoded as mechanisms: what is mechanically happening when a line reads "flat delivery", "corny", "lame/normie premise", "off landing" — so a writer feels the failure coming WHILE writing, not as a list of bans.
-4. EIGHT VS TEN — what the highest-rated lines do that merely-good lines don't.
+2. THE CRAFT — how the surprise is actually constructed; what specificity is DOING (proof, not decoration); the economy logic; where the turn detonates; what separates a payoff that SNAPS from one that lands flat.
+3. THE FORM — this voice PLAYS with structure; flat declarative observation is its death. Decode what the structural play is DOING: what it means to drop the reader mid-scene, to let the punch be said TO someone, to build a trap the reader walks into, to spike the energy, to let the shape itself be half the joke — and what makes an INVENTED shape still his. Function of form, never a template list.
+4. THE TEXTURE — the surface DNA he actually types in: the casing, the slang register and when it's load-bearing, emoji as punctuation/energy, caps as volume, timing via line breaks. Decode why a clean, essay-grade sentence reads as someone else — what "written" sounds like vs what HE sounds like.
+5. THE TRIPWIRES — the operator's own named failure modes, decoded as mechanisms: what is mechanically happening when a line reads "flat delivery", "corny", "lame/normie premise", "off landing" — so a writer feels the failure coming WHILE writing.
+6. EIGHT VS TEN — what the highest-rated lines do that merely-good lines don't.
 
-Dense, direct, second person ("your lines…"), ~700 words. Return ONLY the codex text."""
+Dense, direct, second person ("your lines…"), ~900 words. Return ONLY the codex text."""
 
 
 def _codex_path() -> str:
@@ -142,17 +144,19 @@ def persona() -> str:
     return _p()
 
 
-_IDEATE_SYS = """You generate PREMISES for one creator's captions — the raw observations, not the finished lines. You work from THE CODEX (the distilled understanding of why his lines hit) and a list of TAKEN territory (every premise his catalog and recent output already covers).
+_IDEATE_SYS = """You generate IDEAS for one creator's captions — and an idea here is a PREMISE plus its PLAY. You work from THE CODEX (the distilled understanding of why his lines hit, how his forms work, how he sounds) and a list of TAKEN territory (every premise his catalog and recent output already covers).
 
-Your job: fresh premises his catalog has NEVER touched, each one already carrying the charge the codex describes — a cope someone is running right now, a category that will collapse, a private ache never said out loud, a doubter who deserves ammo. A premise is a SPECIFIC observation with tension in it ("the exact moment X reveals Y"), never a topic label ("dating", "jobs") and never a rewording of taken territory.
+A matter-of-fact observation is the FAILURE MODE of this job. Every idea must carry PLAY — the bit, the move, the shape that makes it something he'd actually post rather than a statement:
+- PREMISE: fresh, specific, charged (a cope being run right now, a category about to collapse, a doubter who needs ammo, a moment with tension in it) — territory his catalog has NEVER touched, never a topic label, never a rewording of anything taken.
+- PLAY: how it's DELIVERED — a scene the reader gets dropped into, an exchange where the punch is said to someone, a build the reader walks into, an energy spike, a structure nobody's used before. INVENT shapes; the codex's form principles tell you what makes a shape his. The play and the premise should need each other.
 
-Range across his world (money, women, status, the grind, family, the internet) AND push past where the catalog goes — the codex tells you what makes territory HIS; trust it into new rooms. Each premise genuinely different from the others.
+Range across his whole world (money, women, status, the grind, family, the internet) AND past it — the codex tells you what makes territory HIS; trust it into new rooms. Each idea genuinely different from the others in BOTH premise and play.
 
-Return ONLY JSON: {"premises": [{"premise": "the specific observation, one sentence", "charge": "which codex mechanism makes it land — caught, armed, collapse, ache"}]}"""
+Return ONLY JSON: {"ideas": [{"premise": "the specific charged observation/moment", "play": "the delivery — the bit/shape/move that makes it a post", "charge": "which codex mechanism lands it"}]}"""
 
 _EXECUTE_SYS_TAIL = """
 
-THE TASK: below are {k} locked PREMISES (ideated from your codex — the topics are FIXED; never swap, merge, or drift them). Your catalog above is the BAR, not source material: its premises are already taken and its lines exist — your job is to write lines that would sit at the TOP of that catalog, on these new premises. Give each premise the shape ITS idea demands — the catalog shows your range of craft, not templates to fill. Write the strongest {n} of the {k}; drop premises you can't make catalog-topping. Only ship what you'd bet on.
+THE TASK: below are {k} locked IDEAS — each a PREMISE plus its PLAY, ideated from your codex. The premises are FIXED (never swap, merge, or drift them); the play tells you the delivery — commit to it or invent a sharper shape for the same premise. Your catalog above is the BAR and the sound-check, not source material: its premises are taken, but it shows exactly how you actually type — the casing, the slang, the emoji, the energy, the timing. Write each idea AS A POST, in that exact texture. If a draft reads like a clean observation an essayist could have written, it's DEAD — that's not you; rewrite it as the bit it wants to be. Write the strongest {n} of the {k}; drop ideas you can't make catalog-topping. Only ship what you'd bet on.
 
 Return ONLY JSON, no prose: {"captions": ["caption (\\n for line breaks)", "..."]}"""
 
@@ -189,12 +193,12 @@ def generate_lab(n: int = 8) -> list[dict]:
     premises = []
     if s != -1 and e != -1:
         try:
-            premises = [p for p in json.loads(a_out[s:e + 1]).get("premises", [])
+            premises = [p for p in json.loads(a_out[s:e + 1]).get("ideas", [])
                         if (p.get("premise") or "").strip()]
         except json.JSONDecodeError:
             premises = []
     if not premises:
-        raise RuntimeError("ideation returned no premises — check the codex")
+        raise RuntimeError("ideation returned no ideas — check the codex")
 
     # ── stage B: execution with the wall as the BAR (premises locked, topics can't be hijacked) ──
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip())
@@ -202,10 +206,12 @@ def generate_lab(n: int = 8) -> list[dict]:
               + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
               + "\n\nYOUR CATALOG (the bar to clear; premises taken):\n\n" + ref_block
               + _EXECUTE_SYS_TAIL.replace("{k}", str(len(premises))).replace("{n}", str(n)))
-    b_user = "LOCKED PREMISES:\n" + "\n".join(
-        f"[{i}] {p['premise']}" + (f"  (charge: {p.get('charge')})" if p.get("charge") else "")
+    b_user = "LOCKED IDEAS:\n" + "\n".join(
+        f"[{i}] PREMISE: {p['premise']}"
+        + (f"\n    PLAY: {p.get('play')}" if p.get("play") else "")
+        + (f"\n    (charge: {p.get('charge')})" if p.get("charge") else "")
         for i, p in enumerate(premises)
-    ) + f"\n\nWrite the strongest {n}."
+    ) + f"\n\nWrite the strongest {n}, each as the post it wants to be."
     text = complete_json(system, b_user, effort="high", max_tokens=8000, tag="lab-write")
     s, e = text.find("{"), text.rfind("}")
     cands = []
