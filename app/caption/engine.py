@@ -63,12 +63,15 @@ def check_coherence(texts: list[str]) -> list[int]:
 
 def _coherence_gate(cands: list[dict]) -> list[dict]:
     """COHERENCE GATE — subtractive curation (same class as _drop_ref_copies/refine, never a prompt
-    rule): drops candidates whose joke MECHANISM contradicts itself on a literal read. Round-3 grading
-    measured this as the dominant kill driver (~9 of 18 kills: "18% tip = 18 grown men", "bank does
-    3 to 0", "what business needs a ps5?"). It judges EXECUTIONS, never formats — absurdity is
-    explicitly granted, so the full range stays intact. Failsafes: LLM error / >half flagged /
-    <2 survivors -> keep all. Mode via settings.coherence_gate: 'off' | 'log' (flag-only ledger,
-    the default until replay-validated) | 'drop'."""
+    rule): drops candidates whose joke MECHANISM breaks on a literal read — round-3's dominant kill
+    driver (~9 of 18 kills: "18% tip = 18 grown men", "bank does 3 to 0"). ⚠️ MEASURED NEGATIVE,
+    default OFF: replayed against round 3 itself (kills vs hits vs endorsed vs corpus), two prompt
+    framings both scored recall 0/9 at clean precision — a joke-charitable judge PARSES these lines
+    fine; the operator's objection is sloppy MAPPING (taste-grade), and strictness high enough to
+    catch it is the distilled-taste-filter failure shape (flags paradox/absurdist refs first). The
+    class is addressed at generation instead (PRECISION literal-read grounding in _MECHANICS).
+    Failsafes if ever enabled: LLM error / >half flagged / <2 survivors -> keep all. Mode via
+    settings.coherence_gate: 'off' (default) | 'log' | 'drop'; harness: /api/debug/gate-check."""
     from app.config import settings
     mode = (getattr(settings, "coherence_gate", "log") or "log").lower()
     if mode == "off" or len(cands) < 2:

@@ -46,9 +46,12 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
-    coherence_gate: str = "log"                   # 'off' | 'log' (flag-only ledger) | 'drop' — literal-read
-                                                  # mechanism check on candidates; enable 'drop' only after
-                                                  # replay validation on graded rounds (kills flagged, hits clean)
+    coherence_gate: str = "off"                   # 'off' | 'log' | 'drop' — literal-read mechanism check on
+                                                  # candidates. MEASURED NEGATIVE (round-3 replay, 2 prompt
+                                                  # variants): recall 0/9 on known mechanism-kills at clean
+                                                  # precision — the class is sloppy-mapping (taste), not parse
+                                                  # failure; a judge can't split it from absurdism. Kept for
+                                                  # future re-tests via /api/debug/gate-check.
     openai_api_key: str = ""
     openai_caption_model: str = "gpt-4o"          # OpenAI model for the A/B (override via OPENAI_CAPTION_MODEL)
 
