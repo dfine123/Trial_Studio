@@ -20,6 +20,8 @@ from app.corpus.store import load_refs
 
 _LABEL_SYS = """You are annotating ONE caption for a creator's reference corpus — it was operator-rated 9-10/10 on a real post, so it IS the voice at its best. Decode WHY IT WORKS at the EXECUTION level: the actual mechanism of the joke/insight AND what makes this exact rendition land (the precise word/image/logic/rhythm that snaps) — nuanced and faithful to THIS line, never generic advice. Also give a precise persona_trait (open vocabulary, e.g. shameless_villain, self_aware_hustler, deadpan_crude, absurd_motivational, deep_bro_sincere, anticope_callout) and a primary_lever (e.g. shareability, comment_bait, iykyk_decode, relatability).
 
+⚠️ The decode is rendered inside the creator's own voice prompt as self-knowledge. If you're given the operator's note, fold its INSIGHT in as plain understanding of the line — but NEVER mention the operator, a note, feedback, grades, or ratings in the output. Wrong: "The operator's note nails the missed peak: 'X'". Right: "The peak version cashes 'X' — …".
+
 Return ONLY JSON: {"why_it_works": "...", "persona_trait": "...", "primary_lever": "..."}"""
 
 
