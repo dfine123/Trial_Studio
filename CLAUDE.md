@@ -67,8 +67,20 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   blaming any layer for length drift. **Anchor-regurgitation guard**: candidates whose word-set
   containment vs ANY corpus ref ≥ .8 are dropped pre-chooser (round 2 found 3 of 13 "winners" were
   near-verbatim ref copies — an elite anchor comes back as itself and the chooser rightly picks
-  it). Gambling anchor cap: ≤1 for batches ≤6. Reels use best-of-5 independent candidates
-  (`generate_independent(k=5)`), batch grading uses `generate(n)`.
+  it). Gambling anchor cap: ≤1 for batches ≤6. **SPECIES FLOOR** (2026-07-04, operator rule:
+  validated species must never just disappear): every batch n≥5 guarantees ≥1 FRAME anchor
+  (POV/🥷/wyr/wtf-is/when/how-bro) + ≥1 SINCERE anchor (largest seed cluster, 17/84, but only
+  2/47 promotions — the learn loop structurally dilutes it). Avoid stubs are MARKER-STRIPPED
+  content stubs + format-neutral wording ("only the IDEA must be new") — raw opener-stubs made
+  wyr entries premise-free format prefixes. **Voice identity: unemployed is NOT poor** — persona
+  rewritten (show-don't-tell wealth; payday/eviction/overdraft/wage-life = not his universe);
+  p048 (overdraft-$35, the corpus's only genuinely-poor ref) removed; operator grades under-rate
+  poor-coded lines 4.29 vs 5.33. ⚠️ Forensics lesson: the stub-suppression hypothesis was
+  REFUTED by measurement (frames flat-to-rising in pool; rotation uniform, zero kills) — POV's
+  collapse was ONE stale premise family (pretend-rich parenthetical, rated 3-5) being correctly
+  premise-suppressed; ninja generates but the chooser has never picked it (0/14, eval-gated
+  note). Reels use best-of-5 independent candidates (`generate_independent(k=5)`), batch grading
+  uses `generate(n)`.
 - **Selection** (`app/caption/chooser.py`): best-caption-first; per-profile persona injected at call
   time (modular); ONE veto: clearly soft/self-pitying/off-persona. Never judges format/topic/length.
 - **Editor** (`app/caption/refine.py`): subtractive-only (trims over-extended tails, strips
