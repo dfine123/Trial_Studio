@@ -191,8 +191,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   marked: batch-grading `generate(n)` (system reshuffles per call → write surcharge for nothing),
   tiny match/audio systems (below the 1024-token minimum). Verified live: 1×cache_w=5094 then
   4×cache_r=5094 → system-input spend −67% (≈ −$0.085/reel), total input −~38%.
-- Every Anthropic call prints `[llm] <model> eff= in= out= cache_w= cache_r=` to stdout → Railway
-  logs are the permanent cost ledger (`railway logs --service <svc> | grep llm`).
+- Every Anthropic call prints `[llm] tag=<call-site> <model> eff= in= out= cache_w= cache_r=` to
+  stdout → Railway logs are the permanent per-call-site cost ledger. Measured reel profile
+  (2026-07-04): candidates 72% · clip-match 21% · refine 4% · chooser 2% · audio-match 1%,
+  total ≈ $0.33 (pre-clip-cache).
+- **clip-match clip LISTING is a cached user-prefix block** (`cache_user_prefix` in complete_json):
+  the 11.7k-token clip list is byte-stable between reels (deterministic order: quality desc, id
+  tiebreak — REQUIRED, an unordered DB read would shuffle ties and miss) while only the caption
+  tail varies. Verified live: reel 1 `cache_w=11716`, reel 2 `cache_r=11716` → matcher
+  ~$0.069→~$0.016/reel in batches; an isolated reel >5 min after the last pays the 1.25× write
+  (+$0.015). Input change acknowledged: the ranker sees clips-before-caption now (mechanical
+  call). In-batch steady state ≈ **$0.28/reel total (~35% below pre-caching)**.
 - Quality-bearing levers deliberately untouched: model (Opus), effort tiers, adaptive thinking,
   the per-reel corpus shuffle (stabilizing it would enable cross-reel candidate caching but
   changes generation inputs — needs a measured A/B, don't do silently).
