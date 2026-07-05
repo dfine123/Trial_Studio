@@ -129,6 +129,56 @@ def promote(reel_id: str, pid=None) -> dict:
     return {"ok": True, "ref_id": rid, "already": rid is None}
 
 
+def relabel(ref_ids: list[str], pid=None) -> dict:
+    """Re-decode why_it_works for specific refs WITH the operator's grading note folded in — for refs
+    promoted before the op_note wiring existed, or whose label call failed silently (p062 shipped with
+    why_it_works=None). Finds each ref's source note by matching its caption against every graded
+    reel's posted caption AND its candidate list (endorsed refs live in candidates)."""
+    refs = load_refs(profiles.corpus_path(pid))
+    notes: dict[str, str] = {}
+    for r in reel_store.graded(pid):
+        note = ((r.get("grade") or {}).get("notes") or "").strip()
+        if not note:
+            continue
+        caps = [r.get("caption") or ""] + [(c.get("text") or "") for c in (r.get("candidates") or [])]
+        for cap in caps:
+            if cap.strip():
+                notes.setdefault(_norm(cap), note)
+    changed = []
+    want = set(ref_ids)
+    for ref in refs:
+        if ref.get("ref_id") not in want:
+            continue
+        cap = (ref.get("caption") or "").strip()
+        op_note = notes.get(_norm(cap))
+        user = f"CAPTION:\n{cap}"
+        if op_note:
+            user += f"\n\nOPERATOR'S OWN NOTE on it (their read outranks yours — fold it in):\n{op_note}"
+        try:
+            out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=800, tag="relabel")
+            s, e = out.find("{"), out.rfind("}")
+            lab = json.loads(out[s:e + 1]) if s != -1 else {}
+        except Exception:  # noqa: BLE001
+            lab = {}
+        why = (lab.get("why_it_works") or "").strip()
+        if not why:
+            continue
+        ref["why_it_works"] = why
+        if (lab.get("persona_trait") or "").strip():
+            ref["persona_trait"] = lab["persona_trait"].strip()
+        if (lab.get("primary_lever") or "").strip():
+            ref["primary_lever"] = lab["primary_lever"].strip()
+        changed.append({"ref_id": ref.get("ref_id"), "had_note": bool(op_note), "why": why})
+    if changed:
+        path = profiles.corpus_path(pid)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for r in refs:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    return {"relabeled": changed}
+
+
 _ENDORSE_RX = re.compile(r"would(?:'ve| have| of)? been (?:like )?(?:a |an )?(\d{1,2})", re.IGNORECASE)
 
 

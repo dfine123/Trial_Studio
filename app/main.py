@@ -1763,6 +1763,18 @@ def api_debug_authored_prune(req: AuthoredPrune):
                               for r in kept if r.get("type") == "authored"]}
 
 
+class RelabelRefs(BaseModel):
+    ref_ids: list[str]
+
+
+@app.post("/api/debug/relabel-refs")
+def api_debug_relabel_refs(req: RelabelRefs):
+    """Re-decode why_it_works for the given refs with their source grading note folded in (the
+    operator's own read on the line — punch-ups, one-off/comment-bait calls — outranks the LLM's)."""
+    from app.corpus import promote
+    return promote.relabel(req.ref_ids)
+
+
 class GateCheck(BaseModel):
     texts: list[str]
 
