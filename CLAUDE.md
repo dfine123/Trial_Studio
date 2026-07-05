@@ -38,7 +38,14 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
    (verbatim-span + fuzzy-vs-candidates + standalone-post guards → `authored` grade records →
    `source=operator_authored` refs; a payoff FRAGMENT like "an LED sign with my name on it" must fail
    the standalone test — one misfiled as p066 and was pruned via `/api/debug/authored-prune`). The
-   why_it_works labeler now receives the operator's own note (their punch-ups outrank the LLM's read).
+   why_it_works labeler now receives the operator's own note (their punch-ups outrank the LLM's read);
+   `POST /api/debug/relabel-refs {ref_ids}` re-decodes existing refs with their source note folded in
+   (used on p052–p065; also fixed p062's silently-null decode — a bare-except swallowed the label
+   failure on a 9-rated ref). Austin's live persona gained the round-3 world texture via the
+   adversary-approved CLASS-level line ("you spend on spectacle: things with your name on them, things
+   that need an audience…" — concrete props like the LED sign deliberately NOT named: persona text
+   bypasses rotation AND the regurgitation guard, the 🥷-list precedent) + "credit-score comeback
+   arcs" added to the not-his-universe list. Post-ship distribution check: purchase-flavored 1/8.
 
 ## Voice architecture (two layers; voices are TOGGLEABLE per profile)
 
@@ -113,7 +120,9 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): **TWO-STAGE — ideate from PRINCIPLES,
   execute at the catalog bar** (operator architecture, v4 after three corrections).
   `build_codex()` consolidates the mechanisms from ALL evidence — every ref's why_it_works, every
-  graded reel (8–10 hits AND the operator's 1–4 kill notes), the persona — into a cached
+  graded reel (8–10 hits AND the operator's 1–4 kill notes AND, since 2026-07-05, noted 5–7
+  NEAR-MISSES: that band was a structural dead zone where operator format/template endorsements
+  reached nothing — 27 noted mids now feed it), the persona — into a cached
   voice-owned codex (`lab_codex.md`; format taxonomy FORBIDDEN; core/craft/tripwires/8-vs-10).
   Stage A IDEATES premises from the codex with ZERO references in context + catalog premises
   listed as TAKEN → premises structurally can't be re-skins (topic fixed before any ref is seen;
