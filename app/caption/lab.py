@@ -184,7 +184,7 @@ def generate_lab(n: int = 8) -> list[dict]:
         f"{avoid_prod}\n\n"
         f"Generate {k} premises."
     )
-    a_out = complete_json(_IDEATE_SYS, a_user, effort="high", max_tokens=3000, tag="lab-ideate")
+    a_out = complete_json(_IDEATE_SYS, a_user, effort="high", max_tokens=8000, tag="lab-ideate")
     s, e = a_out.find("{"), a_out.rfind("}")
     premises = []
     if s != -1 and e != -1:
