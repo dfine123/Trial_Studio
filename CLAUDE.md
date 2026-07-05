@@ -181,6 +181,22 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   can't pass; demo-service operator creds are env-set non-defaults (password in local
   tmp/demo_admin_pw.txt, never committed).
 
+## LLM cost discipline (2026-07-04 — measured, zero quality change)
+
+- **Prompt caching** on the byte-identical system prompts: the k=5 reel candidates (and Lab
+  collisions) run **SEQUENTIAL-FIRST** — candidate 1 alone pays the single 1.25× cache write, then
+  the fan-out reads at ~10% (parallel fan-outs RACE the cache: 5 simultaneous calls = 5 writes,
+  0 reads — measured; a primer call isn't propagated in time either, 1/5 reads — measured).
+  chooser + refine systems are stable → cross-reel cache hits through a sequential batch. NOT
+  marked: batch-grading `generate(n)` (system reshuffles per call → write surcharge for nothing),
+  tiny match/audio systems (below the 1024-token minimum). Verified live: 1×cache_w=5094 then
+  4×cache_r=5094 → system-input spend −67% (≈ −$0.085/reel), total input −~38%.
+- Every Anthropic call prints `[llm] <model> eff= in= out= cache_w= cache_r=` to stdout → Railway
+  logs are the permanent cost ledger (`railway logs --service <svc> | grep llm`).
+- Quality-bearing levers deliberately untouched: model (Opus), effort tiers, adaptive thinking,
+  the per-reel corpus shuffle (stabilizing it would enable cross-reel candidate caching but
+  changes generation inputs — needs a measured A/B, don't do silently).
+
 ## Ops runbook
 
 - **Deploy** = push to main (Railway auto-builds). `railway` CLI is linked from this directory
