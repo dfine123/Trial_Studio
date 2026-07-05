@@ -41,6 +41,19 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
     return kept or cands
 
 
+def _prime_cache(system: str) -> None:
+    """Write the shared system into the prompt cache BEFORE a parallel fan-out. Measured gotcha:
+    k simultaneous calls all MISS the not-yet-written cache and each pays the 1.25x write
+    surcharge (observed live: 5x cache_w, 0 reads). A cache entry is only usable after the
+    request that created it completes — so one ~3s minimal call pays the single write, then the
+    whole fan-out reads at ~10%. Best-effort: on any failure the batch just writes as before."""
+    try:
+        complete_json(system, 'Return ONLY this JSON: {"ok": true}', effort="low", max_tokens=24,
+                      cache_system=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _avoid_block(window: int = 150, stub_words: int = 9) -> str:
     """The anti-repeat list as PREMISE STUBS (each line's first few words), not full captions.
 
@@ -364,6 +377,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
 
     # copy_context() is evaluated HERE (request thread), carrying the active test backend into each
     # worker; a fresh snapshot per task avoids concurrent re-entry. No-op for production (backend None).
+    _prime_cache(voice_system(ref_block))   # one cache write, then every parallel call below READS
     with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
         futs = [ex.submit(contextvars.copy_context().run, one, a) for a in anchors]
         raw = [c for c in (f.result() for f in futs) if c]

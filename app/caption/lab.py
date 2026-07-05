@@ -128,6 +128,8 @@ def generate_lab(n: int = 8) -> list[dict]:
             return None
         return {"text": t, "anchors": [a.get("ref_id"), b.get("ref_id")]} if t else None
 
+    from app.caption.engine import _prime_cache
+    _prime_cache(voice_system(ref_block))   # one cache write, then the parallel collisions READ
     with ThreadPoolExecutor(max_workers=max(1, n)) as ex:
         futs = [ex.submit(contextvars.copy_context().run, one, p) for p in pairs]
         raw = [c for c in (f.result() for f in futs) if c]
