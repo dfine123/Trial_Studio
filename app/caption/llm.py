@@ -9,31 +9,44 @@ from __future__ import annotations
 from app.config import settings
 
 
-def complete_json(system: str, user: str, effort: str = "high", max_tokens: int = 4000) -> str:
+def complete_json(system: str, user: str, effort: str = "high", max_tokens: int = 4000,
+                  cache_system: bool = False) -> str:
     # A per-request TEST backend (Sonnet 5 / OpenAI) overrides the model; None → production (settings).
+    # cache_system marks the SYSTEM block as an ephemeral cache prefix (Anthropic prompt caching):
+    # byte-identical reuse within the 5-min TTL bills at ~10% — a pure billing/latency optimization,
+    # generation behavior is untouched. Set it ONLY where reuse is real (the k parallel candidate
+    # calls share one system; chooser/refine systems are stable across a sequential batch) — a
+    # marked-but-never-reused system >1024 tokens costs a 1.25x write surcharge for nothing.
     from app.caption.backend import get_backend, resolve
     override = resolve(get_backend())
     if override:
         provider, model = override
         if provider == "openai":
             return _openai(system, user, max_tokens, model=model, effort=effort)
-        return _anthropic(system, user, effort, max_tokens, model=model)
+        return _anthropic(system, user, effort, max_tokens, model=model, cache_system=cache_system)
     if settings.caption_provider == "openai":
         return _openai(system, user, max_tokens)
-    return _anthropic(system, user, effort, max_tokens)
+    return _anthropic(system, user, effort, max_tokens, cache_system=cache_system)
 
 
-def _anthropic(system: str, user: str, effort: str, max_tokens: int, model: str | None = None) -> str:
+def _anthropic(system: str, user: str, effort: str, max_tokens: int, model: str | None = None,
+               cache_system: bool = False) -> str:
     from anthropic import Anthropic
 
+    sys_payload = ([{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+                   if cache_system else system)
     msg = Anthropic(api_key=settings.anthropic_api_key, max_retries=5).messages.create(
         model=model or settings.caption_model,
         max_tokens=max_tokens,
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
-        system=system,
+        system=sys_payload,
         messages=[{"role": "user", "content": user}],
     )
+    u = msg.usage
+    print(f"[llm] {model or settings.caption_model} eff={effort} in={u.input_tokens} "
+          f"out={u.output_tokens} cache_w={getattr(u, 'cache_creation_input_tokens', 0) or 0} "
+          f"cache_r={getattr(u, 'cache_read_input_tokens', 0) or 0}", flush=True)
     return "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
 
 

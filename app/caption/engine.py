@@ -349,7 +349,10 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             f"(Don't rehash these recent premises — openers of your last lines: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
-        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500)
+        # the k parallel candidates share ONE identical system (persona+refs+mechanics, several
+        # thousand tokens) — cache it: first call writes, the rest read at ~10% of input price
+        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500,
+                             cache_system=True)
         s, e = text.find("{"), text.rfind("}")
         if s == -1 or e == -1:
             return None

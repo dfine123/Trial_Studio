@@ -117,7 +117,8 @@ def generate_lab(n: int = 8) -> list[dict]:
             f"(Don't rehash these recent premises: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
-        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500)
+        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500,
+                             cache_system=True)   # k parallel collisions share one system — cache it
         s, e = text.find("{"), text.rfind("}")
         if s == -1 or e == -1:
             return None
