@@ -142,39 +142,71 @@ def persona() -> str:
     return _p()
 
 
-_LAB_BRIEF = (
-    "THE LAB. No references in front of you, no formats to lean on — you are writing from "
-    "UNDERSTANDING. The codex above is the distilled reason your lines hit, extracted from "
-    "everything you've posted and every grade you've received. Write {n} NEW lines from those "
-    "principles: fresh premises, fresh angles, whatever shape each idea itself demands — invent "
-    "the shape if the idea calls for one. A line that reads like a re-skin of anything you've "
-    "done before is a FAILURE here. The bar is catalog-worthy: swings that hit harder than your "
-    "production system reaches, lines that would earn a permanent spot. Each of the {n} takes a "
-    "genuinely different swing. Only ship what you'd bet on."
-)
+_IDEATE_SYS = """You generate PREMISES for one creator's captions — the raw observations, not the finished lines. You work from THE CODEX (the distilled understanding of why his lines hit) and a list of TAKEN territory (every premise his catalog and recent output already covers).
+
+Your job: fresh premises his catalog has NEVER touched, each one already carrying the charge the codex describes — a cope someone is running right now, a category that will collapse, a private ache never said out loud, a doubter who deserves ammo. A premise is a SPECIFIC observation with tension in it ("the exact moment X reveals Y"), never a topic label ("dating", "jobs") and never a rewording of taken territory.
+
+Range across his world (money, women, status, the grind, family, the internet) AND push past where the catalog goes — the codex tells you what makes territory HIS; trust it into new rooms. Each premise genuinely different from the others.
+
+Return ONLY JSON: {"premises": [{"premise": "the specific observation, one sentence", "charge": "which codex mechanism makes it land — caught, armed, collapse, ache"}]}"""
+
+_EXECUTE_SYS_TAIL = """
+
+THE TASK: below are {k} locked PREMISES (ideated from your codex — the topics are FIXED; never swap, merge, or drift them). Your catalog above is the BAR, not source material: its premises are already taken and its lines exist — your job is to write lines that would sit at the TOP of that catalog, on these new premises. Give each premise the shape ITS idea demands — the catalog shows your range of craft, not templates to fill. Write the strongest {n} of the {k}; drop premises you can't make catalog-topping. Only ship what you'd bet on.
+
+Return ONLY JSON, no prose: {"captions": ["caption (\\n for line breaks)", "..."]}"""
 
 
 def generate_lab(n: int = 8) -> list[dict]:
-    """n swings generated from PRINCIPLES (persona + mechanics + codex — no reference wall), in
-    one call. The codex builds automatically on first use. Isolated (no prod genlog)."""
+    """Two stages, per the operator's architecture + the grounding canon:
+    A) IDEATE from principles — codex only, ZERO references in context, catalog premises marked
+       as taken → premises structurally cannot be re-skins (the topic is fixed before any
+       reference is seen).
+    B) EXECUTE at the catalog bar — the full reference wall returns purely as CRAFT calibration
+       (what snap feels like at full fidelity); it cannot hijack topics because they're locked.
+    Isolated (no prod genlog)."""
     from app.caption.engine import _MECHANICS, _avoid_block, _drop_ref_copies
+    from app.corpus.store import load_refs
     codex = build_codex().get("codex") or ""
-    # anti-redundancy: territory production + the lab already covered — exploration goes NEW places
+    refs = load_refs()
+    # TAKEN territory for ideation: catalog premises + recent production + the lab's own pool
+    ref_stubs = [" ".join(((r.get("caption") or "").replace("\n", " / ")).split()[:9]) for r in refs]
     lab_stubs = [" ".join(((r.get("text") or "").replace("\n", " / ")).split()[:9])
                  for r in _load_pool()[-120:]]
-    avoid = _avoid_block() + ("\n" + "\n".join("- " + s + "…" for s in dict.fromkeys(lab_stubs)) if lab_stubs else "")
+    taken = "\n".join("- " + s + "…" for s in dict.fromkeys(x for x in ref_stubs + lab_stubs if x))
+    avoid_prod = _avoid_block()
 
-    system = (persona() + "\n\n" + _MECHANICS + "\n\nTHE CODEX — the distilled understanding of "
-              "why your lines hit:\n\n" + codex)
-    user = (
-        _LAB_BRIEF.replace("{n}", str(n)) + "\n\n"
-        f"(Territory already covered — go somewhere NEW: {avoid})\n\n"
-        f"Write {n} captions. ONLY JSON, no prose: "
-        '{"captions": ["caption 1 (\\n for line breaks)", "caption 2", "..."]}'
+    # ── stage A: premises from principles (no references anywhere in context) ──
+    k = n + 4   # overgenerate; stage B writes only the strongest n
+    a_user = (
+        f"THE CODEX:\n\n{codex}\n\n"
+        f"TAKEN TERRITORY — every one of these premises is used; yours must live elsewhere:\n{taken}\n"
+        f"{avoid_prod}\n\n"
+        f"Generate {k} premises."
     )
-    # 8000: adaptive thinking spends from the same budget as the JSON — 4000 truncated mid-batch
-    # (measured out=4000 exactly); billed only as used
-    text = complete_json(system, user, effort="high", max_tokens=8000, tag="lab")
+    a_out = complete_json(_IDEATE_SYS, a_user, effort="high", max_tokens=3000, tag="lab-ideate")
+    s, e = a_out.find("{"), a_out.rfind("}")
+    premises = []
+    if s != -1 and e != -1:
+        try:
+            premises = [p for p in json.loads(a_out[s:e + 1]).get("premises", [])
+                        if (p.get("premise") or "").strip()]
+        except json.JSONDecodeError:
+            premises = []
+    if not premises:
+        raise RuntimeError("ideation returned no premises — check the codex")
+
+    # ── stage B: execution with the wall as the BAR (premises locked, topics can't be hijacked) ──
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip())
+    system = (persona() + "\n\n" + _MECHANICS
+              + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
+              + "\n\nYOUR CATALOG (the bar to clear; premises taken):\n\n" + ref_block
+              + _EXECUTE_SYS_TAIL.replace("{k}", str(len(premises))).replace("{n}", str(n)))
+    b_user = "LOCKED PREMISES:\n" + "\n".join(
+        f"[{i}] {p['premise']}" + (f"  (charge: {p.get('charge')})" if p.get("charge") else "")
+        for i, p in enumerate(premises)
+    ) + f"\n\nWrite the strongest {n}."
+    text = complete_json(system, b_user, effort="high", max_tokens=8000, tag="lab-write")
     s, e = text.find("{"), text.rfind("}")
     cands = []
     if s != -1 and e != -1:
@@ -183,7 +215,7 @@ def generate_lab(n: int = 8) -> list[dict]:
                      for t in json.loads(text[s:e + 1]).get("captions", []) if (t or "").strip()]
         except json.JSONDecodeError:
             cands = []
-    out = _drop_ref_copies(cands)        # writing from understanding must still never reproduce a catalog line
+    out = _drop_ref_copies(cands)        # execution must still never reproduce a catalog line
     rows = [{"caption_id": _cid(c["text"]), "text": c["text"], "anchors": c.get("anchors") or [],
              "ts": time.time(), "rating": None} for c in out]
     _append_pool(rows)                   # the lab's OWN log — production genlog untouched
