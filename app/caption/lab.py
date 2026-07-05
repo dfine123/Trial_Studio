@@ -110,7 +110,7 @@ def build_codex(force: bool = False) -> dict:
             continue
         why = (r.get("why_it_works") or "").strip()
         ref_lines.append(f"- {cap}" + (f"\n  (why it landed: {why})" if why else ""))
-    hits, misses = [], []
+    hits, misses, mids = [], [], []
     for rec in graded:
         g = rec.get("grade") or {}
         rating = g.get("rating") or 0
@@ -122,11 +122,19 @@ def build_codex(force: bool = False) -> dict:
             hits.append(f"- [{rating}/10] {cap}" + (f" — operator: {note}" if note else ""))
         elif rating <= 4 and note:
             misses.append(f"- [{rating}/10] {cap} — operator: {note}")
+        elif 5 <= rating <= 7 and note:
+            # the mid band was a structural blind spot: operator notes here often ENDORSE a format
+            # or premise wearing a failed execution ("great format but lame premise", a handed-over
+            # template) — evidence that previously reached nothing
+            mids.append(f"- [{rating}/10] {cap} — operator: {note}")
     user = (
         "WHO HE IS:\n" + persona() + "\n\n"
         "THE CATALOG (posted references + decoded why-it-works):\n" + "\n".join(ref_lines) + "\n\n"
         "GRADED HITS (operator rated 8-10):\n" + ("\n".join(hits) or "(none yet)") + "\n\n"
-        "GRADED MISSES (operator rated 1-4, with the operator's own reason):\n" + ("\n".join(misses) or "(none yet)")
+        "GRADED MISSES (operator rated 1-4, with the operator's own reason):\n" + ("\n".join(misses) or "(none yet)") + "\n\n"
+        "GRADED NEAR-MISSES (operator rated 5-7 WITH a note — read these notes closely: they often "
+        "VALIDATE a format, premise or template while killing the execution; mine what the operator "
+        "endorsed, not just what failed):\n" + ("\n".join(mids) or "(none yet)")
     )
     codex = complete_json(_CODEX_SYS, user, effort="high", max_tokens=2600, tag="lab-codex").strip()
     if not codex:
@@ -136,7 +144,8 @@ def build_codex(force: bool = False) -> dict:
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(codex)
     os.replace(tmp, path)
-    return {"codex": codex, "rebuilt": True, "refs": len(ref_lines), "hits": len(hits), "misses": len(misses)}
+    return {"codex": codex, "rebuilt": True, "refs": len(ref_lines), "hits": len(hits),
+            "misses": len(misses), "mids": len(mids)}
 
 
 def persona() -> str:
