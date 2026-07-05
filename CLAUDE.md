@@ -80,17 +80,23 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - **Grading UI**: `/grade-reels` (reels, /10 + notes — notes are the PRIMARY signal; the operator
   often quotes a better alt: "X would have been an 8/9" → auto-mined). `/grade` (caption batches,
   keep/kill/off_voice). `/promote` (manual promotion page, now residual — learn auto-promotes).
-- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): production's RESTRICTIONS off, the bar
-  HIGHER — one call, full catalog at once (no anchor lock / rotation fairness / refine), the model
-  self-diversifies n swings aimed at lines that hit HARDER than production can reach; anti-repeat
-  framed as "covered territory, go somewhere new". ⚠️ CANON LESSON (operator correction): never
-  brief exploration as license to miss ("a glorious miss beats a safe 7" + forced distant-ref
-  collisions AIMED AT novelty → intentionally-experimental output — reverted). Exploration is the
-  MEANS; peak quality is the TARGET; the lab is graded on the SAME bar as production. Isolation:
-  own voice-owned `lab_pool.jsonl`, no prod genlog writes, no rotation credit, no reels. ONE
-  bridge back: a line rated ≥8 auto-promotes into the active voice's corpus (`source=lab_promoted`,
-  near-dup guarded); re-grading below 8 clears the row's claim. Endpoints:
-  `POST /api/lab/generate {n}` · `POST /api/lab/grade {caption_id, rating}` · `GET /api/lab/stats`.
+- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): **generation from PRINCIPLES, not
+  references** (operator architecture). `build_codex()` extracts + consolidates the mechanisms from
+  ALL evidence — every ref's decoded why_it_works, every graded reel (8–10 hits AND the operator's
+  1–4 kill notes), the persona — into a cached voice-owned codex (`lab_codex.md`; format taxonomy
+  FORBIDDEN, every principle generative + evidence-grounded; sections: core/craft/tripwires/
+  8-vs-10). `generate_lab` writes with NO reference wall: persona + `_MECHANICS` + codex only;
+  re-skins defined as failures; covered-territory stubs + ref-copy guard retained. Rebuild the
+  codex after learn rounds (`POST /api/lab/rebuild-codex` or the page button) — promoted lab hits
+  carry why_it_works and feed the next codex: understanding compounds. ⚠️ TWO CANON LESSONS
+  (operator corrections): (1) never brief exploration as license to miss ("a glorious miss beats a
+  safe 7" → intentionally-experimental output); (2) never ground the lab in the reference wall —
+  the model recreates the formats it sees ("raccoon→pigeon" re-skins = meta-level redundancy,
+  "does nothing for us"). ⚠️ max_tokens: adaptive thinking spends from the same budget — both lab
+  calls truncated at their exact caps before being raised (codex 2600, batch 8000). Isolation:
+  own `lab_pool.jsonl`, no prod genlog/rotation/reels; ONE bridge back: ≥8 → corpus
+  (`source=lab_promoted`, near-dup guarded); re-grade <8 clears the row's claim. Endpoints:
+  `POST /api/lab/generate {n}` · `/api/lab/grade` · `/api/lab/stats` · `/api/lab/rebuild-codex`.
 
 ## Reel pipeline
 
