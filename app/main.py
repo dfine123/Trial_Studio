@@ -1738,6 +1738,20 @@ def api_debug_repair_durations(dry: bool = True):
             "source_missing": missing, "changes": changes}
 
 
+class GateCheck(BaseModel):
+    texts: list[str]
+
+
+@app.post("/api/debug/gate-check")
+def api_debug_gate_check(req: GateCheck):
+    """Replay the coherence gate over arbitrary caption texts WITHOUT touching generation — the
+    validation harness for enabling drop mode (a graded round's mechanism-break kills must flag,
+    its 8+ hits and the corpus must come back clean)."""
+    from app.caption import engine
+    texts = [str(t) for t in (req.texts or [])][:80]
+    return {"n": len(texts), "broken": engine.check_coherence(texts)}
+
+
 class CorpusRemove(BaseModel):
     ref_ids: list[str]
 

@@ -41,6 +41,51 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
     return kept or cands
 
 
+_GATE_SYS = """You check short captions for ONE thing only: INTERNAL MECHANICAL COHERENCE. Grant every premise, no matter how absurd, crude, or exaggerated. Inside its own premise, does the line's mechanism resolve — do the numbers compute, do the comparisons map one-to-one, do the referents stay consistent, does the payoff connect to its setup, and does the caption hand the reader everything it needs to parse it? Flag ONLY a line whose mechanism contradicts ITSELF or whose payoff does not parse on a literal read. NEVER flag for taste, style, absurdity, edginess, hyperbole, slang, or not being funny — a metaphor that maps is coherent; an absurd-but-airtight leap is coherent.
+
+Return ONLY JSON: {"broken": [0-based indices of mechanically broken lines]}"""
+
+
+def check_coherence(texts: list[str]) -> list[int]:
+    """Indices of captions whose internal mechanism BREAKS on a literal read (grant-the-premise —
+    absurdity is never flagged, only self-contradiction). Best-effort: [] on any error."""
+    if not texts:
+        return []
+    lines = "\n".join(f"[{i}] {(t or '').strip()}" for i, t in enumerate(texts)).replace("\n\n", "\n")
+    try:
+        out = complete_json(_GATE_SYS, lines, effort="low", max_tokens=1500, tag="gate")
+        s, e = out.find("{"), out.rfind("}")
+        broken = json.loads(out[s:e + 1]).get("broken", []) if s != -1 else []
+        return sorted({int(i) for i in broken if isinstance(i, (int, float)) and 0 <= int(i) < len(texts)})
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _coherence_gate(cands: list[dict]) -> list[dict]:
+    """COHERENCE GATE — subtractive curation (same class as _drop_ref_copies/refine, never a prompt
+    rule): drops candidates whose joke MECHANISM contradicts itself on a literal read. Round-3 grading
+    measured this as the dominant kill driver (~9 of 18 kills: "18% tip = 18 grown men", "bank does
+    3 to 0", "what business needs a ps5?"). It judges EXECUTIONS, never formats — absurdity is
+    explicitly granted, so the full range stays intact. Failsafes: LLM error / >half flagged /
+    <2 survivors -> keep all. Mode via settings.coherence_gate: 'off' | 'log' (flag-only ledger,
+    the default until replay-validated) | 'drop'."""
+    from app.config import settings
+    mode = (getattr(settings, "coherence_gate", "log") or "log").lower()
+    if mode == "off" or len(cands) < 2:
+        return cands
+    flagged = check_coherence([c.get("text") or "" for c in cands])
+    if flagged:
+        shown = " ".join(f"[{i}:{(cands[i].get('text') or '')[:60]!r}]" for i in flagged)
+        print(f"[gate] mode={mode} flagged={len(flagged)}/{len(cands)} {shown}", flush=True)
+    if mode != "drop" or not flagged:
+        return cands
+    if len(flagged) > len(cands) / 2:
+        print("[gate] over-flagged -> keep all", flush=True)
+        return cands
+    kept = [c for i, c in enumerate(cands) if i not in set(flagged)]
+    return kept if len(kept) >= 2 else cands
+
+
 _FRAME_MARKERS = ("pov:", "pov ", "would you rather ", "wtf is ", "when ", "how bro ")
 
 
@@ -116,10 +161,10 @@ _BRIDGE = "\n\nBelow are your REAL captions — this is the voice, the range, AN
 
 _MECHANICS = """What every one of your captions shares — the FORMAT instincts (feel them, don't check them off):
 - THE TWIST. The setup primes one read; the line flips to another — the GAP is the joke. It can be a decode, a reframe, a bait-and-switch, or a self-own — but the whole line exists to land that turn.
-- PRECISION. The twist maps EXACTLY — the two halves line up perfectly. Approximate or almost-funny is dead.
+- PRECISION. The twist maps EXACTLY — the two halves line up perfectly. Approximate or almost-funny is dead. Grant yourself any absurd premise, but inside it the mechanism must survive a LITERAL read: numbers compute, comparisons map one-to-one, the payoff follows from its setup, and the line hands the reader everything it needs to parse it. The strongest payoffs cash a TRUE double meaning — the literal read and the figurative/slang read both land.
 - ECONOMY. The hit lands in the fewest words that carry it — one clean move, then stop. You trust the reader to get it: never explain the joke, pad the setup, or tack on a second and third payoff. Most of your best lines are dead-simple; length is earned ONLY when every beat does real work. If a line can be cut and still hits, it was too long.
 - DEADPAN CONFIDENCE. Stated flat, like it's obvious, even when it's unhinged.
-- HYPER-SPECIFIC + VERY-ONLINE. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague.
+- HYPER-SPECIFIC + VERY-ONLINE. Real specifics — named things, real numbers, real slang, emoji when it lands — never vague. The specifics that hit hardest live in THIS creator's world: the exact props, apps, and characters the references breathe.
 - ALWAYS SHARP — never generic, never corporate, never a motivational poster. Even a sincere line is a SPECIFIC truth or a parody, never a platitude."""
 
 _DEFAULT_PERSONA = """You ARE this creator. The captions below are your real posts — your voice, your range, and the bar. Write only in that exact voice: the same register, slang, rhythm, and attitude. Never corporate, poetic, or generic."""
@@ -352,7 +397,7 @@ def generate(
             c["anchor_ref"] = rid                       # back-compat (singular)
             c["anchor_refs"] = [rid] if rid else []     # provenance -> exact grade attribution
             out.append(c)
-    out = refine(_drop_ref_copies(out))  # drop anchor regurgitations, then subtractive edit
+    out = _coherence_gate(refine(_drop_ref_copies(out)))  # regurgitation drop -> subtractive edit -> coherence gate
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")     # hash the FINAL (post-refine) text
     log_generated([c.get("text", "") for c in out])
@@ -422,7 +467,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             with ThreadPoolExecutor(max_workers=max(1, k)) as ex:
                 futs = [ex.submit(contextvars.copy_context().run, one, a) for a in anchors[1:]]
                 raw += [c for c in (f.result() for f in futs) if c]
-    out = [c for c in refine(_drop_ref_copies(raw)) if (c.get("text") or "").strip()]
+    out = [c for c in _coherence_gate(refine(_drop_ref_copies(raw))) if (c.get("text") or "").strip()]
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])

@@ -19,18 +19,26 @@ from app.caption.llm import complete_json
 from app.corpus import grades as grade_store
 from app.corpus import reels as reel_store
 
-_MATCH_SYS = """You read an operator's NOTE on a short-form reel they graded, the caption that was POSTED, and the OTHER candidate captions that were available. Answer two things:
-1) better_index: does the note indicate a SPECIFIC other LISTED candidate would have been BETTER than the posted one? (Operators quote it and say "would have been an 8" / "would have worked better".) Give its 0-based index into CANDIDATES, or null if the note doesn't clearly prefer a specific listed alternative.
-2) off_voice: is the note saying the POSTED caption is OFF this creator's VOICE / STANCE — earnest, self-pitying, "emo", corny, an earnest-corporate or grind read, "not aligned with the high level voice"? This is specifically about voice/STANCE, NOT about a line merely being weak or forced. true or false.
+_MATCH_SYS = """You read an operator's NOTE on a short-form reel they graded, the caption that was POSTED, and the OTHER candidate captions that were available. Extract three things:
+1) endorsed: EVERY specific LISTED candidate the note clearly says would have been BETTER than the posted one. (Operators quote it and say "would have been an 8" / "would have worked better". A note can endorse SEVERAL candidates — return them all.) For each: its 0-based index into CANDIDATES and the rating the note claims for it (null if no number). A quote that is clearly a slightly-off retyping of a listed candidate counts as that candidate. Empty list if none.
+2) authored: complete standalone captions the operator WROTE THEMSELVES inside the note (a full line they'd post, usually followed by "would have been an 8/9/10") that match NO listed candidate. NOT fragments, NOT rewrites of one phrase of a caption, NOT premise templates with blanks. For each: the line verbatim exactly as written in the note and the claimed rating (null if none). Empty list if none.
+3) off_voice: is the note saying the POSTED caption is OFF this creator's VOICE / STANCE — earnest, self-pitying, "emo", corny, an earnest-corporate or grind read, "not aligned with the high level voice"? This is specifically about voice/STANCE, NOT about a line merely being weak or forced. true or false.
 
-Return ONLY JSON: {"better_index": <index or null>, "off_voice": <true|false>}"""
+Return ONLY JSON: {"endorsed": [{"index": <int>, "claim": <int or null>}], "authored": [{"text": "...", "claim": <int or null>}], "off_voice": <true|false>}"""
+
+
+def _squash(t: str) -> str:
+    import re
+    return re.sub(r"\s+", " ", (t or "")).strip().lower()
 
 
 def learn_from_reel(record: dict) -> dict:
-    """Mine a graded reel's note (per active profile, idempotent). Captures (a) a pairwise preference if it
-    names a better listed candidate, and (b) an off_voice STANCE negative on the posted caption if the note
-    flags the voice/stance as wrong. Returns {"pairwise": bool, "off_voice": bool}."""
-    got = {"pairwise": False, "off_voice": False}
+    """Mine a graded reel's note (per active profile, idempotent). Captures (a) a pairwise preference for
+    EVERY listed candidate the note endorses over the posted one (notes routinely endorse 2+ — round 3 had
+    three such notes; the old singular better_index silently dropped half), (b) operator-AUTHORED complete
+    captions written inside the note itself (ground-truth voice -> promotion), and (c) an off_voice STANCE
+    negative on the posted caption. Returns {"pairwise": bool, "off_voice": bool, "authored": int}."""
+    got = {"pairwise": False, "off_voice": False, "authored": 0}
     note = ((record.get("grade") or {}).get("notes") or "").strip()
     cands = record.get("candidates") or []
     posted_i = next((i for i, c in enumerate(cands) if c.get("chosen")), None)
@@ -39,22 +47,44 @@ def learn_from_reel(record: dict) -> dict:
     listing = "\n".join(f"[{i}] {(c.get('text') or '').strip()}" for i, c in enumerate(cands))
     user = f"POSTED index: {posted_i}\n\nCANDIDATES:\n{listing}\n\nNOTE: {note}"
     try:
-        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=200)
+        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=1200, tag="note-mine")
         s, e = out.find("{"), out.rfind("}")
         d = json.loads(out[s:e + 1]) if s != -1 else {}
     except Exception:  # noqa: BLE001
         return got
-    bi = d.get("better_index")
-    if isinstance(bi, int) and 0 <= bi < len(cands) and bi != posted_i:
-        winner, loser = (cands[bi].get("text") or "").strip(), (cands[posted_i].get("text") or "").strip()
-        if winner and loser and winner != loser:
-            grade_store.record_pairwise(winner, loser, {"source": "reel_note"})
-            got["pairwise"] = True
-    if d.get("off_voice") is True:
-        posted = (cands[posted_i].get("text") or "").strip()
-        if posted:
-            grade_store.record_verdict(posted, "off_voice", {"source": "reel_note"})
-            got["off_voice"] = True
+    posted = (cands[posted_i].get("text") or "").strip()
+    for ent in (d.get("endorsed") or []):
+        bi = ent.get("index") if isinstance(ent, dict) else None
+        if isinstance(bi, int) and 0 <= bi < len(cands) and bi != posted_i:
+            winner = (cands[bi].get("text") or "").strip()
+            if winner and posted and winner != posted:
+                ctx = {"source": "reel_note"}
+                if isinstance(ent.get("claim"), int):
+                    ctx["claim"] = ent["claim"]
+                grade_store.record_pairwise(winner, posted, ctx)
+                got["pairwise"] = True
+    from app.corpus.promote import _too_similar
+    for ent in (d.get("authored") or []):
+        text = (ent.get("text") or "").strip() if isinstance(ent, dict) else ""
+        claim = ent.get("claim") if isinstance(ent, dict) else None
+        if not text or not isinstance(claim, int):
+            continue
+        if _squash(text) not in _squash(note):
+            continue   # verbatim-span guard: an authored line must literally appear in the note
+        near = next((c for c in cands if _too_similar(text, c.get("text") or "")), None)
+        if near is not None:
+            # fuzzy guard: a near-match of a listed candidate is an ENDORSEMENT (operator misquote),
+            # never a new authored ref — otherwise a mangled retyping enters the corpus as gospel
+            w = (near.get("text") or "").strip()
+            if w and posted and w != posted and not near.get("chosen"):
+                grade_store.record_pairwise(w, posted, {"source": "reel_note", "claim": claim})
+                got["pairwise"] = True
+            continue
+        grade_store.record_authored(text, claim, {"source": "reel_note", "reel_id": record.get("reel_id")})
+        got["authored"] += 1
+    if d.get("off_voice") is True and posted:
+        grade_store.record_verdict(posted, "off_voice", {"source": "reel_note"})
+        got["off_voice"] = True
     return got
 
 

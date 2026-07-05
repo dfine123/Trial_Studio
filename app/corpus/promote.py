@@ -127,15 +127,24 @@ _ENDORSE_RX = re.compile(r"would(?:'ve| have| of)? been (?:like )?(?:a |an )?(\d
 
 def promote_all(pid=None, min_rating: int = 8) -> dict:
     """THE learning flow: every operator-validated line enters the corpus automatically — posted reels
-    rated >= min_rating AND note-endorsed alts ("[X] would have been an 8/9", already text-matched to the
-    reel's real candidates by the pairwise mining). The grades ARE the gate; idempotent via dedup. The
-    endorsed line's anchor also gets a keep credit so the formats producing operator-endorsed lines
-    amplify in rotation."""
+    rated >= min_rating, note-endorsed alts ("[X] would have been an 8/9", text-matched to the reel's
+    real candidates by the pairwise mining, per-line claim honored when the miner captured one), AND
+    operator-AUTHORED captions written inside grading notes (matched to NO candidate — the operator
+    literally writing the voice; highest-provenance grounding there is). The grades ARE the gate;
+    idempotent via dedup. The endorsed line's anchor also gets a keep credit so the formats producing
+    operator-endorsed lines amplify in rotation."""
     from app.corpus import attribute
     from app.corpus import grades as grade_store
-    pair_winners = {_norm(g.get("winner") or "") for g in grade_store.load_grades()
-                    if g.get("type") == "pairwise"}
-    posted, endorsed = [], []
+    all_grades = grade_store.load_grades()
+    pair_winners = {_norm(g.get("winner") or "") for g in all_grades if g.get("type") == "pairwise"}
+    # per-line claims captured by the note miner — a note claiming "an 8" AND "a 10" must not stamp
+    # both endorsed lines with the max
+    line_claims: dict[str, int] = {}
+    for g in all_grades:
+        if g.get("type") == "pairwise" and isinstance((g.get("context") or {}).get("claim"), int):
+            k = _norm(g.get("winner") or "")
+            line_claims[k] = max(line_claims.get(k, 0), g["context"]["claim"])
+    posted, endorsed, authored = [], [], []
     for r in reel_store.graded(pid):
         g = r.get("grade") or {}
         rating = g.get("rating") or 0
@@ -143,11 +152,14 @@ def promote_all(pid=None, min_rating: int = 8) -> dict:
             res = promote(r.get("reel_id"), pid)
             if res.get("ref_id"):
                 posted.append(res["ref_id"])
-        claim = max((int(x) for x in _ENDORSE_RX.findall(g.get("notes") or "")), default=0)
-        if claim >= min_rating:
+        note_claim = max((int(x) for x in _ENDORSE_RX.findall(g.get("notes") or "")), default=0)
+        if note_claim >= min_rating:
             vpid = _rec_voice(r)
             for c in (r.get("candidates") or []):
                 if not c.get("chosen") and _norm(c.get("text") or "") in pair_winners:
+                    claim = line_claims.get(_norm(c.get("text") or "")) or note_claim
+                    if claim < min_rating:
+                        continue
                     rid = _add_ref(c.get("text") or "", claim,
                                    [c.get("anchor_ref")], "note_endorsed",
                                    f"operator note: would have been a {claim}; promoted into the corpus", vpid)
@@ -155,5 +167,12 @@ def promote_all(pid=None, min_rating: int = 8) -> dict:
                         endorsed.append(rid)
                         if c.get("anchor_ref"):   # amplify the format that produced the endorsed line
                             attribute.credit_verdict({"anchor_refs": [c["anchor_ref"]]}, "keep", vpid)
+    for g in all_grades:
+        if g.get("type") == "authored" and (g.get("claim") or 0) >= min_rating:
+            rid = _add_ref(g.get("caption") or "", g.get("claim") or 0, [], "operator_authored",
+                           f"operator-AUTHORED in a grading note (claimed {g.get('claim')}/10) — "
+                           "ground-truth voice", pid)
+            if rid:
+                authored.append(rid)
     return {"posted_promoted": len(posted), "endorsed_promoted": len(endorsed),
-            "ref_ids": posted + endorsed}
+            "authored_promoted": len(authored), "ref_ids": posted + endorsed + authored}

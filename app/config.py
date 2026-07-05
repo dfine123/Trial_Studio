@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
+    coherence_gate: str = "log"                   # 'off' | 'log' (flag-only ledger) | 'drop' — literal-read
+                                                  # mechanism check on candidates; enable 'drop' only after
+                                                  # replay validation on graded rounds (kills flagged, hits clean)
     openai_api_key: str = ""
     openai_caption_model: str = "gpt-4o"          # OpenAI model for the A/B (override via OPENAI_CAPTION_MODEL)
 

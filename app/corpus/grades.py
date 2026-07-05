@@ -68,6 +68,19 @@ def record_pairwise(winner: str, loser: str, context: dict | None = None) -> Non
         _rewrite(recs)
 
 
+def record_authored(caption: str, claim: int, context: dict | None = None) -> None:
+    """One operator-AUTHORED caption from a grading note — a complete line the operator wrote
+    THEMSELVES (matched to no generated candidate) with the rating they claimed for it. Ground-truth
+    voice; promotion reads these. Dedup by caption text."""
+    with _LOCK:
+        recs = _load_raw()
+        if any(r.get("type") == "authored" and r.get("caption") == caption for r in recs):
+            return
+        recs.append({"type": "authored", "caption": caption, "claim": claim,
+                     "context": context or {}, "ts": time.time()})
+        _rewrite(recs)
+
+
 def record_best(winner: str, batch: list[str], context: dict | None = None) -> None:
     """One compact 'best of batch' record: `winner` beat the rest of `batch`. Expands to pairwise
     (winner > each other in batch) at training time. Dedups identical winner+batch."""
