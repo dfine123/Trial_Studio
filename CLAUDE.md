@@ -32,12 +32,23 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 6. **The corpus IS the generator's brain, and grades feed it automatically.** `/api/reels/learn`
    mines notes (pairwise + off_voice) AND auto-promotes every operator-validated line (posted reels
    rated ≥8 + note-endorsed "would have been an 8/9" alts) into the profile's references with decoded
-   why_it_works. Grade → learn → better generator. That's the whole loop.
+   why_it_works. Grade → learn → better generator. That's the whole loop. Round-3 upgrades (2026-07-05):
+   the miner captures EVERY endorsed candidate per note (was singular — 3 round-3 notes each endorsed
+   2 lines; half were silently lost), per-line claimed ratings, and operator-AUTHORED complete captions
+   (verbatim-span + fuzzy-vs-candidates + standalone-post guards → `authored` grade records →
+   `source=operator_authored` refs; a payoff FRAGMENT like "an LED sign with my name on it" must fail
+   the standalone test — one misfiled as p066 and was pruned via `/api/debug/authored-prune`). The
+   why_it_works labeler now receives the operator's own note (their punch-ups outrank the LLM's read).
 
 ## Voice architecture (two layers; voices are TOGGLEABLE per profile)
 
 - **Shared FORMAT base** (`engine._MECHANICS`): THE TWIST / PRECISION / ECONOMY / DEADPAN CONFIDENCE /
-  HYPER-SPECIFIC+VERY-ONLINE / ALWAYS SHARP. Same for every profile.
+  HYPER-SPECIFIC+VERY-ONLINE / ALWAYS SHARP. Same for every profile. Round-3 grounding (2026-07-05,
+  range-neutral craft only): PRECISION carries the LITERAL-READ demand (grant any premise, but numbers
+  compute / comparisons map / payoff follows — ~9/18 round-3 kills were mechanism breaks) + TRUE double
+  meaning as the named win mechanism (two-DUIs 8, "still getting bread" punch-up); HYPER-SPECIFIC
+  carries in-world specifics as a POSITIVE extension (the LED-sign lesson: "the randomness has a place
+  110%, but the thing has to be within the voice" — never shipped as a negative rule).
 - **Per-profile PERSONA** (`var/profiles/<id>/persona.md`, GET/POST `/api/profiles/{id}/persona`) +
   the profile's own `references.jsonl`. `voice_system() = persona + references + _MECHANICS`.
 - **VOICE POINTER**: a profile can generate with ANY profile's voice. `profiles.voice_id()` reads
@@ -85,6 +96,13 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   time (modular); ONE veto: clearly soft/self-pitying/off-persona. Never judges format/topic/length.
 - **Editor** (`app/caption/refine.py`): subtractive-only (trims over-extended tails, strips
   non-load-bearing filler). Never rewrites or adds.
+- **Coherence gate = MEASURED NEGATIVE, default OFF** (`engine._coherence_gate`, settings
+  `coherence_gate: off|log|drop`, harness `POST /api/debug/gate-check`). Built for round-3's dominant
+  kill class (mechanism breaks); replayed against the round's own kills/hits/endorsed/corpus with TWO
+  prompt framings: recall 0/9 at clean precision — a joke-charitable judge PARSES those lines fine;
+  the operator's "doesn't make sense" is sloppy-MAPPING taste, and strictness high enough to catch it
+  flags paradox/absurdist refs first (the distilled-taste-filter failure shape). Don't re-enable
+  without a new replay pass; the class is addressed at generation (PRECISION literal-read grounding).
 - **Learning** (`/api/reels/learn`, idempotent — re-run until corpus size stable): mines every graded
   reel's note + promotes ≥8 lines into the corpus (`app/corpus/promote.py`, provenance
   promoted_gen/note_endorsed, ref_id p### or renumbered). Railway's edge 502s the long call but the
