@@ -1541,6 +1541,15 @@ def api_debug_re_embed(dry: bool = False):
     return {"corrupt_clips": len(bad), "re_embedded": fixed, "failed": failed}
 
 
+@app.get("/api/debug/genlog-dump")
+def api_genlog_dump(request: Request, n: int = 300):
+    """Operator-only: the last n generated captions (the raw pool) for drift forensics."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.corpus.genlog import recent_generated
+    return {"captions": recent_generated(max(1, min(2000, n)))}
+
+
 @app.get("/api/debug/corpus-dump")
 def api_corpus_dump(request: Request):
     """Operator-only: the ACTIVE VOICE's full corpus + persona (used to export the Base voice as
