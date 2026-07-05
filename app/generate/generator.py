@@ -194,7 +194,7 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
         lines.append(f"[{i}] {summ}  | vibe: {vibe}")
     user = f"CAPTION:\n{caption_text}\n\nCLIPS:\n" + "\n".join(lines)
     try:
-        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=1200)
+        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=1200, tag="clip-match")
         start, end = out.find("{"), out.rfind("}")
         order = json.loads(out[start:end + 1]).get("ranked", []) if start != -1 else []
         ranked = [items[i][0] for i in order if isinstance(i, int) and 0 <= i < len(items)]
@@ -216,7 +216,7 @@ def match_audio(caption: str, audio_descs: list[str]) -> int:
         return 0
     listing = "\n".join(f"[{i}] {d}" for i, d in enumerate(audio_descs))
     try:
-        out = complete_json(_AUDIO_MATCH_SYS, f"CAPTION:\n{caption}\n\nAUDIOS:\n{listing}", effort="low", max_tokens=100)
+        out = complete_json(_AUDIO_MATCH_SYS, f"CAPTION:\n{caption}\n\nAUDIOS:\n{listing}", effort="low", max_tokens=100, tag="audio-match")
         s, e = out.find("{"), out.rfind("}")
         bi = int(json.loads(out[s:e + 1]).get("best", 0))
         return bi if 0 <= bi < len(audio_descs) else 0

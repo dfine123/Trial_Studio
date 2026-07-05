@@ -10,7 +10,7 @@ from app.config import settings
 
 
 def complete_json(system: str, user: str, effort: str = "high", max_tokens: int = 4000,
-                  cache_system: bool = False) -> str:
+                  cache_system: bool = False, tag: str = "-") -> str:
     # A per-request TEST backend (Sonnet 5 / OpenAI) overrides the model; None → production (settings).
     # cache_system marks the SYSTEM block as an ephemeral cache prefix (Anthropic prompt caching):
     # byte-identical reuse within the 5-min TTL bills at ~10% — a pure billing/latency optimization,
@@ -23,14 +23,14 @@ def complete_json(system: str, user: str, effort: str = "high", max_tokens: int 
         provider, model = override
         if provider == "openai":
             return _openai(system, user, max_tokens, model=model, effort=effort)
-        return _anthropic(system, user, effort, max_tokens, model=model, cache_system=cache_system)
+        return _anthropic(system, user, effort, max_tokens, model=model, cache_system=cache_system, tag=tag)
     if settings.caption_provider == "openai":
         return _openai(system, user, max_tokens)
-    return _anthropic(system, user, effort, max_tokens, cache_system=cache_system)
+    return _anthropic(system, user, effort, max_tokens, cache_system=cache_system, tag=tag)
 
 
 def _anthropic(system: str, user: str, effort: str, max_tokens: int, model: str | None = None,
-               cache_system: bool = False) -> str:
+               cache_system: bool = False, tag: str = "-") -> str:
     from anthropic import Anthropic
 
     sys_payload = ([{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
@@ -44,7 +44,7 @@ def _anthropic(system: str, user: str, effort: str, max_tokens: int, model: str 
         messages=[{"role": "user", "content": user}],
     )
     u = msg.usage
-    print(f"[llm] {model or settings.caption_model} eff={effort} in={u.input_tokens} "
+    print(f"[llm] tag={tag} {model or settings.caption_model} eff={effort} in={u.input_tokens} "
           f"out={u.output_tokens} cache_w={getattr(u, 'cache_creation_input_tokens', 0) or 0} "
           f"cache_r={getattr(u, 'cache_read_input_tokens', 0) or 0}", flush=True)
     return "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")

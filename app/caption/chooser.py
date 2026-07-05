@@ -47,7 +47,7 @@ def choose_best(candidates: list[str]) -> str:
     # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
     try:
         out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500,
-                            cache_system=True)   # stable system across a sequential batch → cross-reel cache hits
+                            cache_system=True, tag="chooser")   # stable system → cross-reel cache hits
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):

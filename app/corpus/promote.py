@@ -72,7 +72,7 @@ def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, p
     if any(_too_similar(cap, r.get("caption") or "") for r in refs):
         return None   # same joke, different rendition — one copy is enough
     try:    # decode the execution principles (why THIS rendition lands) — the learning content
-        out = complete_json(_LABEL_SYS, f"CAPTION:\n{cap}", effort="high", max_tokens=600)
+        out = complete_json(_LABEL_SYS, f"CAPTION:\n{cap}", effort="high", max_tokens=600, tag="promote-label")
         s, e = out.find("{"), out.rfind("}")
         lab = json.loads(out[s:e + 1]) if s != -1 else {}
     except Exception:  # noqa: BLE001

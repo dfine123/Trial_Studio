@@ -42,7 +42,7 @@ def refine(candidates: list[dict]) -> list[dict]:
     user = "Edit these (trim corny tails + strip pet-names; SAME count and order):\n" + json.dumps(texts, ensure_ascii=False)
     try:
         out = complete_json(_SYS, user, effort="medium", max_tokens=3000,
-                            cache_system=True)   # fixed editor system → cache hits across a batch
+                            cache_system=True, tag="refine")   # fixed editor system → cache hits across a batch
         start, end = out.find("{"), out.rfind("}")
         edited = json.loads(out[start : end + 1]).get("edited", [])
     except Exception:  # noqa: BLE001 — editor must never break generation

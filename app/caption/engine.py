@@ -293,7 +293,7 @@ def generate(
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
         '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
     )
-    text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=4000)
+    text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=4000, tag="batch-captions")
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         return []
@@ -352,7 +352,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
         # the k parallel candidates share ONE identical system (persona+refs+mechanics, several
         # thousand tokens) — cache it: first call writes, the rest read at ~10% of input price
         text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500,
-                             cache_system=True)
+                             cache_system=True, tag="candidate")
         s, e = text.find("{"), text.rfind("}")
         if s == -1 or e == -1:
             return None
