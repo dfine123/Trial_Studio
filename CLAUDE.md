@@ -80,20 +80,24 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - **Grading UI**: `/grade-reels` (reels, /10 + notes — notes are the PRIMARY signal; the operator
   often quotes a better alt: "X would have been an 8/9" → auto-mined). `/grade` (caption batches,
   keep/kill/off_voice). `/promote` (manual promotion page, now residual — learn auto-promotes).
-- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): **generation from PRINCIPLES, not
-  references** (operator architecture). `build_codex()` extracts + consolidates the mechanisms from
-  ALL evidence — every ref's decoded why_it_works, every graded reel (8–10 hits AND the operator's
-  1–4 kill notes), the persona — into a cached voice-owned codex (`lab_codex.md`; format taxonomy
-  FORBIDDEN, every principle generative + evidence-grounded; sections: core/craft/tripwires/
-  8-vs-10). `generate_lab` writes with NO reference wall: persona + `_MECHANICS` + codex only;
-  re-skins defined as failures; covered-territory stubs + ref-copy guard retained. Rebuild the
-  codex after learn rounds (`POST /api/lab/rebuild-codex` or the page button) — promoted lab hits
-  carry why_it_works and feed the next codex: understanding compounds. ⚠️ TWO CANON LESSONS
-  (operator corrections): (1) never brief exploration as license to miss ("a glorious miss beats a
-  safe 7" → intentionally-experimental output); (2) never ground the lab in the reference wall —
-  the model recreates the formats it sees ("raccoon→pigeon" re-skins = meta-level redundancy,
-  "does nothing for us"). ⚠️ max_tokens: adaptive thinking spends from the same budget — both lab
-  calls truncated at their exact caps before being raised (codex 2600, batch 8000). Isolation:
+- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): **TWO-STAGE — ideate from PRINCIPLES,
+  execute at the catalog bar** (operator architecture, v4 after three corrections).
+  `build_codex()` consolidates the mechanisms from ALL evidence — every ref's why_it_works, every
+  graded reel (8–10 hits AND the operator's 1–4 kill notes), the persona — into a cached
+  voice-owned codex (`lab_codex.md`; format taxonomy FORBIDDEN; core/craft/tripwires/8-vs-10).
+  Stage A IDEATES premises from the codex with ZERO references in context + catalog premises
+  listed as TAKEN → premises structurally can't be re-skins (topic fixed before any ref is seen;
+  overgenerates n+4). Stage B EXECUTES with the full reference wall as CRAFT CALIBRATION + bar
+  ("premises locked — the catalog shows your range of craft, not templates"), writes the
+  strongest n. Rebuild the codex after learn rounds (`POST /api/lab/rebuild-codex` / page button)
+  — promoted lab hits carry why_it_works and feed the next codex: understanding compounds.
+  ⚠️ THREE CANON LESSONS (operator corrections, all mine): (1) never brief exploration as license
+  to miss; (2) wall-grounded lab = format mimicry ("raccoon→pigeon" re-skins); (3) codex-ONLY
+  (no wall) = quality collapse AND still re-skins — the codex's few quoted fragments become
+  super-attractors, and losing the 131 full-fidelity exemplars drops the craft floor (a
+  description of greatness is lossy). WHAT and HOW-WELL must be separated structurally.
+  ⚠️ max_tokens: adaptive thinking spends from the same budget — THREE lab calls truncated at
+  their exact caps (ledger `out=` == cap is the tell); all now 2600/8000/8000. Isolation:
   own `lab_pool.jsonl`, no prod genlog/rotation/reels; ONE bridge back: ≥8 → corpus
   (`source=lab_promoted`, near-dup guarded); re-grade <8 clears the row's claim. Endpoints:
   `POST /api/lab/generate {n}` · `/api/lab/grade` · `/api/lab/stats` · `/api/lab/rebuild-codex`.
