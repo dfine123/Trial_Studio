@@ -1386,6 +1386,17 @@ def api_lab_stats():
     return lab.lab_stats()
 
 
+@app.post("/api/lab/rebuild-codex")
+def api_lab_rebuild_codex():
+    """Re-distill the lab's principles codex from the CURRENT evidence (refs + grades). Run after
+    learn rounds so new promotions/notes feed the understanding."""
+    from app.caption import lab
+    try:
+        return lab.build_codex(force=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"codex build failed: {exc}") from exc
+
+
 @app.get("/api/reels/pending")
 def api_reels_pending(backend: str | None = None):
     from app.caption import backend as _bk

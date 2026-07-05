@@ -49,16 +49,18 @@
 <body class="grain">
 <div class="wrap">
   <h1><span class="flask">🧪</span>The Lab</h1>
-  <p class="sub">Production's restrictions off — the bar is higher here, not lower.</p>
+  <p class="sub">Generation from principles — no references in the prompt, the bar higher than production.</p>
   <p class="legend">
-    Production locks every line to one rotation-assigned reference; the lab hands the model the <b>whole catalog at
-    once</b> and demands swings that <b>hit harder than production can reach</b>. Nothing here touches production —
-    no rotation credit, no avoid-window pollution, no reels — except the one bridge: <b>rate a line 8+ and it joins
-    the voice</b> as a real reference (near-dup guarded). Grade it exactly like production — same bar, same cold read.
+    The lab distills <b>everything we know about why your lines hit</b> — every reference's decoded why-it-works,
+    every grade and kill note you've given — into a <b>codex of mechanisms</b>, then writes from that understanding
+    alone: no reference wall, no formats to lean on, re-skins defined as failures. Nothing touches production except
+    the one bridge: <b>rate a line 8+ and it joins the voice</b> (and feeds the next codex). Grade on the same bar
+    as production, cold.
   </p>
   <div class="card bar">
     <button class="btn btn-primary" id="gen">Generate batch</button>
     <span class="stats" id="stats"></span>
+    <button class="btn btn-ghost btn-sm" id="recodex" title="Re-distill the principles from current refs + grades (run after learn rounds)">↻ rebuild understanding</button>
     <a class="link" href="/" target="_top" style="font-size:12.5px">← studio</a>
   </div>
   <div class="status" id="status"></div>
@@ -133,6 +135,17 @@ async function genBatch(){
 }
 document.getElementById('gen').onclick = genBatch;
 document.getElementById('next').onclick = genBatch;
+document.getElementById('recodex').onclick = async () => {
+  const b = document.getElementById('recodex');
+  b.disabled = true; b.textContent = 'distilling…';
+  try {
+    const r = await fetch('/api/lab/rebuild-codex', { method: 'POST' });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'failed');
+    const d = await r.json();
+    toast(`understanding rebuilt — ${d.refs} refs · ${d.hits + d.misses} grades distilled`);
+  } catch (e) { toast(e.message, 'err'); }
+  b.disabled = false; b.textContent = '↻ rebuild understanding';
+};
 refreshStats();
 </script>
 </body>
