@@ -126,7 +126,7 @@ def build_codex(force: bool = False) -> dict:
         "GRADED HITS (operator rated 8-10):\n" + ("\n".join(hits) or "(none yet)") + "\n\n"
         "GRADED MISSES (operator rated 1-4, with the operator's own reason):\n" + ("\n".join(misses) or "(none yet)")
     )
-    codex = complete_json(_CODEX_SYS, user, effort="high", max_tokens=1600, tag="lab-codex").strip()
+    codex = complete_json(_CODEX_SYS, user, effort="high", max_tokens=2600, tag="lab-codex").strip()
     if not codex:
         raise RuntimeError("codex distillation returned nothing")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -172,7 +172,9 @@ def generate_lab(n: int = 8) -> list[dict]:
         f"Write {n} captions. ONLY JSON, no prose: "
         '{"captions": ["caption 1 (\\n for line breaks)", "caption 2", "..."]}'
     )
-    text = complete_json(system, user, effort="high", max_tokens=4000, tag="lab")
+    # 8000: adaptive thinking spends from the same budget as the JSON — 4000 truncated mid-batch
+    # (measured out=4000 exactly); billed only as used
+    text = complete_json(system, user, effort="high", max_tokens=8000, tag="lab")
     s, e = text.find("{"), text.rfind("}")
     cands = []
     if s != -1 and e != -1:
