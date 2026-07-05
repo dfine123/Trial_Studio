@@ -41,20 +41,35 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
     return kept or cands
 
 
-def _avoid_block(window: int = 150, stub_words: int = 9) -> str:
-    """The anti-repeat list as PREMISE STUBS (each line's first few words), not full captions.
+_FRAME_MARKERS = ("pov:", "pov ", "would you rather ", "wtf is ", "when ", "how bro ")
 
-    Its job is premise anti-repeat; the premise lives in the opener. Full texts also acted as 150
-    in-prompt length examples — measured ratchet: as output ran longer, the window filled with long
-    lines and generation drifted further above the corpus (pool mean 17.5 -> 19.9 words while refs
-    held at ~17). Uniform stubs carry the premise signal with ZERO length signal. Grounding for
-    length lives where it belongs: the references."""
-    stubs = []
-    for c in recent_generated(window):
-        ws = (c or "").replace("\n", " / ").split()
-        if ws:
-            stubs.append(" ".join(ws[:stub_words]) + ("…" if len(ws) > stub_words else ""))
-    return "\n".join("- " + s for s in dict.fromkeys(stubs)) or "(none yet)"
+
+def _avoid_stub(c: str, stub_words: int = 9) -> str:
+    """One line's premise stub: FORMAT MARKERS are stripped FIRST, then the first words of the
+    CONTENT are taken — so the avoid list describes used IDEAS, never used openers. ⚠️ Regression
+    this fixes: raw first-9-word stubs put the format marker itself in the list ("POV: …" ×30,
+    "🥷s …") under a "don't rehash these openers" instruction — which suppressed entire VALIDATED
+    format species (operator caught POV/🥷/sincere vanishing from production)."""
+    t = (c or "").replace("\n", " / ").strip()
+    while t and t[0] == "🥷":
+        t = t.lstrip("🥷").lstrip("s'’ ").strip()
+    low = t.lower()
+    for m in _FRAME_MARKERS:
+        if low.startswith(m):
+            t = t[len(m):].lstrip(" :—-").strip()
+            break
+    ws = t.split()
+    return " ".join(ws[:stub_words]) + ("…" if len(ws) > stub_words else "")
+
+
+def _avoid_block(window: int = 150, stub_words: int = 9) -> str:
+    """The anti-repeat list as PREMISE STUBS (marker-stripped content openers), not full captions.
+
+    Premise anti-repeat only: full texts acted as 150 in-prompt length examples (measured ratchet,
+    pool 17.5 -> 19.9 words) and raw opener-stubs read as banned FORMATS (measured species loss).
+    Content stubs carry the idea signal with zero length signal and zero format signal."""
+    stubs = [_avoid_stub(c, stub_words) for c in recent_generated(window)]
+    return "\n".join("- " + s for s in dict.fromkeys(s for s in stubs if s)) or "(none yet)"
 
 _GAMBLING_TERMS = (
     "parlay", "casino", "blackjack", "dealer", "slot", "sportsbook", "vegas", "lottery",
@@ -129,6 +144,21 @@ def voice_system(ref_block: str) -> str:
     return persona() + _BRIDGE.format(references=ref_block) + _MECHANICS
 
 
+_SINCERE_TRAITS = ("sincere", "grindset", "mindset", "wisdom", "motivational")
+
+
+def _ref_species(r: dict) -> str:
+    """Coarse species for the rotation floor: 'frame' (marker-opened formats), 'sincere'
+    (real-talk/proverb traits), else 'other'."""
+    cap = (r.get("caption") or "").strip()
+    if cap.startswith("🥷") or cap.lower().startswith(_FRAME_MARKERS):
+        return "frame"
+    trait = (r.get("persona_trait") or "").lower()
+    if any(t in trait for t in _SINCERE_TRAITS):
+        return "sincere"
+    return "other"
+
+
 def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
     """n DISTINCT reference anchors. Rotates least-used-first for coverage, then weights by the
     GRADE signal: chronically-killed refs drop out, proven winners recur sooner. Distinct trait per
@@ -180,6 +210,19 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
             break
         if is_winner(r):
             try_add(r)
+    # SPECIES FLOOR (operator rule: validated species must never just disappear from batches) —
+    # every real batch carries at least one FRAME-format anchor (POV / 🥷 / would-you-rather /
+    # wtf-is / when / how-bro — the frame-species exception then keeps it a frame in output) and
+    # one SINCERE anchor (the largest seed cluster, structurally diluted by joke-heavy promotions:
+    # 17 seeds vs 2/47 promoted — measured 2026-07-04).
+    if n >= 5:
+        for want in ("frame", "sincere"):
+            if not any(_ref_species(a) == want for a in anchors):
+                for r in by_usage:
+                    if _ref_species(r) == want:
+                        try_add(r)
+                        if any(_ref_species(a) == want for a in anchors):
+                            break
     # fill the rest from the general least-used rotation (coverage + variety)
     for r in by_usage:
         if len(anchors) >= n:
@@ -289,7 +332,8 @@ def generate(
         "share of your best references are dead-simple and under 12 words, so when an idea lands short, LEAVE it "
         "short:\n\n"
         + anchor_block
-        + f"\n\n(Don't rehash these recent premises — openers of your last lines: {avoid})\n\n"
+        + f"\n\n(Only the IDEA must be new — every format and opener you use stays fully in play. "
+          f"Recently used ideas, don't re-tread them: {avoid})\n\n"
         + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
         '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
     )
@@ -346,7 +390,8 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             "lines are often dead-simple and SHORT — when the idea lands in 10 words, that's the caption; never "
             "pad past the joke. Keep your exact specificity; never generic, corporate, or poetic:\n\n"
             + _anchor_render("ANCHOR", anchor) + "\n\n"
-            f"(Don't rehash these recent premises — openers of your last lines: {avoid})\n\n"
+            f"(Only the IDEA must be new — every format and opener you use stays fully in play. "
+            f"Recently used ideas, don't re-tread them: {avoid})\n\n"
             'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
         )
         # the k parallel candidates share ONE identical system (persona+refs+mechanics, several
