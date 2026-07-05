@@ -128,11 +128,17 @@ def generate_lab(n: int = 8) -> list[dict]:
             return None
         return {"text": t, "anchors": [a.get("ref_id"), b.get("ref_id")]} if t else None
 
-    from app.caption.engine import _prime_cache
-    _prime_cache(voice_system(ref_block))   # one cache write, then the parallel collisions READ
-    with ThreadPoolExecutor(max_workers=max(1, n)) as ex:
-        futs = [ex.submit(contextvars.copy_context().run, one, p) for p in pairs]
-        raw = [c for c in (f.result() for f in futs) if c]
+    # sequential-first (see engine.generate_independent): collision 1 pays the single cache write,
+    # the rest fan out and READ at ~10%
+    raw = []
+    if pairs:
+        first = contextvars.copy_context().run(one, pairs[0])
+        if first:
+            raw.append(first)
+        if len(pairs) > 1:
+            with ThreadPoolExecutor(max_workers=max(1, n)) as ex:
+                futs = [ex.submit(contextvars.copy_context().run, one, p) for p in pairs[1:]]
+                raw += [c for c in (f.result() for f in futs) if c]
     out = _drop_ref_copies(raw)          # a collision must not return a parent verbatim
     rows = [{"caption_id": _cid(c["text"]), "text": c["text"], "anchors": c.get("anchors") or [],
              "ts": time.time(), "rating": None} for c in out]
