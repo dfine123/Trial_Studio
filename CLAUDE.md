@@ -80,14 +80,16 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - **Grading UI**: `/grade-reels` (reels, /10 + notes — notes are the PRIMARY signal; the operator
   often quotes a better alt: "X would have been an 8/9" → auto-mined). `/grade` (caption batches,
   keep/kill/off_voice). `/promote` (manual promotion page, now residual — learn auto-promotes).
-- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): the ISOLATED exploration lane for
-  caption redundancy-at-scale. Same voice grounding, but each candidate collides TWO
-  deliberately-DISTANT references (least word-overlap pairing) under an off-the-leash brief —
-  heat is ENGINEERED (recombination + brief), not a sampling knob (Anthropic caps temperature at
-  1 and adaptive thinking locks it). Isolation: own voice-owned `lab_pool.jsonl`, no prod genlog
-  writes, no rotation credit, no reels. ONE bridge back: a line rated ≥8 auto-promotes into the
-  active voice's corpus (`source=lab_promoted`, near-dup guarded); re-grading below 8 clears the
-  row's claim (the corpus ref stays until `/api/debug/corpus-remove`). Endpoints:
+- **THE LAB** (`/lab` + sidebar tab, `app/caption/lab.py`): production's RESTRICTIONS off, the bar
+  HIGHER — one call, full catalog at once (no anchor lock / rotation fairness / refine), the model
+  self-diversifies n swings aimed at lines that hit HARDER than production can reach; anti-repeat
+  framed as "covered territory, go somewhere new". ⚠️ CANON LESSON (operator correction): never
+  brief exploration as license to miss ("a glorious miss beats a safe 7" + forced distant-ref
+  collisions AIMED AT novelty → intentionally-experimental output — reverted). Exploration is the
+  MEANS; peak quality is the TARGET; the lab is graded on the SAME bar as production. Isolation:
+  own voice-owned `lab_pool.jsonl`, no prod genlog writes, no rotation credit, no reels. ONE
+  bridge back: a line rated ≥8 auto-promotes into the active voice's corpus (`source=lab_promoted`,
+  near-dup guarded); re-grading below 8 clears the row's claim. Endpoints:
   `POST /api/lab/generate {n}` · `POST /api/lab/grade {caption_id, rating}` · `GET /api/lab/stats`.
 
 ## Reel pipeline

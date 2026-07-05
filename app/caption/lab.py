@@ -1,29 +1,29 @@
-"""THE LAB — an isolated exploration lane for caption generation.
+"""THE LAB — production's restrictions OFF, the bar HIGHER.
 
-Production generation is reference-DOMINATED and convergent by design; at scale that reads
-"a tiny bit redundant" (operator). The lab runs HOT on purpose: the SAME voice grounding
-(persona + references + mechanics — it must still be him), but each candidate collides TWO
-deliberately-DISTANT references and the brief licenses the swing: write the line the corpus
-wouldn't predict. New formats welcome; a glorious miss beats a safe 7.
+Production generation locks each candidate to ONE rotation-assigned reference (coverage
+fairness) and edits the output. The lab strips those restrictions: the model gets the whole
+catalog at once, full freedom over angle/format/territory — in service of lines that hit
+HARDER than production can reach (catalog-worthy kill shots), never novelty for its own
+sake. Same voice grounding (persona + references + mechanics — it must still be him); no
+refine pass (the raw edge ships); anti-repeat kept as "covered territory — go somewhere new".
+
+⚠️ LESSON (operator correction, 2026-07-04): the first version briefed "a glorious miss
+beats a safe 7" + forced distant-reference collisions — that AIMED AT novelty and licensed
+misses, producing intentionally-experimental lines. Exploration is the MEANS; peak quality
+is the TARGET. The lab's hits should out-hit production, not excuse weaker output.
 
 Isolation: its own pool log (voice-owned lab_pool.jsonl), NO production genlog writes, NO
 rotation credit, NO reels — with exactly ONE designed pathway back into the system: a lab
 line the operator rates >=8 auto-promotes into the ACTIVE VOICE's references
 (source=lab_promoted, near-dup guarded) — grounding by wins, the living corpus.
-
-Heat note: the Anthropic API caps temperature at 1.0 (and adaptive thinking locks it), so
-the lab's heat is ENGINEERED — distant-anchor recombination + an exploration brief — not a
-sampling knob.
 """
 from __future__ import annotations
 
-import contextvars
 import hashlib
 import json
 import os
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from app import profiles
 from app.caption.llm import complete_json
@@ -62,39 +62,23 @@ def _cid(text: str) -> str:
     return hashlib.sha1((text or "").strip().lower().encode()).hexdigest()[:12]
 
 
-def _words(t: str) -> set[str]:
-    return {w for w in "".join(ch if ch.isalnum() else " " for ch in (t or "").lower()).split() if len(w) > 3}
-
-
-def _distant_pairs(refs: list[dict], n: int) -> list[tuple[dict, dict]]:
-    """n anchor PAIRS, each deliberately far apart: a random ref + the ref (from a sample) sharing
-    the fewest content words with it. Distant DNA -> recombination pressure -> lines the corpus
-    wouldn't predict."""
-    pool = [r for r in refs if (r.get("caption") or "").strip()]
-    pairs = []
-    for _ in range(n):
-        a = random.choice(pool)
-        aw = _words(a.get("caption"))
-        sample = random.sample(pool, min(40, len(pool)))
-        b = min((r for r in sample if r is not a),
-                key=lambda r: len(aw & _words(r.get("caption"))), default=a)
-        pairs.append((a, b))
-    return pairs
-
-
 _LAB_BRIEF = (
-    "THE LAB — tonight you're off the leash. You know this voice cold (the references above are "
-    "yours); now write the line the references WOULDN'T predict. Below are TWO of your old lines "
-    "with unrelated DNA — collide them: take the mechanism of one into the world of the other, or "
-    "find the third thing neither of them saw. New formats and shapes you've never used are "
-    "welcome. Weird, hyper-specific swings beat safe competent lines — a glorious miss beats a "
-    "safe 7. It still has to be HIM (the confidence, the specificity, the economy) — exploration "
-    "of WHAT gets said and HOW it's shaped, never a different person."
+    "THE LAB. In production you write each line SPARKED FROM one assigned reference, rotated for "
+    "coverage. Tonight that restriction is OFF: the whole catalog above is yours at once, and the "
+    "bar is HIGHER here, not lower — your job is lines that hit HARDER than the production system "
+    "can reach, lines so good they'd earn a permanent spot in the catalog. Go wherever the heat "
+    "is: corners of the catalog production's rotation rarely reaches, collisions between its "
+    "worlds, formats and angles it hasn't touched — exploration in service of the KILL SHOT, "
+    "never novelty for its own sake. Every line must be unmistakably HIM (the confidence, the "
+    "precision, the economy — never a different person), and each of the {n} must be a genuinely "
+    "different swing — different angle, shape, or territory. Only ship swings you'd bet on."
 )
 
 
 def generate_lab(n: int = 8) -> list[dict]:
-    """n hot candidates, each from a distant-anchor collision. Parallel; isolated (no prod genlog)."""
+    """n unleashed swings in ONE call: full-catalog freedom (no anchor lock, no rotation), the
+    model self-diversifies the set — the bar is production-plus, not experimental. Isolated
+    (no prod genlog)."""
     from app.caption.engine import _avoid_block, _drop_ref_copies, voice_system
     from app.corpus.store import load_refs
     refs = load_refs()
@@ -102,44 +86,27 @@ def generate_lab(n: int = 8) -> list[dict]:
         raise RuntimeError("this voice has no references yet — the lab needs a corpus to explode")
     random.shuffle(refs)
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip())
-    # anti-redundancy: production stubs (don't re-make what prod already made) + the lab's own pool
+    # anti-redundancy: territory production + the lab already covered — exploration goes NEW places
     lab_stubs = [" ".join(((r.get("text") or "").replace("\n", " / ")).split()[:9])
                  for r in _load_pool()[-120:]]
     avoid = _avoid_block() + ("\n" + "\n".join("- " + s + "…" for s in dict.fromkeys(lab_stubs)) if lab_stubs else "")
-    pairs = _distant_pairs(refs, n)
 
-    def one(pair: tuple[dict, dict]) -> dict | None:
-        a, b = pair
-        user = (
-            _LAB_BRIEF + "\n\n"
-            f"LINE A: {a.get('caption')}\n(why it landed: {a.get('why_it_works') or '—'})\n\n"
-            f"LINE B: {b.get('caption')}\n(why it landed: {b.get('why_it_works') or '—'})\n\n"
-            f"(Don't rehash these recent premises: {avoid})\n\n"
-            'Write ONE caption. ONLY JSON, no prose: {"text": "the caption (\\n for line breaks)"}'
-        )
-        text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=1500,
-                             cache_system=True, tag="lab")   # collisions share one system — cache it
-        s, e = text.find("{"), text.rfind("}")
-        if s == -1 or e == -1:
-            return None
+    user = (
+        _LAB_BRIEF.replace("{n}", str(n)) + "\n\n"
+        f"(Territory already covered — go somewhere NEW: {avoid})\n\n"
+        f"Write {n} captions. ONLY JSON, no prose: "
+        '{"captions": ["caption 1 (\\n for line breaks)", "caption 2", "..."]}'
+    )
+    text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=4000, tag="lab")
+    s, e = text.find("{"), text.rfind("}")
+    cands = []
+    if s != -1 and e != -1:
         try:
-            t = (json.loads(text[s:e + 1]).get("text") or "").strip()
+            cands = [{"text": (t or "").strip(), "anchors": []}
+                     for t in json.loads(text[s:e + 1]).get("captions", []) if (t or "").strip()]
         except json.JSONDecodeError:
-            return None
-        return {"text": t, "anchors": [a.get("ref_id"), b.get("ref_id")]} if t else None
-
-    # sequential-first (see engine.generate_independent): collision 1 pays the single cache write,
-    # the rest fan out and READ at ~10%
-    raw = []
-    if pairs:
-        first = contextvars.copy_context().run(one, pairs[0])
-        if first:
-            raw.append(first)
-        if len(pairs) > 1:
-            with ThreadPoolExecutor(max_workers=max(1, n)) as ex:
-                futs = [ex.submit(contextvars.copy_context().run, one, p) for p in pairs[1:]]
-                raw += [c for c in (f.result() for f in futs) if c]
-    out = _drop_ref_copies(raw)          # a collision must not return a parent verbatim
+            cands = []
+    out = _drop_ref_copies(cands)        # an unleashed swing must still not be a catalog line verbatim
     rows = [{"caption_id": _cid(c["text"]), "text": c["text"], "anchors": c.get("anchors") or [],
              "ts": time.time(), "rating": None} for c in out]
     _append_pool(rows)                   # the lab's OWN log — production genlog untouched
