@@ -10,7 +10,8 @@ from app.config import settings
 
 
 def complete_json(system: str, user: str, effort: str = "high", max_tokens: int = 4000,
-                  cache_system: bool = False, tag: str = "-") -> str:
+                  cache_system: bool = False, tag: str = "-",
+                  cache_user_prefix: str | None = None) -> str:
     # A per-request TEST backend (Sonnet 5 / OpenAI) overrides the model; None → production (settings).
     # cache_system marks the SYSTEM block as an ephemeral cache prefix (Anthropic prompt caching):
     # byte-identical reuse within the 5-min TTL bills at ~10% — a pure billing/latency optimization,
@@ -23,25 +24,35 @@ def complete_json(system: str, user: str, effort: str = "high", max_tokens: int 
         provider, model = override
         if provider == "openai":
             return _openai(system, user, max_tokens, model=model, effort=effort)
-        return _anthropic(system, user, effort, max_tokens, model=model, cache_system=cache_system, tag=tag)
+        return _anthropic(system, user, effort, max_tokens, model=model, cache_system=cache_system,
+                          tag=tag, cache_user_prefix=cache_user_prefix)
     if settings.caption_provider == "openai":
         return _openai(system, user, max_tokens)
-    return _anthropic(system, user, effort, max_tokens, cache_system=cache_system, tag=tag)
+    return _anthropic(system, user, effort, max_tokens, cache_system=cache_system, tag=tag,
+                      cache_user_prefix=cache_user_prefix)
 
 
 def _anthropic(system: str, user: str, effort: str, max_tokens: int, model: str | None = None,
-               cache_system: bool = False, tag: str = "-") -> str:
+               cache_system: bool = False, tag: str = "-", cache_user_prefix: str | None = None) -> str:
     from anthropic import Anthropic
 
     sys_payload = ([{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
                    if cache_system else system)
+    # cache_user_prefix: a large, call-to-call-stable LEADING chunk of the user message (e.g. the
+    # clip listing the matcher ranks) cached as its own prefix block; the varying part follows it.
+    # Everything before the breakpoint (system + prefix) must be byte-identical to hit.
+    if cache_user_prefix:
+        content = [{"type": "text", "text": cache_user_prefix, "cache_control": {"type": "ephemeral"}},
+                   {"type": "text", "text": user}]
+    else:
+        content = user
     msg = Anthropic(api_key=settings.anthropic_api_key, max_retries=5).messages.create(
         model=model or settings.caption_model,
         max_tokens=max_tokens,
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
         system=sys_payload,
-        messages=[{"role": "user", "content": user}],
+        messages=[{"role": "user", "content": content}],
     )
     u = msg.usage
     print(f"[llm] tag={tag} {model or settings.caption_model} eff={effort} in={u.input_tokens} "

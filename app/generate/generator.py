@@ -183,7 +183,10 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
     library offers the ranker its most watchable footage — and if the ranking call fails, the
     fallback order is that same quality order, never arbitrary DB order."""
     q = clip_quality or {}
-    items = sorted(clip_meta.items(), key=lambda kv: q.get(kv[0], 0.0), reverse=True)
+    # deterministic order (quality desc, id tiebreak) — the clip LISTING is byte-stable between
+    # reels, so it rides the prompt cache as a user-prefix block (~11.7k tokens at ~10% on reuse);
+    # only the caption tail varies per reel
+    items = sorted(clip_meta.items(), key=lambda kv: (-q.get(kv[0], 0.0), kv[0]))
     if len(items) <= 1:
         return [cid for cid, _ in items]
     items = items[:max_clips]
@@ -192,9 +195,11 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
         summ = (m.get("summary") or "").strip().replace("\n", " ")[:160]
         vibe = ", ".join((m.get("vibe_tags") or [])[:6])
         lines.append(f"[{i}] {summ}  | vibe: {vibe}")
-    user = f"CAPTION:\n{caption_text}\n\nCLIPS:\n" + "\n".join(lines)
+    clip_block = "CLIPS:\n" + "\n".join(lines)
+    tail = f"\nCAPTION:\n{caption_text}\n\nRank the clips above for THIS caption."
     try:
-        out = complete_json(_MATCH_SYS, user, effort="low", max_tokens=1200, tag="clip-match")
+        out = complete_json(_MATCH_SYS, tail, effort="low", max_tokens=1200, tag="clip-match",
+                            cache_user_prefix=clip_block)
         start, end = out.find("{"), out.rfind("}")
         order = json.loads(out[start:end + 1]).get("ranked", []) if start != -1 else []
         ranked = [items[i][0] for i in order if isinstance(i, int) and 0 <= i < len(items)]
