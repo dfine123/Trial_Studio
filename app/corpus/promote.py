@@ -59,10 +59,13 @@ def _too_similar(a: str, b: str, thr: float = 0.8) -> bool:
     return len(wa & wb) / min(len(wa), len(wb)) >= thr
 
 
-def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, pid=None) -> str | None:
+def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, pid=None,
+             op_note: str | None = None) -> str | None:
     """Append one operator-validated caption to the corpus (deduped, incl. NEAR-duplicates — a format
     must never stack multiple copies of the same joke, or it gets double the rotation slots + double
-    the voice-block priming). Returns the new ref_id or None."""
+    the voice-block priming). op_note = the operator's own grading note, fed to the why_it_works
+    labeler so the decode carries THEIR read (e.g. a punch-up they wrote), not just the LLM's.
+    Returns the new ref_id or None."""
     cap = (caption or "").strip()
     if not cap:
         return None
@@ -71,8 +74,11 @@ def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, p
         return None
     if any(_too_similar(cap, r.get("caption") or "") for r in refs):
         return None   # same joke, different rendition — one copy is enough
+    user = f"CAPTION:\n{cap}"
+    if (op_note or "").strip():
+        user += f"\n\nOPERATOR'S OWN NOTE on it (their read outranks yours — fold it in):\n{op_note.strip()}"
     try:    # decode the execution principles (why THIS rendition lands) — the learning content
-        out = complete_json(_LABEL_SYS, f"CAPTION:\n{cap}", effort="high", max_tokens=600, tag="promote-label")
+        out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=600, tag="promote-label")
         s, e = out.find("{"), out.rfind("}")
         lab = json.loads(out[s:e + 1]) if s != -1 else {}
     except Exception:  # noqa: BLE001
@@ -117,7 +123,8 @@ def promote(reel_id: str, pid=None) -> dict:
         return {"ok": False, "reason": "reel not found or ungraded"}
     rating = (rec.get("grade") or {}).get("rating") or 0
     rid = _add_ref(rec.get("caption") or "", rating, rec.get("caption_anchor_refs") or [], "promoted_gen",
-                   f"operator-rated {rating}/10 on a real reel; promoted into the corpus", _rec_voice(rec))
+                   f"operator-rated {rating}/10 on a real reel; promoted into the corpus", _rec_voice(rec),
+                   op_note=(rec.get("grade") or {}).get("notes"))
     reel_store.mark_promoted(reel_id, pid)
     return {"ok": True, "ref_id": rid, "already": rid is None}
 
@@ -162,16 +169,20 @@ def promote_all(pid=None, min_rating: int = 8) -> dict:
                         continue
                     rid = _add_ref(c.get("text") or "", claim,
                                    [c.get("anchor_ref")], "note_endorsed",
-                                   f"operator note: would have been a {claim}; promoted into the corpus", vpid)
+                                   f"operator note: would have been a {claim}; promoted into the corpus", vpid,
+                                   op_note=g.get("notes"))
                     if rid:
                         endorsed.append(rid)
                         if c.get("anchor_ref"):   # amplify the format that produced the endorsed line
                             attribute.credit_verdict({"anchor_refs": [c["anchor_ref"]]}, "keep", vpid)
+    notes_by_reel = {r.get("reel_id"): (r.get("grade") or {}).get("notes")
+                     for r in reel_store.graded(pid)}
     for g in all_grades:
         if g.get("type") == "authored" and (g.get("claim") or 0) >= min_rating:
             rid = _add_ref(g.get("caption") or "", g.get("claim") or 0, [], "operator_authored",
                            f"operator-AUTHORED in a grading note (claimed {g.get('claim')}/10) — "
-                           "ground-truth voice", pid)
+                           "ground-truth voice", pid,
+                           op_note=notes_by_reel.get((g.get("context") or {}).get("reel_id")))
             if rid:
                 authored.append(rid)
     return {"posted_promoted": len(posted), "endorsed_promoted": len(endorsed),

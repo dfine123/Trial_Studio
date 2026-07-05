@@ -1738,6 +1738,31 @@ def api_debug_repair_durations(dry: bool = True):
             "source_missing": missing, "changes": changes}
 
 
+class AuthoredPrune(BaseModel):
+    contains: str = ""
+
+
+@app.post("/api/debug/authored-prune")
+def api_debug_authored_prune(req: AuthoredPrune):
+    """Inspect / surgically remove 'authored' grade records (operator-written note captions). Empty
+    `contains` = list only. With `contains` = remove matching records — for when the miner misfiles
+    a payoff FRAGMENT as a standalone caption (it would re-promote on every learn otherwise)."""
+    from app.corpus import grades as grade_store
+    recs = grade_store.load_grades()
+    authored = [r for r in recs if r.get("type") == "authored"]
+    needle = (req.contains or "").strip().lower()
+    if not needle:
+        return {"authored": [{"caption": r.get("caption"), "claim": r.get("claim")} for r in authored]}
+    kept = [r for r in recs if not (r.get("type") == "authored"
+                                    and needle in (r.get("caption") or "").lower())]
+    removed = len(recs) - len(kept)
+    if removed:
+        grade_store._rewrite(kept)
+    return {"removed": removed,
+            "authored_left": [{"caption": r.get("caption"), "claim": r.get("claim")}
+                              for r in kept if r.get("type") == "authored"]}
+
+
 class GateCheck(BaseModel):
     texts: list[str]
 
