@@ -29,8 +29,15 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
    re-picks operator-rejected lines on this set. Two structural causes: the PERSONA is injected into
    the chooser, so persona edits change chooser behavior WITHOUT tripping this gate (loophole — two
    persona rewrites shipped since the baseline), and the eval set is LIVING (grows with every mined
-   round; 31→22 matched cases, drop unexplained). Freeze a snapshot + re-baseline before any chooser
-   work.
+   round; 31→22 matched cases, drop unexplained). **RESOLVED 2026-07-06 (commit d904510): the
+   inversion was the JUDGE MODEL, not the prompt** — five prompt variants (incl. few-shot
+   corrections: 9/11 tune by memorization, 0/11 holdout) failed to move opus-as-judge; sonnet-4-6 /
+   sonnet-5 / haiku on the IDENTICAL prompt all drop loser-picks 17→2 with 6/22 correct. Shipped
+   `settings.chooser_model="claude-sonnet-4-6"`; live harness 0.045→0.273, picked_loser 15→2.
+   Standing benchmark for future chooser changes: the FROZEN set (tmp/forensics/eval_frozen.json,
+   22 cases, seeded 11/11 tune/holdout — sonnet holdout baseline 3/11 correct, 1 loser). The
+   generation-side judges (batch grading, lab, labeler, codex) still run the caption model — only
+   SELECTION swaps judges.
 4. **Measure corpus-vs-pool-vs-chosen before assigning a drift to a layer.** A "chooser problem" was
    generation-side twice (frame loss, length). Generate a raw pool and compare distributions first.
 5. **Turn voice elements up/down via POSITIVE priming only** (persona slang list, reference mix,

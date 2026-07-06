@@ -107,3 +107,20 @@ before anything ships against it.
 *Measurement artifacts: `tmp/forensics/eval_probe.json` (harness output, sizes, chance
 simulation), `tmp/eval_metric_probe.py` (the probe), `tmp/eval_binom.py` (exact binomials).
 Nothing was shipped; no chooser, harness, or data files were modified.*
+
+---
+
+## Addendum (2026-07-06) — root cause found and fixed: the judge MODEL
+
+The eval set was frozen (`tmp/forensics/eval_frozen.json`, 22 cases, seeded 11/11 tune/holdout
+split) and iterated against locally. **Five prompt variants failed to move opus-as-judge**
+(literal-read criterion, literal-read-first ordering, few-shot corrections — 9/11 on tune by
+memorization, 0/11 on holdout —, bias counterweight, audience frame): the taste inversion is not
+a prompt problem. **Swapping the judge model fixed it with the identical prompt**: sonnet-4-6,
+sonnet-5, and haiku-4.5 all score 6/22 correct with **2** picked_loser (vs opus: 1/22 correct,
+17 picked_loser). Shipped: `settings.chooser_model = "claude-sonnet-4-6"` (commit d904510).
+Live harness confirms: **accuracy 0.045 → 0.273, picked_loser 15 → 2.** The frozen set's holdout
+half (sonnet baseline: 3/11 correct, 1 loser) is the standing benchmark for any future chooser
+change. Note the ceiling: correct-rate is now modestly above chance — the big win is that the
+judge no longer actively chases operator-rejected "chooser-bait"; on live slates it picks
+*some* good candidate rather than the flashy broken one.
