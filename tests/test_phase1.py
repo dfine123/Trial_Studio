@@ -160,6 +160,113 @@ def echo_legacy_response_drops_never_positional():
     assert out == [], f"legacy no-echo response must drop, not positionally attribute: {out}"
 
 
+# ─── Task 4: decode-split regen script ───
+
+def _fake_voice_dir(td: str) -> str:
+    root = os.path.join(td, "profiles")
+    vdir = os.path.join(root, "voice-a")
+    os.makedirs(vdir)
+    refs = [
+        {"ref_id": "r001", "source": "seed_verbatim", "caption": "seed one", "why_it_works": "short seed decode"},
+        {"ref_id": "r002", "source": "seed_verbatim", "caption": "seed two", "why_it_works": None},
+        {"ref_id": "p001", "source": "promoted_gen", "caption": "promoted one",
+         "why_it_works": " ".join(["analysis"] * 100)},
+        {"ref_id": "p002", "source": "note_endorsed", "caption": "promoted two",
+         "why_it_works": " ".join(["essay"] * 110)},
+    ]
+    with open(os.path.join(vdir, "references.jsonl"), "w", encoding="utf-8") as f:
+        for r in refs:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    # a second profile POINTING at voice-a (must not cause double-processing)
+    pdir = os.path.join(root, "pointer-b")
+    os.makedirs(pdir)
+    with open(os.path.join(pdir, "voice.json"), "w", encoding="utf-8") as f:
+        json.dump({"voice_profile_id": "voice-a"}, f)
+    return root
+
+
+GOOD_SPLIT = json.dumps({"why_it_works": "the snap is the exact word — short and blunt",
+                         "generativity": "singular"})
+
+
+@test
+def regen_dry_run_mutates_nothing():
+    from scripts import regen_promoted_decodes as rg
+    with tempfile.TemporaryDirectory() as td:
+        root = _fake_voice_dir(td)
+        path = os.path.join(root, "voice-a", "references.jsonl")
+        before = open(path, encoding="utf-8").read()
+        with patched(rg, _compress_one=lambda cap, why: ("short version", "generative", [])):
+            rep = rg.run_all(root=root, write=False)
+        assert rep["processed"] == 2, rep
+        assert open(path, encoding="utf-8").read() == before, "dry-run wrote to disk"
+        assert not [f for f in os.listdir(os.path.join(root, "voice-a")) if ".bak-" in f]
+
+
+@test
+def regen_write_splits_and_is_idempotent():
+    from scripts import regen_promoted_decodes as rg
+    with tempfile.TemporaryDirectory() as td:
+        root = _fake_voice_dir(td)
+        path = os.path.join(root, "voice-a", "references.jsonl")
+        seed_lines_before = [line for line in open(path, encoding="utf-8")
+                             if '"seed_verbatim"' in line]
+        with patched(rg, _compress_one=lambda cap, why: ("short version", "singular", [])):
+            rep = rg.run_all(root=root, write=True)
+        assert rep["processed"] == 2 and rep["generativity"]["singular"] == 2, rep
+        refs = {json.loads(line)["ref_id"]: json.loads(line) for line in open(path, encoding="utf-8")}
+        p1 = refs["p001"]
+        assert p1["why_full"].startswith("analysis") and p1["why_it_works"] == "short version"
+        assert p1["decode_v"] == 2 and p1["generativity"] == "singular"
+        seed_lines_after = [line for line in open(path, encoding="utf-8") if '"seed_verbatim"' in line]
+        assert seed_lines_after == seed_lines_before, "seeds not byte-identical"
+        assert [f for f in os.listdir(os.path.join(root, "voice-a")) if ".bak-" in f], "no backup"
+        # voice-a processed exactly once despite pointer-b pointing at it
+        assert [v["voice"] for v in rep["voices"]] == ["voice-a"], rep["voices"]
+        # idempotent: second run is a no-op
+        content = open(path, encoding="utf-8").read()
+        with patched(rg, _compress_one=lambda cap, why: ("DIFFERENT", "generative", [])):
+            rep2 = rg.run_all(root=root, write=True)
+        assert rep2["processed"] == 0, rep2
+        assert open(path, encoding="utf-8").read() == content, "re-run mutated the file"
+
+
+@test
+def regen_failed_compression_keeps_original():
+    from scripts import regen_promoted_decodes as rg
+    with tempfile.TemporaryDirectory() as td:
+        root = _fake_voice_dir(td)
+        path = os.path.join(root, "voice-a", "references.jsonl")
+        with patched(rg, _compress_one=lambda cap, why: (None, None, ["forbidden reference"])):
+            rep = rg.run_all(root=root, write=True)
+        refs = {json.loads(line)["ref_id"]: json.loads(line) for line in open(path, encoding="utf-8")}
+        p1 = refs["p001"]
+        assert p1["why_it_works"] == p1["why_full"], "original text must be kept on failure"
+        assert p1["generativity"] == "generative", "default must be status-quo-preserving"
+        assert all(e["kept_original"] for e in rep["per_ref"]), rep["per_ref"]
+
+
+@test
+def regen_validator_rejects_bad_outputs():
+    from scripts import regen_promoted_decodes as rg
+    calls = {"n": 0}
+    responses = [json.dumps({"why_it_works": " ".join(["w"] * 60), "generativity": "generative"}),
+                 GOOD_SPLIT]
+
+    def fake_llm(system, user, **k):
+        out = responses[min(calls["n"], 1)]
+        calls["n"] += 1
+        return out
+
+    import app.caption.llm as llm_mod
+    with patched(llm_mod, complete_json=fake_llm):
+        # _compress_one imports complete_json lazily from app.caption.llm
+        short, gen, problems = rg._compress_one("cap", "full analysis")
+    assert short == "the snap is the exact word — short and blunt", (short, problems)
+    assert gen in ("generative", "singular")
+    assert any("> 55" in p for p in problems), problems
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

@@ -164,7 +164,9 @@ def build_codex(force: bool = False) -> dict:
         cap = (r.get("caption") or "").strip()
         if not cap:
             continue
-        why = (r.get("why_it_works") or "").strip()
+        # consolidation-facing evidence: prefer the rich why_full (split decodes) — the short
+        # anchor-facing why_it_works is the fallback (seeds carry only that)
+        why = (r.get("why_full") or r.get("why_it_works") or "").strip()
         ref_lines.append(f"- {cap}" + (f"\n  (why it landed: {why})" if why else ""))
     hits, misses, mids = [], [], []
     for rec in graded:
