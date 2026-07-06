@@ -373,6 +373,24 @@ def quality_offsets_math():
         assert engine._quality_offsets([strong, weak]) == {}
 
 
+# ─── Chooser judge model (taste-inversion fix) ───
+
+@test
+def chooser_uses_configured_judge_model():
+    from app.caption import chooser
+    got = {}
+
+    def fake_llm(system, user, **kw):
+        got.update(kw)
+        return '{"best": 1}'
+
+    with patched(chooser, complete_json=fake_llm, _system=lambda: "SYS"):
+        pick = chooser.choose_best(["a", "b", "c"])
+    from app.config import settings
+    assert got.get("model") == settings.chooser_model, got
+    assert pick == "b"
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

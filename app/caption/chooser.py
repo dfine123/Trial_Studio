@@ -36,7 +36,16 @@ def _system() -> str:
 
 
 def choose_best(candidates: list[str]) -> str:
-    """Return the single best caption to post. Falls back to the first on any error."""
+    """Return the single best caption to post. Falls back to the first on any error.
+
+    ⚠️ The judge MODEL is settings.chooser_model (sonnet-4-6), NOT the generation model. Measured
+    on the frozen 22-case correction eval (2026-07-06): opus-as-judge re-picked the operator-
+    REJECTED caption 17/22 — a systematic attraction to clever-SOUNDING lines ("chooser-bait")
+    that FIVE prompt variants (literal-read, ordered judging, few-shot corrections, bias
+    counterweight, audience frame) failed to move; swapping the judge to sonnet dropped
+    loser-picks to 2/22 (below the 4.4 chance rate) with 6/22 correct, identical prompt.
+    Any future chooser change must beat that on the HOLDOUT half of the frozen set."""
+    from app.config import settings
     cands = [c for c in candidates if (c or "").strip()]
     if not cands:
         return ""
@@ -47,7 +56,8 @@ def choose_best(candidates: list[str]) -> str:
     # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
     try:
         out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500,
-                            cache_system=True, tag="chooser")   # stable system → cross-reel cache hits
+                            cache_system=True, tag="chooser",   # stable system → cross-reel cache hits
+                            model=getattr(settings, "chooser_model", None) or None)
         s, e = out.find("{"), out.rfind("}")
         best = int(json.loads(out[s:e + 1]).get("best", 0))
         if 0 <= best < len(cands):

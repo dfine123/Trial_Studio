@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
+    chooser_model: str = "claude-sonnet-4-6"      # the SELECTION judge. Measured 2026-07-06 (frozen
+                                                  # 22-case eval): opus-as-chooser picks the operator-
+                                                  # REJECTED line 17/22 (taste inversion); sonnet-4-6 /
+                                                  # sonnet-5 / haiku-4.5 all score 6/22 correct with 2
+                                                  # loser-picks on the same prompt. Judge-model property,
+                                                  # not prompt (5 prompt variants failed to move opus).
     coherence_gate: str = "off"                   # 'off' | 'log' | 'drop' — literal-read mechanism check on
                                                   # candidates. MEASURED NEGATIVE (round-3 replay, 2 prompt
                                                   # variants): recall 0/9 on known mechanism-kills at clean
