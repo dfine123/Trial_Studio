@@ -1892,7 +1892,9 @@ def api_refs_rotation():
         k, x, b = s.get("keep", 0), s.get("kill", 0), s.get("best", 0)
         rate = (k + b) / (k + x) if (k + x) else None
         status = "normal"
-        if (k + x) >= 6 and (rate or 0) >= 0.6:
+        # thresholds mirror engine._pick_anchors is_winner/is_failer (era-fix 2026-07-06: the reel
+        # era writes only keeps, so the old (k+x)>=6 gate showed amplified=[] forever)
+        if (k + x) >= 2 and (rate or 0) >= 0.6:
             status = "amplified"
         elif rate is not None and rate < 0.25 and x >= 4 and x > k + 3:
             status = "de-weighted"
