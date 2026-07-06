@@ -267,6 +267,112 @@ def regen_validator_rejects_bad_outputs():
     assert any("> 55" in p for p in problems), problems
 
 
+# ─── Produce-mode anchor selection (reel-slate quality fix) ───
+
+def _mk_ref(rid, trait, caption="a line", source=None):
+    r = {"ref_id": rid, "persona_trait": trait, "caption": caption}
+    if source:
+        r["source"] = source
+    return r
+
+
+def _pick(refs, n, produce, offsets=None, usage=None):
+    from app.caption import engine
+    with patched(engine,
+                 _load_json=lambda path: dict(usage or {}) if "usage" in str(path) else {},
+                 _save_ref_usage=lambda u: None,
+                 _quality_offsets=(lambda healthy: dict(offsets or {}))):
+        return engine._pick_anchors(list(refs), n, produce=produce)
+
+
+@test
+def produce_offsets_reorder_strong_first():
+    refs = [_mk_ref(f"r{i}", f"t{i}") for i in range(8)]
+    offsets = {"r0": 4, "r1": 4, "r2": 4}          # weak-history refs delayed
+    got = {a["ref_id"] for a in _pick(refs, 5, produce=True, offsets=offsets)}
+    assert got == {"r3", "r4", "r5", "r6", "r7"}, got
+
+
+@test
+def produce_never_excludes_weak_refs():
+    refs = [_mk_ref(f"r{i}", f"t{i}") for i in range(6)]
+    offsets = {"r0": 4}
+    usage = {f"r{i}": 10 for i in range(1, 6)}      # others heavily used — weak ref's turn comes
+    got = {a["ref_id"] for a in _pick(refs, 3, produce=True, offsets=offsets, usage=usage)}
+    assert "r0" in got, got
+
+
+@test
+def explore_mode_ignores_quality_offsets():
+    from app.caption import engine
+    refs = [_mk_ref(f"r{i}", f"t{i}") for i in range(6)]
+
+    def boom(healthy):
+        raise AssertionError("explore mode must not compute quality offsets")
+
+    with patched(engine, _load_json=lambda path: {}, _save_ref_usage=lambda u: None,
+                 _quality_offsets=boom):
+        got = engine._pick_anchors(list(refs), 4, produce=False)
+    assert len(got) == 4
+
+
+@test
+def species_floor_holds_in_both_modes_and_is_quality_ordered():
+    # 6 plain refs + 2 frame refs; frames carry max usage so plain rotation never reaches them
+    refs = [_mk_ref(f"r{i}", f"t{i}") for i in range(6)]
+    refs.append(_mk_ref("frA", "frameyA", caption="when the frame lands"))
+    refs.append(_mk_ref("frB", "frameyB", caption="when the other frame lands"))
+    refs.append(_mk_ref("si", "deep_bro_sincere"))
+    usage = {"frA": 99, "frB": 99, "si": 99}
+    exp = {a["ref_id"] for a in _pick(refs, 5, produce=False, usage=usage)}
+    assert ("frA" in exp or "frB" in exp) and "si" in exp, f"explore must floor species in: {exp}"
+    # produce mode ALSO floors species (adversary: sincere is the top-performing posted species),
+    # and picks the offset-favored ref WITHIN the species
+    prod = {a["ref_id"] for a in _pick(refs, 5, produce=True, usage=usage,
+                                       offsets={"frA": 3, "frB": -3})}
+    assert "frB" in prod and "frA" not in prod and "si" in prod, prod
+
+
+@test
+def winner_reserve_era_fix():
+    from app.caption import engine
+    refs = [_mk_ref(f"r{i}", f"t{i}") for i in range(8)]
+    # r7 has 2 keeps (two >=8 posted reels) and max usage — the reserve must still surface it
+    scores = {"r7": {"keep": 2, "kill": 0, "best": 0}}
+    with patched(engine,
+                 _load_json=lambda path: dict(scores) if "scores" in str(path) else {"r7": 99},
+                 _save_ref_usage=lambda u: None):
+        got = {a["ref_id"] for a in engine._pick_anchors(list(refs), 4, produce=False)}
+    assert "r7" in got, f"revived winner reserve must include r7: {got}"
+
+
+@test
+def quality_offsets_math():
+    from app.caption import engine
+    import app.corpus.reels as reels_mod
+    strong = _mk_ref("S", "t1")                                   # rated 9,9,9
+    weak = _mk_ref("W", "t2")                                     # rated 2,2,2
+    validated = _mk_ref("V", "t3", source="promoted_gen")         # no reels: NO provenance boost
+    fresh = _mk_ref("F", "t4")                                    # no data at all
+    rehab = _mk_ref("R", "t5")                                    # old 2s + batch keeps heal it
+    fakes = ([{"grade": {"rating": 9}, "caption_anchor_refs": ["S"]}] * 3
+             + [{"grade": {"rating": 2}, "caption_anchor_refs": ["W"]}] * 3
+             + [{"grade": {"rating": 2}, "caption_anchor_refs": ["R"]}] * 2
+             + [{"grade": {"rating": 5}, "caption_anchor_refs": ["X"]}] * 20)
+    with patched(reels_mod, graded=lambda *a, **k: list(fakes)), \
+         patched(engine, _load_json=lambda path: {"R": {"keep": 4, "kill": 0}} if "scores" in str(path) else {}):
+        off = engine._quality_offsets([strong, weak, validated, fresh, rehab])
+    assert off["S"] < 0, off
+    assert off["W"] > 0, off
+    assert off["V"] == 0, f"provenance must NOT boost (measured anti-signal): {off}"
+    assert off["F"] == 0, off
+    assert off["R"] > off["S"] and off["R"] < off["W"], f"batch keeps must soften the penalty: {off}"
+    assert all(-3 <= v <= 3 for v in off.values()), off
+    with patched(reels_mod, graded=lambda *a, **k: fakes[:10]), \
+         patched(engine, _load_json=lambda path: {}):             # <20 ratings -> neutral
+        assert engine._quality_offsets([strong, weak]) == {}
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

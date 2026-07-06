@@ -207,10 +207,63 @@ def _ref_species(r: dict) -> str:
     return "other"
 
 
-def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
-    """n DISTINCT reference anchors. Rotates least-used-first for coverage, then weights by the
-    GRADE signal: chronically-killed refs drop out, proven winners recur sooner. Distinct trait per
-    batch for tonal spread, gambling soft-capped."""
+def _quality_offsets(refs: list[dict]) -> dict[str, int]:
+    """PRODUCE-mode virtual-usage offsets from the signal that actually exists in the reel era:
+    each graded reel rates its POSTED caption, attributed to that caption's anchor. Per ref:
+    the LAST 5 posted ratings (staleness cap — ancient history can't freeze a penalty) + batch
+    keep/kill folded in as weak pseudo-ratings at half weight (the batch-grading surface is the
+    rehabilitation path: a delayed ref can clear its penalty through batch keeps without ever
+    anchoring a reel). shrunk = (Σ + 5μ)/(n + 5) — heavy shrinkage because a reel rating grades
+    caption+clips+audio jointly; offset = clamp(round((μ − shrunk)·2), −3, +3), the canon-blessed
+    failer magnitude. Strong refs rotate SOONER, weak-history refs LATER, nothing is ever excluded.
+    ⚠️ Adversary-reviewed (2026-07-06): NO provenance pseudo-observations — measured on 240 slates,
+    validated-ANCHORED posted reels mean 4.98 (below μ 5.29) vs graded seeds 6.71: an operator-loved
+    LINE is not a fertile ANCHOR; refs earn their tier from data only. Best-effort: {} on error."""
+    try:
+        from app.corpus import reels as reel_store
+        per_ref: dict[str, list[int]] = {}
+        ratings: list[int] = []
+        for r in reel_store.graded():
+            rating = (r.get("grade") or {}).get("rating") or 0
+            if not rating:
+                continue
+            ratings.append(rating)
+            for rid in (r.get("caption_anchor_refs") or []):
+                if rid:
+                    per_ref.setdefault(rid, []).append(rating)
+        if len(ratings) < 20:   # not enough signal — neutral offsets (pure rotation, old behavior)
+            return {}
+        mu = sum(ratings) / len(ratings)
+        scores = _load_json(profiles.ref_scores_path())
+        out: dict[str, int] = {}
+        for ref in refs:
+            rid = ref.get("ref_id") or ""
+            recent = per_ref.get(rid, [])[-5:]
+            s, c = float(sum(recent)), float(len(recent))
+            sc = scores.get(rid, {})
+            k, x = min(sc.get("keep", 0), 4), min(sc.get("kill", 0), 4)
+            s += (mu + 2) * 0.5 * k + (mu - 2) * 0.5 * x
+            c += 0.5 * (k + x)
+            shrunk = (s + 5 * mu) / (c + 5)
+            out[rid] = max(-3, min(3, round((mu - shrunk) * 2)))
+        return out
+    except Exception:  # noqa: BLE001 — quality weighting must never break generation
+        return {}
+
+
+def _pick_anchors(refs: list[dict], n: int, produce: bool = False) -> list[dict]:
+    """n DISTINCT reference anchors. Two modes:
+    - EXPLORE (default; the batch-grading path): least-used-first coverage rotation + winner
+      reserve + SPECIES FLOOR — the operator's learning surface, unchanged.
+    - PRODUCE (the reel path): the same reserve + floor + trait/gambling rules, PLUS quality-
+      weighted rotation via _quality_offsets. Slate forensics (2026-07-06, 240 graded slates):
+      the winner reserve was a structural NO-OP in the reel era (is_winner needed ≥6 keep/kill
+      credits; only ≥8-posted keeps exist — amplified=[] live, 240/240 slates zero winners), so
+      every production slot was pure coverage — the operator's "the alternates are always 1-3,
+      as if generated with the intention to not be selected". The fix: the is_winner era-fix
+      revives the reserve (the persistent amplifier) in both modes, and produce mode adds the
+      posted-rating offsets (entry phasing: strong sooner, weak-history later). Nothing is
+      excluded: combined virtual usage clamped ±3 = a few cycles' delay at most."""
     usage = _load_json(profiles.ref_usage_path())
     scores = _load_json(profiles.ref_scores_path())
 
@@ -226,14 +279,24 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
         return rate < 0.25 and x >= 4 and x > k + 3  # genuinely killed most of the time, with volume
 
     def is_winner(r: dict) -> bool:  # proven high-keep-rate format -> recur sooner
+        # era-fix (2026-07-06): the reel era writes ONLY keeps (≥8 posted; the kill path was
+        # removed by design), so the old (k+x)>=6 volume gate was unreachable — amplified=[] live,
+        # 240/240 graded slates carried ZERO winner anchors: the amplify loop was structurally
+        # dead. Two validated grades at ≥60% keep-rate now qualify; the pool grows with every ≥8.
         k, x, b = _stat(r)
         rate = (k + b) / (k + x) if (k + x) else 0.0
-        return (k + x) >= 6 and rate >= 0.6
+        return (k + x) >= 2 and rate >= 0.6
 
     healthy = [r for r in refs if (r.get("caption") or "").strip()]
     random.shuffle(healthy)  # random tiebreak among equally-used
-    # least-used first; failers carry a virtual-usage penalty so they cycle less often but always return
-    by_usage = sorted(healthy, key=lambda r: usage.get(_ref_key(r), 0) + (3 if is_failer(r) else 0))
+    qoff = _quality_offsets(healthy) if produce else {}
+    # least-used first; failers carry a virtual-usage penalty so they cycle less often but always
+    # return; produce mode adds the quality offset (strong sooner, weak-history later, never out).
+    # The COMBINED virtual usage is clamped to ±3 — a chronic failer with bad posted history must
+    # not stack to +6/+7 (that becomes a de-facto drop, which canon rule 2 forbids).
+    by_usage = sorted(healthy, key=lambda r: usage.get(_ref_key(r), 0)
+                      + max(-3, min(3, (3 if is_failer(r) else 0)
+                                    + qoff.get(r.get("ref_id") or "", 0))))
 
     anchors: list[dict] = []
     seen_traits: set[str] = set()
@@ -251,7 +314,10 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
         anchors.append(r)
         seen_traits.add(r.get("persona_trait") or "?")
 
-    # reserve ~2 slots for proven WINNERS (amplify), least-used winner first so they still rotate
+    # reserve ~2 slots for proven WINNERS (amplify), least-used winner first so they still rotate.
+    # This is the codebase's only PERSISTENT amplifier (a quality offset in a least-used rotation
+    # is just an entry phase-shift — equal steady-state frequency); it applies in BOTH modes and
+    # is alive again after the is_winner era-fix above.
     n_win = min(2, max(1, n // 4))
     for r in by_usage:
         if len(anchors) >= n_win:
@@ -259,10 +325,15 @@ def _pick_anchors(refs: list[dict], n: int) -> list[dict]:
         if is_winner(r):
             try_add(r)
     # SPECIES FLOOR (operator rule: validated species must never just disappear from batches) —
-    # every real batch carries at least one FRAME-format anchor (POV / 🥷 / would-you-rather /
+    # every batch of n≥5 carries at least one FRAME-format anchor (POV / 🥷 / would-you-rather /
     # wtf-is / when / how-bro — the frame-species exception then keeps it a frame in output) and
     # one SINCERE anchor (the largest seed cluster, structurally diluted by joke-heavy promotions:
-    # 17 seeds vs 2/47 promoted — measured 2026-07-04).
+    # 17 seeds vs 2/47 promoted — measured 2026-07-04). APPLIES IN PRODUCE MODE TOO
+    # (adversary-reviewed 2026-07-06): sincere is the TOP-performing posted species (6.50 mean,
+    # 41.7% ≥8 vs 5.20/18.3% for other) and species refs have little posted history — without the
+    # floor the quality offsets would phase them out of reels, starving the learn loop. In produce
+    # mode the floor slots fill by usage+offset order WITHIN each species (by_usage is already
+    # offset-sorted), which removes the floor's one defect: quality-blind picks.
     if n >= 5:
         for want in ("frame", "sincere"):
             if not any(_ref_species(a) == want for a in anchors):
@@ -433,7 +504,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     record which captions it chose between (production grading + the closed loop).
     """
     refs = load_refs()
-    anchors = _pick_anchors(refs, max(1, k))
+    anchors = _pick_anchors(refs, max(1, k), produce=True)   # production slate: quality-weighted rotation
     random.shuffle(refs)
     ref_block = "\n\n".join(
         (r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()
