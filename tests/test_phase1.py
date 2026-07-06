@@ -107,6 +107,59 @@ def codex_valid_build_writes():
             assert f.read() == GOOD_CODEX
 
 
+# ─── Task 2: echo-based anchor attribution in the batch path ───
+
+def _run_generate(model_json: str, n: int = 3):
+    """Run engine.generate() with everything except the parsing logic stubbed out."""
+    from app.caption import engine
+    anchors = [{"ref_id": f"A{i}", "caption": f"anchor {i}", "why_it_works": None} for i in range(n)]
+    with patched(engine,
+                 load_refs=lambda *a, **k: list(anchors),
+                 _pick_anchors=lambda refs, k: anchors[:k],
+                 _avoid_block=lambda *a, **k: "(none yet)",
+                 persona=lambda: "P",
+                 refine=lambda cands: cands,
+                 _drop_ref_copies=lambda cands: cands,
+                 _coherence_gate=lambda cands: cands,
+                 log_generated=lambda texts: None,
+                 complete_json=lambda *a, **k: model_json):
+        return engine.generate(n=n)
+
+
+@test
+def echo_correct_attribution():
+    out = _run_generate(json.dumps({"candidates": [
+        {"anchor": 0, "text": "t0"}, {"anchor": 1, "text": "t1"}, {"anchor": 2, "text": "t2"}]}))
+    assert [c["text"] for c in out] == ["t0", "t1", "t2"]
+    assert [c["anchor_ref"] for c in out] == ["A0", "A1", "A2"]
+    assert all(c["anchor_refs"] == [c["anchor_ref"]] for c in out)
+    assert all("anchor" not in c for c in out), "echo index must not leak into output"
+    assert all(c.get("caption_id") for c in out)
+
+
+@test
+def echo_reordered_response_attributes_by_echo():
+    out = _run_generate(json.dumps({"candidates": [
+        {"anchor": 2, "text": "t2"}, {"anchor": 0, "text": "t0"}, {"anchor": 1, "text": "t1"}]}))
+    got = {c["text"]: c["anchor_ref"] for c in out}
+    assert got == {"t2": "A2", "t0": "A0", "t1": "A1"}, got
+
+
+@test
+def echo_duplicate_and_out_of_range_dropped():
+    out = _run_generate(json.dumps({"candidates": [
+        {"anchor": 0, "text": "keep"}, {"anchor": 0, "text": "dupe"},
+        {"anchor": 9, "text": "oob"}, {"anchor": True, "text": "bool"},
+        {"anchor": -1, "text": "neg"}]}), n=5)
+    assert [(c["text"], c["anchor_ref"]) for c in out] == [("keep", "A0")], out
+
+
+@test
+def echo_legacy_response_drops_never_positional():
+    out = _run_generate(json.dumps({"candidates": [{"text": "x"}, {"text": "y"}, {"text": "z"}]}))
+    assert out == [], f"legacy no-echo response must drop, not positionally attribute: {out}"
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:
