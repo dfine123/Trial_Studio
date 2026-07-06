@@ -1763,6 +1763,17 @@ def api_debug_authored_prune(req: AuthoredPrune):
                               for r in kept if r.get("type") == "authored"]}
 
 
+@app.get("/api/debug/grades-dump")
+def api_debug_grades_dump(type: str | None = None):
+    """Read-only dump of the ACTIVE VOICE's grade records (pairwise/verdict/best/authored) — the
+    chooser-eval ground truth lives here and was previously unreadable off-volume."""
+    from app.corpus import grades as grade_store
+    recs = grade_store.load_grades()
+    if type:
+        recs = [r for r in recs if r.get("type") == type]
+    return {"n": len(recs), "records": recs}
+
+
 class SlateProbe(BaseModel):
     k: int = 5
 
