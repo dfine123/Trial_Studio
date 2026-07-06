@@ -1763,6 +1763,18 @@ def api_debug_authored_prune(req: AuthoredPrune):
                               for r in kept if r.get("type") == "authored"]}
 
 
+class SlateProbe(BaseModel):
+    k: int = 5
+
+
+@app.post("/api/debug/slate-probe")
+def api_debug_slate_probe(req: SlateProbe):
+    """Generate one PRODUCTION candidate slate (the exact reel path: generate_independent, produce-
+    mode anchors) without rendering a reel — for verifying slate composition after rotation changes."""
+    from app.caption.engine import generate_independent
+    return {"candidates": generate_independent(k=max(1, min(8, req.k)))}
+
+
 class RegenDecodes(BaseModel):
     write: bool = False
     fetch_report: bool = False
