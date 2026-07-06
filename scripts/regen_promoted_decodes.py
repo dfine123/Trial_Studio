@@ -161,7 +161,24 @@ def run_all(root: str = os.path.join("var", "profiles"), write: bool = False) ->
     report["processed"] = n
     report["mean_before_words"] = round(sum(before_lens) / n, 1) if n else None
     report["mean_after_words"] = round(sum(after_lens) / n, 1) if n else None
+    report["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    # persist the report next to the profiles root: the Railway edge 502s a ~60-LLM-call request
+    # long before it finishes, so the HTTP response is NOT a reliable carrier for the report
+    try:
+        rp = os.path.join(os.path.dirname(root.rstrip("/\\")) or ".", "decode_regen_report.json")
+        with open(rp, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=1)
+    except Exception as ex:  # noqa: BLE001 — the report must never sink the run
+        report["logs"].append(f"report persist failed: {ex}")
     return report
+
+
+def last_report(root: str = os.path.join("var", "profiles")) -> dict | None:
+    rp = os.path.join(os.path.dirname(root.rstrip("/\\")) or ".", "decode_regen_report.json")
+    if not os.path.exists(rp):
+        return None
+    with open(rp, encoding="utf-8") as f:
+        return json.load(f)
 
 
 if __name__ == "__main__":

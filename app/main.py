@@ -1765,14 +1765,21 @@ def api_debug_authored_prune(req: AuthoredPrune):
 
 class RegenDecodes(BaseModel):
     write: bool = False
+    fetch_report: bool = False
 
 
 @app.post("/api/debug/regen-decodes")
 def api_debug_regen_decodes(req: RegenDecodes):
     """Run the one-off decode split (scripts/regen_promoted_decodes.py) against the live volume —
     the script is the source of truth; this is just the execution vehicle. Dry-run unless
-    {"write": true} (timestamped backup first; idempotent via decode_v)."""
-    from scripts.regen_promoted_decodes import run_all
+    {"write": true} (timestamped backup first; idempotent via decode_v). The run outlives the
+    Railway edge timeout, so the report is persisted volume-side: poll {"fetch_report": true}."""
+    from scripts.regen_promoted_decodes import last_report, run_all
+    if req.fetch_report:
+        rep = last_report()
+        if rep is None:
+            raise HTTPException(status_code=404, detail="no regen report yet")
+        return rep
     return run_all(write=req.write)
 
 
