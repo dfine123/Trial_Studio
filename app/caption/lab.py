@@ -85,7 +85,63 @@ Sections:
 5. THE TRIPWIRES — the operator's own named failure modes, decoded as mechanisms: what is mechanically happening when a line reads "flat delivery", "corny", "lame/normie premise", "off landing" — so a writer feels the failure coming WHILE writing.
 6. EIGHT VS TEN — what the highest-rated lines do that merely-good lines don't.
 
-Dense, direct, second person ("your lines…"), ~900 words. Return ONLY the codex text."""
+Dense, direct, second person ("your lines…"), 900-1200 words. Return ONLY the codex text."""
+
+_CODEX_SECTIONS = ("THE CORE", "THE CRAFT", "THE FORM", "THE TEXTURE", "THE TRIPWIRES", "EIGHT VS TEN")
+
+
+def validate_codex(text: str) -> list[str]:
+    """Structural check on a distilled codex: all six sections present (case-insensitive on the
+    section NAMES, tolerant of numbering/markdown around them), each with real body text, and the
+    whole thing ending on a complete sentence. Guards the truncation failure: the 2600-token
+    ceiling used to cut section 5 mid-sentence ("…if you had to explain it — you") and silently
+    drop EIGHT VS TEN, and that broken text shipped into every lab call. Returns a list of
+    failure strings; empty = valid."""
+    fails: list[str] = []
+    t = (text or "").rstrip()
+    if not t:
+        return ["empty codex"]
+    low = t.lower()
+
+    # locate each section, preferring a HEADING-like line (short line containing the name after
+    # stripping markdown/numbering) over an incidental in-body mention like "the core of it"
+    def _find(name: str) -> int:
+        want = name.lower()
+        off = 0
+        for line in t.splitlines(keepends=True):
+            bare = line.strip().strip("#*_ \t").lstrip("0123456789").lstrip(".):—–- \t").lower()
+            if bare.startswith(want) and len(bare) <= len(want) + 40:
+                return off + line.lower().find(want)
+            off += len(line)
+        return low.find(want)   # fallback: presence anywhere
+
+    pos: list[tuple[int, str]] = []
+    for name in _CODEX_SECTIONS:
+        i = _find(name)
+        if i == -1:
+            fails.append(f"missing section: {name}")
+        else:
+            pos.append((i, name))
+    pos.sort()
+    for k, (i, name) in enumerate(pos):
+        start = i + len(name)
+        end = pos[k + 1][0] if k + 1 < len(pos) else len(t)
+        body = t[start:end].strip(" \t\r\n:—–-#*_.0123456789")
+        if len(body) < 40:
+            fails.append(f"empty body: {name}")
+
+    terminal, closers = ".!?…", "\"'”’»)]"
+    last = t[-1]
+    if last not in terminal:
+        if last in closers or ord(last) > 0x2190:   # closing quote/bracket or emoji directly after a sentence
+            prev = t[:-1].rstrip()
+            while prev and (prev[-1] in closers or ord(prev[-1]) > 0x2190):
+                prev = prev[:-1].rstrip()
+            if not prev or prev[-1] not in terminal:
+                fails.append(f"ends mid-sentence ({t[-25:]!r})")
+        else:
+            fails.append(f"ends mid-sentence ({t[-25:]!r})")
+    return fails
 
 
 def _codex_path() -> str:
@@ -108,7 +164,9 @@ def build_codex(force: bool = False) -> dict:
         cap = (r.get("caption") or "").strip()
         if not cap:
             continue
-        why = (r.get("why_it_works") or "").strip()
+        # consolidation-facing evidence: prefer the rich why_full (split decodes) — the short
+        # anchor-facing why_it_works is the fallback (seeds carry only that)
+        why = (r.get("why_full") or r.get("why_it_works") or "").strip()
         ref_lines.append(f"- {cap}" + (f"\n  (why it landed: {why})" if why else ""))
     hits, misses, mids = [], [], []
     for rec in graded:
@@ -136,16 +194,28 @@ def build_codex(force: bool = False) -> dict:
         "VALIDATE a format, premise or template while killing the execution; mine what the operator "
         "endorsed, not just what failed):\n" + ("\n".join(mids) or "(none yet)")
     )
-    codex = complete_json(_CODEX_SYS, user, effort="high", max_tokens=2600, tag="lab-codex").strip()
-    if not codex:
-        raise RuntimeError("codex distillation returned nothing")
+    codex, fails = "", ["not attempted"]
+    for attempt in (1, 2, 3):   # a truncated/malformed codex must NEVER ship — retry, then keep previous
+        codex = complete_json(_CODEX_SYS, user, effort="high", max_tokens=4000, tag="lab-codex").strip()
+        fails = validate_codex(codex)
+        if not fails:
+            break
+        print(f"[lab-codex] attempt {attempt}/3 invalid: {fails}", flush=True)
+    stats = {"refs": len(ref_lines), "hits": len(hits), "misses": len(misses), "mids": len(mids)}
+    if fails:
+        print(f"[lab-codex] ERROR: all attempts invalid — keeping the previous codex. {fails}", flush=True)
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                prev = f.read()
+            return {"codex": prev, "rebuilt": False, "ok": False, "failures": fails,
+                    "error": "codex validation failed on all attempts; previous codex kept", **stats}
+        raise RuntimeError(f"codex validation failed and no previous codex exists: {fails}")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(codex)
     os.replace(tmp, path)
-    return {"codex": codex, "rebuilt": True, "refs": len(ref_lines), "hits": len(hits),
-            "misses": len(misses), "mids": len(mids)}
+    return {"codex": codex, "rebuilt": True, "ok": True, **stats}
 
 
 def persona() -> str:

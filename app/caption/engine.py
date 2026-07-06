@@ -382,8 +382,9 @@ def generate(
         + anchor_block
         + f"\n\n(Only the IDEA must be new — every format and opener you use stays fully in play. "
           f"Recently used ideas, don't re-tread them: {avoid})\n\n"
-        + f"Return {n} captions — one per anchor, in order. ONLY JSON, no prose: "
-        '{"candidates": [{"text": "the caption (\\n for line breaks)"}]}'
+        + f"Return {n} captions — one per anchor, in order, each echoing its anchor's 0-based index "
+        "(ANCHOR 1 → 0, ANCHOR 2 → 1, …). ONLY JSON, no prose: "
+        '{"candidates": [{"anchor": <0-based anchor index>, "text": "the caption (\\n for line breaks)"}]}'
     )
     text = complete_json(voice_system(ref_block), user, effort="high", max_tokens=4000, tag="batch-captions")
     start, end = text.find("{"), text.rfind("}")
@@ -394,12 +395,27 @@ def generate(
     except json.JSONDecodeError:
         return []
     out = []
-    for i, c in enumerate(cands[:n]):
-        if isinstance(c, dict) and (c.get("text") or "").strip():
-            rid = anchors[i].get("ref_id") if i < len(anchors) else None
-            c["anchor_ref"] = rid                       # back-compat (singular)
-            c["anchor_refs"] = [rid] if rid else []     # provenance -> exact grade attribution
-            out.append(c)
+    # ECHO-based anchor attribution. Positional zip (anchors[i] <-> cands[i]) silently mis-attributed
+    # every caption after a dropped/reordered candidate — corrupting grade attribution and, through it,
+    # rotation weighting. Each candidate must echo its anchor's index; a missing/invalid/duplicate echo
+    # DROPS that candidate (visible in the [echo] ledger) — never a positional guess.
+    claimed: set[int] = set()
+    dropped = 0
+    for c in cands[:n]:
+        if not (isinstance(c, dict) and (c.get("text") or "").strip()):
+            continue
+        ai = c.pop("anchor", None)
+        if not isinstance(ai, int) or isinstance(ai, bool) or not 0 <= ai < len(anchors) or ai in claimed:
+            dropped += 1
+            continue
+        claimed.add(ai)
+        rid = anchors[ai].get("ref_id")
+        c["anchor_ref"] = rid                       # back-compat (singular)
+        c["anchor_refs"] = [rid] if rid else []     # provenance -> exact grade attribution
+        out.append(c)
+    if dropped:
+        print(f"[echo] batch-captions dropped={dropped}/{len(cands)} candidates "
+              "(missing/invalid/duplicate anchor echo)", flush=True)
     out = _coherence_gate(refine(_drop_ref_copies(out)))  # regurgitation drop -> subtractive edit -> coherence gate
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")     # hash the FINAL (post-refine) text

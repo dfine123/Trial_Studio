@@ -1763,6 +1763,19 @@ def api_debug_authored_prune(req: AuthoredPrune):
                               for r in kept if r.get("type") == "authored"]}
 
 
+class RegenDecodes(BaseModel):
+    write: bool = False
+
+
+@app.post("/api/debug/regen-decodes")
+def api_debug_regen_decodes(req: RegenDecodes):
+    """Run the one-off decode split (scripts/regen_promoted_decodes.py) against the live volume —
+    the script is the source of truth; this is just the execution vehicle. Dry-run unless
+    {"write": true} (timestamped backup first; idempotent via decode_v)."""
+    from scripts.regen_promoted_decodes import run_all
+    return run_all(write=req.write)
+
+
 class RelabelRefs(BaseModel):
     ref_ids: list[str]
 

@@ -18,11 +18,21 @@ from app.caption.llm import complete_json
 from app.corpus import reels as reel_store
 from app.corpus.store import load_refs
 
-_LABEL_SYS = """You are annotating ONE caption for a creator's reference corpus — it was operator-rated 9-10/10 on a real post, so it IS the voice at its best. Decode WHY IT WORKS at the EXECUTION level: the actual mechanism of the joke/insight AND what makes this exact rendition land (the precise word/image/logic/rhythm that snaps) — nuanced and faithful to THIS line, never generic advice. Also give a precise persona_trait (open vocabulary, e.g. shameless_villain, self_aware_hustler, deadpan_crude, absurd_motivational, deep_bro_sincere, anticope_callout) and a primary_lever (e.g. shareability, comment_bait, iykyk_decode, relatability).
+_LABEL_SYS = """You are annotating ONE caption for a creator's reference corpus — it was operator-rated 9-10/10 on a real post, so it IS the voice at its best. Decode WHY IT WORKS at the EXECUTION level, TWICE — the same understanding at two depths:
 
-⚠️ The decode is rendered inside the creator's own voice prompt as self-knowledge. If you're given the operator's note, fold its INSIGHT in as plain understanding of the line — but NEVER mention the operator, a note, feedback, grades, or ratings in the output. Wrong: "The operator's note nails the missed peak: 'X'". Right: "The peak version cashes 'X' — …".
+- why_it_works: ≤ 50 words, punchy, mechanism-first, in the creator's own blunt idiom — name the move and the exact word/image/logic that snaps, zero essay padding. This is read INSIDE the voice as self-knowledge.
+- why_full: the rich analysis at full depth — the actual mechanism of the joke/insight AND what makes this exact rendition land (the precise word/image/logic/rhythm that snaps) — nuanced and faithful to THIS line, never generic advice.
 
-Return ONLY JSON: {"why_it_works": "...", "persona_trait": "...", "primary_lever": "..."}"""
+Also give a precise persona_trait (open vocabulary, e.g. shameless_villain, self_aware_hustler, deadpan_crude, absurd_motivational, deep_bro_sincere, anticope_callout), a primary_lever (e.g. shareability, comment_bait, iykyk_decode, relatability), and generativity: "generative" if the line's MECHANISM transposes to fresh subjects (a move that can be run again on new material); "singular" if it won on a one-time collision of premise/word/moment that doesn't meaningfully transpose. One judgment, no hedging.
+
+⚠️ Both decode fields are rendered inside the creator's own voice prompt as self-knowledge. If you're given the operator's note, fold its INSIGHT in as plain understanding of the line — but NEVER mention the operator, a note, feedback, grades, or ratings in EITHER field. Wrong: "The operator's note nails the missed peak: 'X'". Right: "The peak version cashes 'X' — …".
+
+Return ONLY JSON: {"why_it_works": "...", "why_full": "...", "persona_trait": "...", "primary_lever": "...", "generativity": "generative" | "singular"}"""
+
+
+def _norm_generativity(v) -> str | None:
+    v = (v or "").strip().lower() if isinstance(v, str) else ""
+    return v if v in ("generative", "singular") else None
 
 
 def _norm(t: str) -> str:
@@ -80,7 +90,7 @@ def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, p
     if (op_note or "").strip():
         user += f"\n\nOPERATOR'S OWN NOTE on it (their read outranks yours — fold it in):\n{op_note.strip()}"
     try:    # decode the execution principles (why THIS rendition lands) — the learning content
-        out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=600, tag="promote-label")
+        out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=1200, tag="promote-label")
         s, e = out.find("{"), out.rfind("}")
         lab = json.loads(out[s:e + 1]) if s != -1 else {}
     except Exception:  # noqa: BLE001
@@ -89,6 +99,11 @@ def _add_ref(caption: str, rating: int, anchors: list, source: str, note: str, p
         "ref_id": _next_ref_id(refs),
         "caption": cap,
         "why_it_works": (lab.get("why_it_works") or "").strip() or None,
+        # the split (permanent architecture): why_it_works = short, ANCHOR-facing (rendered as WHY IT
+        # LANDS inside the voice); why_full = rich, CONSOLIDATION-facing (codex evidence only)
+        "why_full": (lab.get("why_full") or "").strip() or None,
+        "generativity": _norm_generativity(lab.get("generativity")),
+        "decode_v": 2,
         "primary_lever": (lab.get("primary_lever") or "shareability").strip(),
         "secondary_levers": [],
         "persona": "core_persona",
@@ -157,7 +172,7 @@ def relabel(ref_ids: list[str], pid=None) -> dict:
         if op_note:
             user += f"\n\nOPERATOR'S OWN NOTE on it (their read outranks yours — fold it in):\n{op_note}"
         try:
-            out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=800, tag="relabel")
+            out = complete_json(_LABEL_SYS, user, effort="high", max_tokens=1200, tag="relabel")
             s, e = out.find("{"), out.rfind("}")
             lab = json.loads(out[s:e + 1]) if s != -1 else {}
         except Exception:  # noqa: BLE001
@@ -166,6 +181,11 @@ def relabel(ref_ids: list[str], pid=None) -> dict:
         if not why:
             continue
         ref["why_it_works"] = why
+        if (lab.get("why_full") or "").strip():
+            ref["why_full"] = lab["why_full"].strip()
+            ref["decode_v"] = 2
+        if _norm_generativity(lab.get("generativity")):
+            ref["generativity"] = _norm_generativity(lab.get("generativity"))
         if (lab.get("persona_trait") or "").strip():
             ref["persona_trait"] = lab["persona_trait"].strip()
         if (lab.get("primary_lever") or "").strip():
