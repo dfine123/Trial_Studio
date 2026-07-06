@@ -106,7 +106,20 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   (POV/🥷/wyr/wtf-is/when/how-bro) + ≥1 SINCERE anchor (largest seed cluster, 17/84, but only
   2/47 promotions — the learn loop structurally dilutes it). Avoid stubs are MARKER-STRIPPED
   content stubs + format-neutral wording ("only the IDEA must be new") — raw opener-stubs made
-  wyr entries premise-free format prefixes. **Voice identity: unemployed is NOT poor** — persona
+  wyr entries premise-free format prefixes. **PRODUCE-mode slates (2026-07-06, adversary-reviewed;
+  commits 6deee02+772bfb7):** the reel path (`generate_independent` → `_pick_anchors(produce=True)`)
+  adds posted-rating quality offsets to the rotation sort (last-5 ratings per anchor + batch
+  keep/kill rehab at half weight, m=5 shrinkage, combined failer+quality clamp ±3, NO provenance
+  pseudo-obs — measured anti-signal: validated-ANCHORED reels mean 4.98 < μ 5.29, an operator-loved
+  LINE is not a fertile ANCHOR). Root cause it fixed: the winner reserve was structurally DEAD in
+  the reel era (is_winner needed ≥6 keep/kill credits, only ≥8-posted keeps exist → amplified=[]
+  live, 240/240 graded slates zero winners — the operator's "alternates are always 1-3, as if
+  generated with the intention to not be selected"). is_winner era-fix (≥2 grades, ≥60% keep)
+  revived the reserve — the only PERSISTENT amplifier (offsets are entry phase-shifts) — 14 refs
+  amplified live. Species floor + reserve apply in BOTH modes (floor slots quality-ordered within
+  species in produce); batch/explore path behavior unchanged (its own offset-free sort) = the
+  exploration/rehabilitation surface. Probe: `POST /api/debug/slate-probe {k}`.
+  **Voice identity: unemployed is NOT poor** — persona
   rewritten (show-don't-tell wealth; payday/eviction/overdraft/wage-life = not his universe);
   p048 (overdraft-$35, the corpus's only genuinely-poor ref) removed; operator grades under-rate
   poor-coded lines 4.29 vs 5.33. ⚠️ Forensics lesson: the stub-suppression hypothesis was
