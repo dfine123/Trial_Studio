@@ -483,18 +483,22 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
         + f"Generate {k} ideas."
     )
     # v1's exact alignment machinery (persona + wall + mechanics) — stable between learn rounds, cached
-    a_out = complete_json(a_sys, a_user, effort="high", max_tokens=16000,
-                          cache_system=True, tag="ideate")
-    s, e = a_out.find("{"), a_out.rfind("}")
     ideas = []
-    if s != -1 and e != -1:
-        try:
-            ideas = [p for p in json.loads(a_out[s:e + 1]).get("ideas", [])
-                     if (p.get("premise") or "").strip()]
-        except json.JSONDecodeError:
-            ideas = []
+    for _attempt in (1, 2):   # a truncated/malformed ideation JSON is retryable, not fatal
+        a_out = complete_json(a_sys, a_user, effort="high", max_tokens=16000,
+                              cache_system=True, tag="ideate")
+        s, e = a_out.find("{"), a_out.rfind("}")
+        if s != -1 and e != -1:
+            try:
+                ideas = [p for p in json.loads(a_out[s:e + 1]).get("ideas", [])
+                         if (p.get("premise") or "").strip()]
+            except json.JSONDecodeError:
+                ideas = []
+        if ideas:
+            break
+        print("[v2] ideation parse failed — retrying", flush=True)
     if not ideas:
-        raise RuntimeError("v2 ideation returned no ideas — check the codex")
+        raise RuntimeError("v2 ideation returned no ideas after retry")
 
     system = (persona() + "\n\n" + _MECHANICS
               + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
