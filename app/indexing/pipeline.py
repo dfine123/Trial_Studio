@@ -135,6 +135,41 @@ def _pad_short_for_tl(src: str, real_duration: float, work_dir: str, target: flo
     return out
 
 
+_HEAL_REASONS = ("resolution too low", "frame rate too low")
+
+
+def _normalize_for_ingest(src: str, probe, min_resolution: int, min_fps: float) -> str | None:
+    """Heal a decodable-but-below-gate clip instead of rejecting it. AI-generated footage
+    (Runway/Pika/Kling/Sora-class) routinely ships 16fps and/or sub-720 frames — inherent to the
+    asset, not a quality accident — so the QC gate was rejecting clips the operator explicitly
+    wants. Re-encode to a clean h264 mp4: fps lifted to 30 when below the gate (frame timing
+    re-sampled; the look of the source is preserved), short side lanczos-upscaled to the floor
+    (aspect preserved, even dims). Returns the healed path, or None when the source is genuinely
+    undecodable (that stays a real reject)."""
+    if not (probe.width and probe.height):
+        return None
+    vf = []
+    if probe.fps < min_fps:
+        vf.append("fps=30")
+    if min(probe.width, probe.height) < min_resolution:
+        vf.append(f"scale={min_resolution}:-2:flags=lanczos" if probe.width <= probe.height
+                  else f"scale=-2:{min_resolution}:flags=lanczos")
+    if not vf:
+        return None
+    out = os.path.splitext(src)[0] + ".norm.mp4"
+    base = ["ffmpeg", "-y", "-i", src, "-vf", ",".join(vf),
+            "-c:v", "libx264", "-crf", "20", "-preset", "veryfast",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    try:
+        subprocess.run(base + ["-c:a", "aac", out], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        try:
+            subprocess.run(base + ["-an", out], check=True, capture_output=True)  # no audio stream
+        except subprocess.CalledProcessError:
+            return None
+    return out
+
+
 # OpenCV decode is the memory-heavy part — serialize ONLY it, so several clips can be in flight
 # (overlapping their long TwelveLabs remote waits) while at most one decodes locally at a time.
 _CV2 = threading.Semaphore(1)
@@ -172,6 +207,30 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
         p = qcres.probe
         clip.width, clip.height, clip.fps = p.width, p.height, p.fps
         clip.duration, clip.bitrate = p.duration, p.bitrate
+        if not qcres.passed and any(m in (qcres.reason or "") for m in _HEAL_REASONS):
+            # low-spec-but-decodable (AI-generated etc.) — normalize instead of rejecting
+            _t(f"[idx] {clip_id} QC failed ({qcres.reason}) — normalizing…", flush=True)
+            healed = _normalize_for_ingest(path, p, settings.min_resolution, settings.min_fps)
+            if healed:
+                re_qc = qc.check(healed, settings.min_resolution, settings.min_fps)
+                if re_qc.passed:
+                    if is_temp:
+                        try:    # the healed copy replaces the downloaded temp for this run
+                            os.remove(path)
+                        except OSError:
+                            pass
+                    elif clip.r2_key and os.path.isabs(str(clip.r2_key)):
+                        clip.r2_key = healed   # local asset: the healed file IS the clip now
+                    path = healed
+                    qcres, p = re_qc, re_qc.probe
+                    clip.width, clip.height, clip.fps = p.width, p.height, p.fps
+                    clip.duration, clip.bitrate = p.duration, p.bitrate
+                    _t(f"[idx] {clip_id} normalized -> {p.width}x{p.height} {p.fps:.0f}fps", flush=True)
+                else:
+                    try:
+                        os.remove(healed)
+                    except OSError:
+                        pass
         if not qcres.passed:
             clip.status = "rejected"
             clip.rejection_reason = qcres.reason

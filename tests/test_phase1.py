@@ -373,6 +373,44 @@ def quality_offsets_math():
         assert engine._quality_offsets([strong, weak]) == {}
 
 
+# ─── Heal-on-ingest: AI-generated low-spec clips normalize instead of rejecting ───
+
+def _make_clip(td, w, h, fps, dur=4.5):
+    import subprocess
+    out = os.path.join(td, f"synth_{w}x{h}_{fps}.mp4")
+    subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i",
+                    f"testsrc=size={w}x{h}:rate={fps}:duration={dur}",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", out],
+                   check=True, capture_output=True)
+    return out
+
+
+@test
+def heal_normalizes_ai_spec_clips():
+    import shutil as _sh
+    if not _sh.which("ffmpeg"):
+        print("  (skipped: no ffmpeg)")
+        return
+    from app.indexing import qc
+    from app.indexing.pipeline import _normalize_for_ingest
+    with tempfile.TemporaryDirectory() as td:
+        # 16fps 640x360 — classic AI-generator output; must fail QC, then heal
+        src = _make_clip(td, 640, 360, 16)
+        res = qc.check(src, 720, 23.0)
+        assert not res.passed, "16fps/360p must fail the raw gate"
+        healed = _normalize_for_ingest(src, res.probe, 720, 23.0)
+        assert healed and os.path.exists(healed), "heal produced nothing"
+        res2 = qc.check(healed, 720, 23.0)
+        assert res2.passed, res2.reason
+        assert min(res2.probe.width, res2.probe.height) >= 720
+        assert res2.probe.fps >= 23.0
+        # a clip that's already fine must NOT be touched
+        good = _make_clip(td, 720, 1280, 30)
+        gres = qc.check(good, 720, 23.0)
+        assert gres.passed
+        assert _normalize_for_ingest(good, gres.probe, 720, 23.0) is None
+
+
 # ─── Chooser judge model (taste-inversion fix) ───
 
 @test
