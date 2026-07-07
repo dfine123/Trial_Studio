@@ -100,10 +100,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 - **⭐ GENERATION = v2 UNDERSTANDING-FIRST (2026-07-07, commit fbe1774, operator directive: "orient
   the system for SUCCESS, not to follow a list of rules… stop morphing the catalog").** Production
   (`engine._generate_v2`, both batch + reel paths) now runs the lab's operator-corrected two-stage:
-  Stage A IDEATES premise+play pairs from the CODEX (consolidated understanding: why his lines land,
-  how his forms work) with the catalog + recent output as TAKEN territory — no anchor exists, so
-  nothing can be morphed; Stage B EXECUTES with the full reference wall as BAR + sound-check only
-  (premises locked). Same curation downstream (regurgitation drop → refine → sonnet chooser).
+  Stage A IDEATES premise+play pairs **as the catalog's author — v1's exact voice system (persona +
+  full reference wall + mechanics)** with the catalog + recent output as TAKEN territory: the
+  references carry the voice INTO the ideas (v2.1 operator correction: codex-only ideation "loses
+  so much alignment and voice" — a description of greatness is lossy, re-learned in production),
+  while taken-territory keeps premises fresh and no anchor duty exists to morph. Stage B EXECUTES
+  with the wall as BAR + sound-check (premises locked; codex rides as understanding). Same curation
+  downstream (regurgitation drop → refine → sonnet chooser); the regurgitation guard gained a
+  MORPH tier (marker-stripped content containment ≥ .62 — catches seagulls/pigeons noun-swaps,
+  keeps frame species' legitimate skeletons); ideation retries once on truncated JSON. Execution
+  tells named in the shared prompts (operator calibration): matter-of-fact decode landings and
+  NARRATED fan-fiction scenes are dead on arrival — drop the reader in, never perform.
   Candidates carry EMPTY anchor_refs — grade attribution/rotation are v1 concepts; **the v2 loop is:
   grade → learn → corpus promotions + note mining → CODEX force-rebuild (now automatic in
   /api/reels/learn) → next generation ideates from the updated understanding.** Rollback:
