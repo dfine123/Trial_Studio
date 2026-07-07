@@ -110,12 +110,14 @@ def codex_valid_build_writes():
 # ─── Task 2: echo-based anchor attribution in the batch path ───
 
 def _run_generate(model_json: str, n: int = 3):
-    """Run engine.generate() with everything except the parsing logic stubbed out."""
+    """Run engine.generate() V1 path with everything except the parsing logic stubbed out."""
     from app.caption import engine
+    from app.config import settings
     anchors = [{"ref_id": f"A{i}", "caption": f"anchor {i}", "why_it_works": None} for i in range(n)]
-    with patched(engine,
+    with patched(settings, generation_engine="v1"), \
+         patched(engine,
                  load_refs=lambda *a, **k: list(anchors),
-                 _pick_anchors=lambda refs, k: anchors[:k],
+                 _pick_anchors=lambda refs, k, **kw: anchors[:k],
                  _avoid_block=lambda *a, **k: "(none yet)",
                  persona=lambda: "P",
                  refine=lambda cands: cands,
@@ -371,6 +373,50 @@ def quality_offsets_math():
     with patched(reels_mod, graded=lambda *a, **k: fakes[:10]), \
          patched(engine, _load_json=lambda path: {}):             # <20 ratings -> neutral
         assert engine._quality_offsets([strong, weak]) == {}
+
+
+# ─── Generation v2: understanding-first two-stage (production default) ───
+
+@test
+def v2_two_stage_generates_without_anchors():
+    from app.caption import engine, lab
+    from app.config import settings
+    calls = []
+
+    def fake_llm(system, user, **kw):
+        calls.append(kw.get("tag"))
+        if kw.get("tag") == "ideate":
+            return json.dumps({"ideas": [{"premise": f"premise {i}", "play": f"play {i}",
+                                          "charge": "collapse"} for i in range(8)]})
+        return json.dumps({"captions": [f"caption {i}" for i in range(5)]})
+
+    refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
+    with patched(settings, generation_engine="v2"), \
+         patched(lab, build_codex=lambda force=False: {"codex": "THE CODEX TEXT"}), \
+         patched(engine,
+                 load_refs=lambda *a, **k: list(refs),
+                 _avoid_block=lambda *a, **k: "(none yet)",
+                 persona=lambda: "P",
+                 refine=lambda cands: cands,
+                 _drop_ref_copies=lambda cands: cands,
+                 _coherence_gate=lambda cands: cands,
+                 log_generated=lambda texts: None,
+                 complete_json=fake_llm):
+        out = engine.generate(n=5)
+    assert calls == ["ideate", "batch-captions"], calls
+    assert len(out) == 5, out
+    assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
+    assert all(c.get("caption_id") for c in out)
+    # the reel path routes through the same v2 core
+    with patched(settings, generation_engine="v2"), \
+         patched(lab, build_codex=lambda force=False: {"codex": "X"}), \
+         patched(engine, load_refs=lambda *a, **k: list(refs),
+                 _avoid_block=lambda *a, **k: "(none yet)", persona=lambda: "P",
+                 refine=lambda cands: cands, _drop_ref_copies=lambda cands: cands,
+                 _coherence_gate=lambda cands: cands, log_generated=lambda texts: None,
+                 complete_json=fake_llm):
+        out2 = engine.generate_independent(k=5)
+    assert len(out2) == 5 and all(not c["anchor_refs"] for c in out2)
 
 
 # ─── Heal-on-ingest: AI-generated low-spec clips normalize instead of rejecting ───

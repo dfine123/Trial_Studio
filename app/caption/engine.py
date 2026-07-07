@@ -419,6 +419,76 @@ def _render_anchors(anchors: list[dict]) -> str:
     return "\n\n".join(renders)
 
 
+def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
+    """UNDERSTANDING-FIRST generation (production v2 — operator directive 2026-07-07: "orient the
+    system for SUCCESS, not to follow a list of rules… the point of grading is to communicate
+    what's good and WHY, not adding to a list of captions that get morphed randomly").
+
+    The lab's operator-corrected two-stage architecture, promoted to production:
+      Stage A — IDEATE premise+play pairs from consolidated UNDERSTANDING (the codex: why his
+        lines land, how his forms work, how he sounds) with the catalog AND recent output as
+        TAKEN territory. No anchor exists, so nothing can be morphed — freshness by construction.
+      Stage B — EXECUTE with the full reference wall as BAR + sound-check only (premises locked,
+        topics can't be hijacked; the wall carries the texture at full fidelity).
+    Then the same production curation as always: regurgitation drop → subtractive refine →
+    chooser. Candidates carry EMPTY anchor_refs (grade attribution/rotation are v1 concepts; in
+    v2 grades feed the corpus + the codex — the understanding — which is the loop the operator
+    actually asked for; /api/reels/learn force-rebuilds the codex)."""
+    from app.caption import lab
+    codex = lab.build_codex().get("codex") or ""
+    refs = load_refs()
+    ref_stubs = [_avoid_stub(r.get("caption") or "") for r in refs]
+    taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs if x))
+    note = (notes or "").strip()
+    k = n + 3   # overgenerate ideas; stage B writes only the strongest n
+
+    a_user = (
+        (f"Lean (soft): {note}\n\n" if note else "")
+        + f"THE CODEX:\n\n{codex}\n\n"
+        + f"TAKEN TERRITORY — every one of these premises is used; yours must live elsewhere:\n{taken}\n"
+        + f"Recently generated (also taken): {_avoid_block()}\n\n"
+        + f"Generate {k} ideas."
+    )
+    a_out = complete_json(lab._IDEATE_SYS, a_user, effort="high", max_tokens=16000, tag="ideate")
+    s, e = a_out.find("{"), a_out.rfind("}")
+    ideas = []
+    if s != -1 and e != -1:
+        try:
+            ideas = [p for p in json.loads(a_out[s:e + 1]).get("ideas", [])
+                     if (p.get("premise") or "").strip()]
+        except json.JSONDecodeError:
+            ideas = []
+    if not ideas:
+        raise RuntimeError("v2 ideation returned no ideas — check the codex")
+
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
+                            if (r.get("caption") or "").strip())
+    system = (persona() + "\n\n" + _MECHANICS
+              + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
+              + "\n\nYOUR CATALOG (the bar to clear; premises taken):\n\n" + ref_block
+              + lab._EXECUTE_SYS_TAIL.replace("{k}", str(len(ideas))).replace("{n}", str(n)))
+    b_user = "LOCKED IDEAS:\n" + "\n".join(
+        f"[{i}] PREMISE: {p.get('premise')}\n    PLAY: {p.get('play') or '(invent the sharpest shape)'}"
+        for i, p in enumerate(ideas))
+    # the big system (persona+mechanics+codex+wall) is stable between learn rounds — cache it
+    b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
+                          cache_system=True, tag="batch-captions")
+    s, e = b_out.find("{"), b_out.rfind("}")
+    caps: list[str] = []
+    if s != -1 and e != -1:
+        try:
+            caps = [c for c in json.loads(b_out[s:e + 1]).get("captions", [])
+                    if isinstance(c, str) and c.strip()]
+        except json.JSONDecodeError:
+            caps = []
+    out = [{"text": c.strip(), "anchor_ref": None, "anchor_refs": []} for c in caps[:n]]
+    out = _coherence_gate(refine(_drop_ref_copies(out)))
+    for c in out:
+        c["caption_id"] = _cid(c.get("text") or "")
+    log_generated([c.get("text", "") for c in out])
+    return out
+
+
 def generate(
     audio_vibe: list[str] | None = None,
     audio_purpose: list[str] | None = None,
@@ -427,8 +497,12 @@ def generate(
     n: int = 8,
     clip_context: str | None = None,
 ) -> list[dict]:
-    """Grade-weighted rotation-anchored generation. Each candidate carries its `anchor_ref` so future
-    grades attribute back exactly (closing the loop)."""
+    """Grade-weighted rotation-anchored generation (v1). Each candidate carries its `anchor_ref` so
+    future grades attribute back exactly. Routed to _generate_v2 unless settings.generation_engine
+    is pinned to "v1" (rollback knob)."""
+    from app.config import settings
+    if (getattr(settings, "generation_engine", "v2") or "v2") == "v2":
+        return _generate_v2(n, notes)
     refs = load_refs()
     random.shuffle(refs)
     ref_block = "\n\n".join(
@@ -509,6 +583,9 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     caption_id} — the available captions, each tagged with the anchor it came from, so the reel can
     record which captions it chose between (production grading + the closed loop).
     """
+    from app.config import settings
+    if (getattr(settings, "generation_engine", "v2") or "v2") == "v2":
+        return _generate_v2(max(1, k), notes)
     refs = load_refs()
     anchors = _pick_anchors(refs, max(1, k), produce=True)   # production slate: quality-weighted rotation
     random.shuffle(refs)

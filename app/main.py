@@ -1588,7 +1588,15 @@ def api_reels_learn(backend: str | None = None):
         # THE core-generator loop: every operator-validated line (posted >=8 + note-endorsed >=8) enters
         # the reference corpus — the generator's grounding grows from exactly what the operator rates best.
         grown = promote.promote_all()
-        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov, **grown}
+        codex_ok = None
+        try:    # v2 generation ideates FROM the codex — rebuild it so every learn round compounds
+                # the understanding (new refs' decodes + the fresh notes) into the next generation
+            from app.caption import lab
+            codex_ok = bool(lab.build_codex(force=True).get("ok"))
+        except Exception:  # noqa: BLE001 — codex refresh must never sink a learn run
+            codex_ok = False
+        return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov,
+                "codex_rebuilt": codex_ok, **grown}
 
 
 @app.post("/api/reels/refresh-taste")

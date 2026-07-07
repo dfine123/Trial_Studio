@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
+    generation_engine: str = "v2"                 # "v2" = UNDERSTANDING-FIRST two-stage (ideate premises
+                                                  # from persona+codex with catalog as TAKEN territory ->
+                                                  # execute at the wall-as-bar; operator directive
+                                                  # 2026-07-07: "orient for success, stop morphing the
+                                                  # catalog"). "v1" = legacy anchor-rotation (rollback).
     reel_render_concurrency: int = 2              # batch generation: renders (clip-match + ffmpeg) that
                                                   # run in parallel. Captions stay SERIAL by design — the
                                                   # anti-repeat window and rotation state must see each
