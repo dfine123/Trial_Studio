@@ -30,15 +30,34 @@ from app.corpus.store import load_refs
 
 
 def _drop_ref_copies(cands: list[dict]) -> list[dict]:
-    """Drop candidates that regurgitate a corpus REFERENCE near-verbatim (the anchor is a spark,
-    never the output). An elite anchor sometimes comes back as itself, and the chooser rightly
-    picks it — it IS a proven line — so the creator would end up re-posting their own reference
-    (round-2 grading: 3 of 13 'winners' were corpus copies). Mechanical curation, not a prompt
-    rule; if everything got dropped (pathological), keep the originals rather than return nothing."""
+    """Drop candidates that regurgitate or NOUN-SWAP a corpus reference (the catalog is the voice,
+    never the output). Two tiers, both mechanical curation (never a prompt rule):
+      - verbatim/near-verbatim copies: word containment ≥ .8 on the raw text (round-2 grading:
+        3 of 13 'winners' were corpus copies);
+      - MORPHS: containment ≥ .62 on MARKER-STRIPPED content ("Seagulls don't got a resume…" vs
+        the pigeons ref; "tied off my bloodline" vs r003 — the operator's 'mashed together'
+        class, 2026-07-07). Stripping the frame openers first keeps frame SPECIES legitimate:
+        a fresh would-you-rather / "dudes be like" shares its skeleton words by design and is
+        compared only on its content.
+    If everything got dropped (pathological), keep the originals rather than return nothing."""
     from app.corpus.promote import _too_similar
-    ref_texts = [(r.get("caption") or "") for r in load_refs() if (r.get("caption") or "").strip()]
+    strip_markers = _FRAME_MARKERS + ("dudes be like ", "keep grinding bro", "keep grinding,")
+
+    def content(t: str) -> str:
+        t = (t or "").replace("\n", " / ").strip()
+        while t and t[0] == "🥷":
+            t = t.lstrip("🥷").lstrip("s'’ ").strip()
+        low = t.lower()
+        for m in strip_markers:
+            if low.startswith(m):
+                return t[len(m):].lstrip(" :—-\"'").strip()
+        return t
+
+    refs = [(r.get("caption") or "") for r in load_refs() if (r.get("caption") or "").strip()]
     kept = [c for c in cands
-            if not any(_too_similar(c.get("text") or "", t) for t in ref_texts)]
+            if not any(_too_similar(c.get("text") or "", t)
+                       or _too_similar(content(c.get("text") or ""), content(t), thr=0.62)
+                       for t in refs)]
     return kept or cands
 
 

@@ -375,6 +375,28 @@ def quality_offsets_math():
         assert engine._quality_offsets([strong, weak]) == {}
 
 
+# ─── Morph guard: noun-swaps of catalog refs drop; frame species survive ───
+
+@test
+def morph_guard_drops_noun_swaps_keeps_frames():
+    from app.caption import engine
+    refs = [
+        {"caption": "Raccoons don't got a resume, a degree, or a plan. and they eating everywhere"},
+        {"caption": "would you rather $20 right now or 3 billion dollars but you gotta wait for the microwave"},
+    ]
+    cands = [
+        {"text": "Seagulls don't got a resume, a degree, or a plan. and they eating on every boardwalk"},
+        {"text": "would you rather $50 right now or 8 billion dollars but every song cuts out on the last note"},
+        {"text": "told her i work in last-mile logistics (i deliver mcdonald's on a rented lime scooter)"},
+    ]
+    with patched(engine, load_refs=lambda *a, **k: list(refs)):
+        kept = engine._drop_ref_copies(list(cands))
+    texts = [c["text"] for c in kept]
+    assert not any("Seagulls" in t for t in texts), f"noun-swap must drop: {texts}"
+    assert any("every song cuts out" in t for t in texts), f"fresh wyr must survive: {texts}"
+    assert any("lime scooter" in t for t in texts), texts
+
+
 # ─── Generation v2: understanding-first two-stage (production default) ───
 
 @test
