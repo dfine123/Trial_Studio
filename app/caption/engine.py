@@ -419,17 +419,29 @@ def _render_anchors(anchors: list[dict]) -> str:
     return "\n\n".join(renders)
 
 
+_IDEATE_PROD_TAIL = """
+
+THE TASK: come up with {k} IDEAS for tonight's posts — each a PREMISE plus its PLAY — as the guy who wrote every caption above. That catalog is YOUR posted work: its premises are TAKEN (so is everything under TAKEN TERRITORY below), but its voice, its moves, its way of seeing things is exactly who you are — every idea must feel like it fell out of the same brain, aimed at fresh territory.
+- PREMISE: fresh, specific, charged — something you haven't posted about, seen the way only YOU see it.
+- PLAY: how it's DELIVERED — a moment the reader lands inside mid-beat (a "POV:", a "when…", a snapped line of dialogue), an exchange where the punch is said TO someone, a build the reader walks into, one of your own frames on a completely fresh moment, or a shape you invent. Dropped-in, never NARRATED like a short story. A matter-of-fact observation is the failure mode — every idea carries a bit.
+
+Return ONLY JSON: {"ideas": [{"premise": "the specific charged observation/moment", "play": "the delivery"}]}"""
+
+
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     """UNDERSTANDING-FIRST generation (production v2 — operator directive 2026-07-07: "orient the
     system for SUCCESS, not to follow a list of rules… the point of grading is to communicate
     what's good and WHY, not adding to a list of captions that get morphed randomly").
 
-    The lab's operator-corrected two-stage architecture, promoted to production:
-      Stage A — IDEATE premise+play pairs from consolidated UNDERSTANDING (the codex: why his
-        lines land, how his forms work, how he sounds) with the catalog AND recent output as
-        TAKEN territory. No anchor exists, so nothing can be morphed — freshness by construction.
-      Stage B — EXECUTE with the full reference wall as BAR + sound-check only (premises locked,
-        topics can't be hijacked; the wall carries the texture at full fidelity).
+    Two-stage, REFERENCE-ALIGNED at both stages (operator correction 2026-07-07 v2.1: "keep the
+    same alignment we had by using the references with these" — codex-only ideation lost the
+    voice; a description of greatness is lossy — the lab v3 lesson, re-learned in production):
+      Stage A — IDEATE premise+play pairs AS the catalog's author: the full voice system
+        (persona + reference wall + mechanics — v1's exact alignment machinery) with the catalog
+        AND recent output as TAKEN territory. The references carry the voice INTO the ideas;
+        taken-territory keeps the premises fresh by construction. No anchor duty = no morphs.
+      Stage B — EXECUTE with the wall as BAR + sound-check (premises locked, topics can't be
+        hijacked; the wall carries the texture at full fidelity; codex rides as understanding).
     Then the same production curation as always: regurgitation drop → subtractive refine →
     chooser. Candidates carry EMPTY anchor_refs (grade attribution/rotation are v1 concepts; in
     v2 grades feed the corpus + the codex — the understanding — which is the loop the operator
@@ -442,14 +454,18 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     note = (notes or "").strip()
     k = n + 3   # overgenerate ideas; stage B writes only the strongest n
 
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
+                            if (r.get("caption") or "").strip())
+    a_sys = voice_system(ref_block) + _IDEATE_PROD_TAIL.replace("{k}", str(k))
     a_user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + f"THE CODEX:\n\n{codex}\n\n"
         + f"TAKEN TERRITORY — every one of these premises is used; yours must live elsewhere:\n{taken}\n"
         + f"Recently generated (also taken): {_avoid_block()}\n\n"
         + f"Generate {k} ideas."
     )
-    a_out = complete_json(lab._IDEATE_SYS, a_user, effort="high", max_tokens=16000, tag="ideate")
+    # v1's exact alignment machinery (persona + wall + mechanics) — stable between learn rounds, cached
+    a_out = complete_json(a_sys, a_user, effort="high", max_tokens=16000,
+                          cache_system=True, tag="ideate")
     s, e = a_out.find("{"), a_out.rfind("}")
     ideas = []
     if s != -1 and e != -1:
@@ -461,8 +477,6 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     if not ideas:
         raise RuntimeError("v2 ideation returned no ideas — check the codex")
 
-    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
-                            if (r.get("caption") or "").strip())
     system = (persona() + "\n\n" + _MECHANICS
               + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
               + "\n\nYOUR CATALOG (the bar to clear; premises taken):\n\n" + ref_block
