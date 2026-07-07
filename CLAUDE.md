@@ -126,6 +126,14 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   amplified live. Species floor + reserve apply in BOTH modes (floor slots quality-ordered within
   species in produce); batch/explore path behavior unchanged (its own offset-free sort) = the
   exploration/rehabilitation surface. Probe: `POST /api/debug/slate-probe {k}`.
+  **Batch generation is PIPELINED (2026-07-06, commit 7a2d996):** `POST /api/generate/batch {n}` +
+  poll `GET /api/generate/batch/{job_id}` — captions run SERIAL (the anti-repeat window and
+  rotation usage must see each slate before the next starts; `_USAGE_LOCK` guards the ref_usage
+  read-modify-write) while renders (clip-match + ffmpeg) overlap in a pool
+  (`reel_render_concurrency=2`). Measured: batch of 3 in 154s vs ~6-9 min sequential. Demo mode
+  403s the batch endpoint. UI (app.html) starts the job and polls per-card states. Mix audio now
+  routes through caption-first `match_audio` (the client used to pre-pin a random track, which
+  silently bypassed audio matching).
   **Voice identity: unemployed is NOT poor** — persona
   rewritten (show-don't-tell wealth; payday/eviction/overdraft/wage-life = not his universe);
   p048 (overdraft-$35, the corpus's only genuinely-poor ref) removed; operator grades under-rate
