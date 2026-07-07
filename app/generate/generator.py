@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
 import uuid
 
 from sqlalchemy import select
@@ -30,6 +31,8 @@ from app.render.compositor import compose_reel
 
 
 _CLIP_USAGE_PATH = "var/clip_usage.json"
+_USAGE_IO_LOCK = threading.Lock()   # parallel batch renders: guards the usage-file read-modify-write
+                                    # AND the shared in-batch clip ledger
 
 
 def _load_clip_usage() -> dict[str, int]:
@@ -42,14 +45,15 @@ def _load_clip_usage() -> dict[str, int]:
 
 
 def _log_clip_usage(clip_ids: list[str]) -> None:
-    usage = _load_clip_usage()
-    for cid in clip_ids:
-        usage[cid] = usage.get(cid, 0) + 1
-    os.makedirs(os.path.dirname(_CLIP_USAGE_PATH) or ".", exist_ok=True)
-    tmp = _CLIP_USAGE_PATH + ".tmp"
-    with open(tmp, "w") as fh:
-        json.dump(usage, fh)
-    os.replace(tmp, _CLIP_USAGE_PATH)
+    with _USAGE_IO_LOCK:   # concurrent renders were losing increments (read-modify-write race)
+        usage = _load_clip_usage()
+        for cid in clip_ids:
+            usage[cid] = usage.get(cid, 0) + 1
+        os.makedirs(os.path.dirname(_CLIP_USAGE_PATH) or ".", exist_ok=True)
+        tmp = _CLIP_USAGE_PATH + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(usage, fh)
+        os.replace(tmp, _CLIP_USAGE_PATH)
 
 
 def _probe_duration(path: str) -> float:
@@ -271,6 +275,7 @@ def generate_reel(
     sources: dict[str, str] | None = None,
     clip_ids: list[str] | None = None,
     work_png: str = "tmp/reel_caption.png",
+    batch_clip_used: dict[str, int] | None = None,
 ) -> dict:
     bp = profile.analyze(audio_path)
 
@@ -306,10 +311,25 @@ def generate_reel(
     ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta, clip_quality)
     fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
     clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
+    # BATCH-SHARED clip ledger: parallel renders load the SAME clip_usage.json snapshot, so
+    # without this, reels in one batch can't see each other's picks and a small library collapses
+    # onto the same hero clips every reel. Batch-mates' picks weigh ~3x the cross-reel term
+    # (0.45/use in cost units vs 1.5x stored usage) — strong spread pressure, never exclusion.
+    usage = _load_clip_usage()
+    if batch_clip_used:
+        with _USAGE_IO_LOCK:
+            snapshot = dict(batch_clip_used)
+        usage = dict(usage)
+        for cid, cnt in snapshot.items():
+            usage[cid] = usage.get(cid, 0) + 3 * cnt
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
-                             fit_rank=fit_rank, usage=_load_clip_usage(), clip_emb=clip_emb,
+                             fit_rank=fit_rank, usage=usage, clip_emb=clip_emb,
                              clip_dur=clip_dur, clip_text=clip_text)
     _log_clip_usage([c["clip_id"] for c in chosen])
+    if batch_clip_used is not None:
+        with _USAGE_IO_LOCK:
+            for c in chosen:
+                batch_clip_used[c["clip_id"]] = batch_clip_used.get(c["clip_id"], 0) + 1
 
     if sources is None:
         sources = _resolve_sources(chosen, clip_dur)

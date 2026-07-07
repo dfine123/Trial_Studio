@@ -1066,8 +1066,14 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
     from concurrent.futures import ThreadPoolExecutor
     from app.corpus import reels as reel_store
     from app.generate.generator import generate_caption, generate_reel, match_audio
+    import random as _random
     job = _BATCH_JOBS[job_id]
     niche = (req.notes or "").strip()
+    batch_clip_used: dict[str, int] = {}   # shared clip ledger — parallel renders can't see each
+                                           # other through clip_usage.json (same snapshot); this can
+    used_audio: set[str] = set()           # batch AUDIO variety: caption-matching converges on one
+                                           # "best" track for a same-toned batch (4/6 identical,
+                                           # operator-flagged) — match among tracks unused this batch
 
     def fail(i: int, msg: str) -> None:
         with _BATCH_LOCK:
@@ -1081,7 +1087,8 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                                 audio_desc=audio_row["description"], audio_bpm=audio_row["bpm"],
                                 audio_energy=audio_row["energy_arc"], audio_vibe=audio_row["thematic_tags"],
                                 clip_ids=clip_ids, no_caption=req.no_caption,
-                                caption_text=pre_caption, caption_candidates=pre_cands)
+                                caption_text=pre_caption, caption_candidates=pre_cands,
+                                batch_clip_used=batch_clip_used)
             try:
                 reel_store.append({
                     "reel_id": name.rsplit(".", 1)[0],
@@ -1120,6 +1127,11 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                 audio = s.get(Audio, req.audio_id) if req.audio_id else \
                     s.scalar(select(Audio).order_by(func.random()).limit(1))
                 choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
+            pool = choices
+            if req.audio_id is None:
+                pool = [a for a in choices if str(a.id) not in used_audio] or choices
+                if audio is not None and str(audio.id) in used_audio and pool:
+                    audio = _random.choice(pool)   # even the random fallback prefers unused tracks
             if audio is None or not audio.r2_key:
                 fail(i, "no audio in library")
                 continue
@@ -1131,13 +1143,15 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
             if not req.no_caption:
                 try:   # caption FIRST (serial); audio matched to it when the operator didn't pin one
                     pre_caption, pre_cands = generate_caption(niche or None)
-                    if req.audio_id is None and len(choices) > 1:
+                    if req.audio_id is None and len(pool) > 1:
                         bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})"
-                                                       for a in choices])
-                        audio = choices[bi]
+                                                       for a in pool])
+                        audio = pool[bi]
                         audio_path = _audio_path(audio) or audio_path
                 except Exception:  # noqa: BLE001 — generate_reel falls back to inline caption gen
                     pre_caption = pre_cands = None
+            if req.audio_id is None and audio is not None:
+                used_audio.add(str(audio.id))
             audio_row = {"id": str(audio.id), "description": audio.description, "bpm": audio.bpm,
                          "energy_arc": audio.energy_arc, "thematic_tags": audio.thematic_tags}
             with _BATCH_LOCK:
