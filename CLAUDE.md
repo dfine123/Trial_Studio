@@ -97,7 +97,20 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **Generation** (`app/caption/engine.py`): rotation-anchored — each candidate sparked by a distinct
+- **⭐ GENERATION = v2 UNDERSTANDING-FIRST (2026-07-07, commit fbe1774, operator directive: "orient
+  the system for SUCCESS, not to follow a list of rules… stop morphing the catalog").** Production
+  (`engine._generate_v2`, both batch + reel paths) now runs the lab's operator-corrected two-stage:
+  Stage A IDEATES premise+play pairs from the CODEX (consolidated understanding: why his lines land,
+  how his forms work) with the catalog + recent output as TAKEN territory — no anchor exists, so
+  nothing can be morphed; Stage B EXECUTES with the full reference wall as BAR + sound-check only
+  (premises locked). Same curation downstream (regurgitation drop → refine → sonnet chooser).
+  Candidates carry EMPTY anchor_refs — grade attribution/rotation are v1 concepts; **the v2 loop is:
+  grade → learn → corpus promotions + note mining → CODEX force-rebuild (now automatic in
+  /api/reels/learn) → next generation ideates from the updated understanding.** Rollback:
+  `GENERATION_ENGINE=v1`. Verified live: fresh premises, double-meaning-rich, zero catalog morphs
+  (frame-species word overlap on wyr is the species, not a morph). The v1 machinery below
+  (rotation/anchors/species floor/quality offsets) remains for the rollback path only.
+- **Generation v1** (`app/caption/engine.py`): rotation-anchored — each candidate sparked by a distinct
   reference (least-used-first, grade-weighted: winners recur, chronic-miss refs de-weighted via +3
   virtual usage, NEVER dropped). Anchors render caption + WHY IT LANDS. Frame anchors (POV/"how bro"/
   dialogue/would-you-rather) keep their SPECIES (never converted to statements). Anti-repeat window:
