@@ -1110,7 +1110,7 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
         except Exception as exc:  # noqa: BLE001
             fail(i, f"render: {exc}")
 
-    pool = ThreadPoolExecutor(max_workers=max(1, settings.reel_render_concurrency))
+    render_pool = ThreadPoolExecutor(max_workers=max(1, settings.reel_render_concurrency))
     futures = []
     try:
         clip_ids = None
@@ -1127,11 +1127,11 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                 audio = s.get(Audio, req.audio_id) if req.audio_id else \
                     s.scalar(select(Audio).order_by(func.random()).limit(1))
                 choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
-            pool = choices
+            audio_pool = choices
             if req.audio_id is None:
-                pool = [a for a in choices if str(a.id) not in used_audio] or choices
-                if audio is not None and str(audio.id) in used_audio and pool:
-                    audio = _random.choice(pool)   # even the random fallback prefers unused tracks
+                audio_pool = [a for a in choices if str(a.id) not in used_audio] or choices
+                if audio is not None and str(audio.id) in used_audio and audio_pool:
+                    audio = _random.choice(audio_pool)   # the random fallback also prefers unused tracks
             if audio is None or not audio.r2_key:
                 fail(i, "no audio in library")
                 continue
@@ -1143,10 +1143,10 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
             if not req.no_caption:
                 try:   # caption FIRST (serial); audio matched to it when the operator didn't pin one
                     pre_caption, pre_cands = generate_caption(niche or None)
-                    if req.audio_id is None and len(pool) > 1:
+                    if req.audio_id is None and len(audio_pool) > 1:
                         bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})"
-                                                       for a in pool])
-                        audio = pool[bi]
+                                                       for a in audio_pool])
+                        audio = audio_pool[bi]
                         audio_path = _audio_path(audio) or audio_path
                 except Exception:  # noqa: BLE001 — generate_reel falls back to inline caption gen
                     pre_caption = pre_cands = None
@@ -1156,7 +1156,8 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                          "energy_arc": audio.energy_arc, "thematic_tags": audio.thematic_tags}
             with _BATCH_LOCK:
                 job["reels"][i]["state"] = "rendering"
-            futures.append(pool.submit(render_one, i, audio_row, audio_path, pre_caption, pre_cands, clip_ids))
+            futures.append(render_pool.submit(render_one, i, audio_row, audio_path,
+                                              pre_caption, pre_cands, clip_ids))
         for f in futures:
             f.result()
     except Exception as exc:  # noqa: BLE001 — a broken orchestrator must still close the job
@@ -1165,7 +1166,11 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                 if r.get("state") not in ("done", "failed"):
                     job["reels"][i] = {"state": "failed", "error": str(exc)[:200]}
     finally:
-        pool.shutdown(wait=True)
+        try:    # nothing in cleanup may prevent the job from closing (a shadowed name here once
+                # left jobs "running" forever)
+            render_pool.shutdown(wait=True)
+        except Exception:  # noqa: BLE001
+            pass
         with _BATCH_LOCK:
             job["state"] = "done"
 
