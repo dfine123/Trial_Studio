@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import random
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from app import profiles
@@ -249,6 +250,11 @@ def _quality_offsets(refs: list[dict]) -> dict[str, int]:
         return out
     except Exception:  # noqa: BLE001 — quality weighting must never break generation
         return {}
+
+
+_USAGE_LOCK = threading.Lock()   # anchor selection is read-modify-write on ref_usage.json — batch
+                                 # generation runs reels concurrently, and racing pickers would both
+                                 # see the same least-used view (duplicate anchors) and lose updates
 
 
 def _pick_anchors(refs: list[dict], n: int, produce: bool = False) -> list[dict]:

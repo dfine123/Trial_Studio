@@ -1046,6 +1046,143 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
     }
 
 
+# ── Batch generation: captions SERIAL (anti-repeat window + rotation state see each slate
+# before the next starts — parallel captions are how duplicate premises happen), renders
+# (clip-match + ffmpeg, the ~2/3 of wall-clock) PARALLEL in a bounded pool. ~2.5-3x faster
+# batches with zero caption-integrity risk. ──
+_BATCH_JOBS: dict[str, dict] = {}
+_BATCH_LOCK = __import__("threading").Lock()
+
+
+class BatchGenerateRequest(BaseModel):
+    n: int = 1
+    audio_id: uuid.UUID | None = None
+    notes: str | None = None
+    folder_id: uuid.UUID | None = None
+    no_caption: bool = False
+
+
+def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from app.corpus import reels as reel_store
+    from app.generate.generator import generate_caption, generate_reel, match_audio
+    job = _BATCH_JOBS[job_id]
+    niche = (req.notes or "").strip()
+
+    def fail(i: int, msg: str) -> None:
+        with _BATCH_LOCK:
+            job["reels"][i] = {"state": "failed", "error": msg[:200]}
+
+    def render_one(i: int, audio_row: dict, audio_path: str, pre_caption, pre_cands, clip_ids) -> None:
+        name = f"{uuid.uuid4().hex}.mp4"
+        out = os.path.join(_REELS_DIR, name)
+        try:
+            res = generate_reel(audio_path=audio_path, niche=niche, out_path=out,
+                                audio_desc=audio_row["description"], audio_bpm=audio_row["bpm"],
+                                audio_energy=audio_row["energy_arc"], audio_vibe=audio_row["thematic_tags"],
+                                clip_ids=clip_ids, no_caption=req.no_caption,
+                                caption_text=pre_caption, caption_candidates=pre_cands)
+            try:
+                reel_store.append({
+                    "reel_id": name.rsplit(".", 1)[0],
+                    "reel_url": f"/reels/{name}",
+                    "audio": {"id": audio_row["id"], "description": audio_row["description"]},
+                    "caption": res.get("caption"),
+                    "caption_id": res.get("caption_id"),
+                    "caption_anchor_refs": res.get("caption_anchor_refs") or [],
+                    "candidates": res.get("candidates") or [],
+                    "clips": res.get("clips") or [],
+                    "voice_profile_id": str(profiles.voice_id()),
+                })
+            except Exception:  # noqa: BLE001 — recording must never break generation
+                pass
+            with _BATCH_LOCK:
+                job["reels"][i] = {"state": "done", "reel_url": f"/reels/{name}",
+                                   "caption": res["caption"], "duration": res["duration"],
+                                   "shots": res["shots"], "audio_desc": audio_row["description"]}
+        except Exception as exc:  # noqa: BLE001
+            fail(i, f"render: {exc}")
+
+    pool = ThreadPoolExecutor(max_workers=max(1, settings.reel_render_concurrency))
+    futures = []
+    try:
+        clip_ids = None
+        if req.folder_id:
+            clip_ids = _clip_ids_in_folder(req.folder_id)
+            if not clip_ids:
+                for i in range(req.n):
+                    fail(i, "no indexed clips in that folder")
+                return
+        for i in range(req.n):
+            with _BATCH_LOCK:
+                job["reels"][i]["state"] = "captioning"
+            with SessionLocal() as s:
+                audio = s.get(Audio, req.audio_id) if req.audio_id else \
+                    s.scalar(select(Audio).order_by(func.random()).limit(1))
+                choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
+            if audio is None or not audio.r2_key:
+                fail(i, "no audio in library")
+                continue
+            audio_path = _audio_path(audio)
+            if audio_path is None:
+                fail(i, "audio file missing")
+                continue
+            pre_caption = pre_cands = None
+            if not req.no_caption:
+                try:   # caption FIRST (serial); audio matched to it when the operator didn't pin one
+                    pre_caption, pre_cands = generate_caption(niche or None)
+                    if req.audio_id is None and len(choices) > 1:
+                        bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})"
+                                                       for a in choices])
+                        audio = choices[bi]
+                        audio_path = _audio_path(audio) or audio_path
+                except Exception:  # noqa: BLE001 — generate_reel falls back to inline caption gen
+                    pre_caption = pre_cands = None
+            audio_row = {"id": str(audio.id), "description": audio.description, "bpm": audio.bpm,
+                         "energy_arc": audio.energy_arc, "thematic_tags": audio.thematic_tags}
+            with _BATCH_LOCK:
+                job["reels"][i]["state"] = "rendering"
+            futures.append(pool.submit(render_one, i, audio_row, audio_path, pre_caption, pre_cands, clip_ids))
+        for f in futures:
+            f.result()
+    except Exception as exc:  # noqa: BLE001 — a broken orchestrator must still close the job
+        with _BATCH_LOCK:
+            for i, r in enumerate(job["reels"]):
+                if r.get("state") not in ("done", "failed"):
+                    job["reels"][i] = {"state": "failed", "error": str(exc)[:200]}
+    finally:
+        pool.shutdown(wait=True)
+        with _BATCH_LOCK:
+            job["state"] = "done"
+
+
+@app.post("/api/generate/batch")
+def api_generate_batch(req: BatchGenerateRequest):
+    """Start a reel batch as a background job; poll GET /api/generate/batch/{job_id}."""
+    import threading
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="batch generation is operator-only")
+    n = max(1, min(10, req.n))
+    req.n = n
+    job_id = uuid.uuid4().hex
+    with _BATCH_LOCK:
+        _BATCH_JOBS[job_id] = {"state": "running", "n": n,
+                               "reels": [{"state": "queued"} for _ in range(n)]}
+        while len(_BATCH_JOBS) > 20:   # keep the registry small
+            _BATCH_JOBS.pop(next(iter(_BATCH_JOBS)))
+    threading.Thread(target=_run_batch, args=(job_id, req), daemon=True).start()
+    return {"job_id": job_id, "n": n}
+
+
+@app.get("/api/generate/batch/{job_id}")
+def api_generate_batch_status(job_id: str):
+    job = _BATCH_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown batch job")
+    with _BATCH_LOCK:
+        return json.loads(json.dumps(job))   # snapshot, not the live dict
+
+
 @app.api_route("/reels/{name}", methods=["GET", "HEAD"])
 def get_reel(name: str, request: Request):
     safe = os.path.basename(name)

@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
+    reel_render_concurrency: int = 2              # batch generation: renders (clip-match + ffmpeg) that
+                                                  # run in parallel. Captions stay SERIAL by design — the
+                                                  # anti-repeat window and rotation state must see each
+                                                  # slate before the next starts. ffmpeg is CPU-bound;
+                                                  # raise only with more vCPU.
     chooser_model: str = "claude-sonnet-4-6"      # the SELECTION judge. Measured 2026-07-06 (frozen
                                                   # 22-case eval): opus-as-chooser picks the operator-
                                                   # REJECTED line 17/22 (taste inversion); sonnet-4-6 /

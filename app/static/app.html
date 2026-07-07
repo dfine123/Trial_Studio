@@ -758,13 +758,11 @@ document.getElementById('notes').addEventListener('keydown', e => { if (e.key ==
 document.getElementById('gen').onclick = async () => {
   const btn = document.getElementById('gen'), st = document.getElementById('gstatus');
   if (btn.disabled) return;
-  const n = Math.max(1, Math.min(12, parseInt(document.getElementById('count').value,10) || 1));
+  const n = Math.max(1, Math.min(10, parseInt(document.getElementById('count').value,10) || 1));
   const sel = document.getElementById('audio').value;
   const notes = document.getElementById('notes').value || null;
   const folder_id = document.getElementById('genfolder').value || null;
   const noCaption = document.getElementById('blankcap').checked;
-  const shuffled = [...AUDIOS].sort(() => Math.random() - 0.5);
-  const audioFor = (i) => sel === 'mix' ? ((shuffled[(i-1) % shuffled.length] || {}).id) : sel;
   document.getElementById('emptyResult')?.remove();
   const when = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const audioLabel = sel === 'mix' ? 'mix' : trim72((AUDIOS.find(x => x.id === sel) || {}).description || 'audio');
@@ -781,25 +779,43 @@ document.getElementById('gen').onclick = async () => {
   }
   document.getElementById('result').prepend(batch);
   btn.disabled = true; btn.classList.add('working'); btn.textContent = 'Generating…';
-  let done = 0, failed = 0;
-  for (let i = 0; i < n; i++) {
-    cards[i].className = 'card rcard generating'; cards[i].innerHTML = phCard(i+1, n, 'generating');
-    dots[i].className = 'bd run';
-    const ctl = startProgress(cards[i]);
-    const aid = audioFor(i+1);
-    const label = (AUDIOS.find(x => x.id === aid) || {}).description || '';
-    st.innerHTML = `<span class="spin"></span>Generating ${i+1} of ${n}… (~2–3 min each)`;
-    try {
-      const r = await fetch('/api/generate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ audio_id: aid || null, notes, folder_id, no_caption: noCaption }) });
-      if (!r.ok) throw new Error((await r.text()).slice(0,200));
-      ctl.done(); fillReelCard(cards[i], await r.json(), label); done++;
-      dots[i].className = 'bd ok';
-    } catch (e) {
-      ctl.stop(); failed++;
-      dots[i].className = 'bd bad';
-      cards[i].className = 'card rcard';
-      cards[i].innerHTML = `<div class="rmedia fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg><div class="ph-sub" style="color:var(--bad)">${e.message}</div></div><div class="rbody"><span class="u-label" style="color:var(--bad)">Failed</span></div>`;
-    }
+  // batch job: captions run SERIAL server-side (anti-repeat integrity), renders in PARALLEL
+  let job;
+  try {
+    const r = await fetch('/api/generate/batch', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ n, audio_id: (sel && sel !== 'mix') ? sel : null, notes, folder_id, no_caption: noCaption }) });
+    if (!r.ok) throw new Error((await r.text()).slice(0,200));
+    job = await r.json();
+  } catch (e) {
+    st.textContent = 'Batch failed to start: ' + e.message;
+    btn.disabled = false; btn.classList.remove('working'); btn.textContent = 'Generate reels';
+    return;
+  }
+  const ctls = cards.map(() => null);
+  const failCard = (i, msg) => {
+    dots[i].className = 'bd bad'; cards[i].className = 'card rcard';
+    cards[i].innerHTML = `<div class="rmedia fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg><div class="ph-sub" style="color:var(--bad)">${msg}</div></div><div class="rbody"><span class="u-label" style="color:var(--bad)">Failed</span></div>`;
+  };
+  let done = 0, failed = 0, running = true;
+  while (running) {
+    await new Promise(r => setTimeout(r, 3000));
+    let d; try { d = await (await fetch('/api/generate/batch/' + job.job_id)).json(); } catch (_) { continue; }
+    done = 0; failed = 0;
+    d.reels.forEach((rr, i) => {
+      if ((rr.state === 'captioning' || rr.state === 'rendering') && !ctls[i]) {
+        cards[i].className = 'card rcard generating'; cards[i].innerHTML = phCard(i+1, n, 'generating');
+        dots[i].className = 'bd run'; ctls[i] = startProgress(cards[i]);
+      } else if (rr.state === 'done' && !cards[i].dataset.final) {
+        cards[i].dataset.final = '1'; if (ctls[i]) ctls[i].done();
+        fillReelCard(cards[i], rr, rr.audio_desc || audioLabel); dots[i].className = 'bd ok';
+      } else if (rr.state === 'failed' && !cards[i].dataset.final) {
+        cards[i].dataset.final = '1'; if (ctls[i]) ctls[i].stop();
+        failCard(i, rr.error || 'generation failed');
+      }
+      if (rr.state === 'done') done++; if (rr.state === 'failed') failed++;
+    });
+    st.innerHTML = `<span class="spin"></span>Batch running — ${done + failed} of ${n} finished (renders run in parallel)`;
+    running = d.state !== 'done';
   }
   st.textContent = `Done — ${done} generated${failed ? `, ${failed} failed` : ''}.`;
   if (!failed) batch.querySelector('.bmeta').insertAdjacentHTML('beforeend', ' · <span class="bdone">✓ complete</span>');
