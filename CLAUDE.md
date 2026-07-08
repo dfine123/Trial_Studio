@@ -97,6 +97,23 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐ THE REGROUND (2026-07-08, commit 5f51dee) — generation rebuilt from the operator's NORTH
+  STARS.** Operator supplied 5 gold-standard captions from the wild ("the overall voice and framing,
+  and THE POINT — the actual premise of what it's saying") after judging our output over-crafted.
+  What the north stars teach: every caption SAYS something statable in one sentence (truth /
+  straight-faced delusion / coded take); SAID not written (zero punchline architecture — the wit is
+  invisible); the READER finishes it (recognition, decode, hidden math like 10×0=0); STANCE mix
+  (observer "mfs/bro/men" pointing ≈ performer bits). Built: **north-star tier**
+  (var/north_stars.jsonl, /api/northstars, 5 seeded with decoded points — THE BAR in both
+  generation stages, premises taken); **VOICE CORE** (var/voice_core.md via /api/voice-core —
+  operator-editable taste document replacing MY accreted TWIST/PRECISION/snap language in v2 paths;
+  ≥100-char guard); **point-first two-stage** (Stage A ideates plain-sentence POINTS + you/pointing
+  stance — the "premise+play" shape-language produced fan-fiction and over-crafting; Stage B "type
+  it the way you'd actually type it" at the wall+bar). Verified live: energy-drinks-class
+  observations on fresh premises, zero morphs, zero crafted-wordplay tells. Plan remainder: P3
+  footage-reactive caption mode (hero clip context into ideation — 2 of 5 north stars are ABOUT
+  their footage; the clip-aware lane exists unused), P4 chooser bar = north stars (eval-gated), P5
+  rapid text-only taste loops on /grade between reel rounds.
 - **⭐ GENERATION = v2 UNDERSTANDING-FIRST (2026-07-07, commit fbe1774, operator directive: "orient
   the system for SUCCESS, not to follow a list of rules… stop morphing the catalog").** Production
   (`engine._generate_v2`, both batch + reel paths) now runs the lab's operator-corrected two-stage:
