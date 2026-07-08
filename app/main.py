@@ -1938,6 +1938,23 @@ def api_debug_grades_dump(type: str | None = None):
     return {"n": len(recs), "records": recs}
 
 
+class CorpusAdd(BaseModel):
+    caption: str
+    rating: int = 8
+    note: str | None = None
+
+
+@app.post("/api/debug/corpus-add")
+def api_debug_corpus_add(req: CorpusAdd):
+    """Directly add ONE operator-authored/validated caption to the active voice's corpus (the
+    fallback when the note-miner misses a hand-written line — operator gold must never depend on
+    extraction luck). Deduped + why_it_works-decoded like every promotion."""
+    from app.corpus.promote import _add_ref
+    rid = _add_ref(req.caption, req.rating, [], "operator_authored",
+                   req.note or "operator-added directly", op_note=req.note)
+    return {"ref_id": rid, "already": rid is None}
+
+
 class NorthStarAdd(BaseModel):
     caption: str
     point: str | None = None
