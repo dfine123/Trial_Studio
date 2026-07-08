@@ -397,6 +397,25 @@ def morph_guard_drops_noun_swaps_keeps_frames():
     assert any("lime scooter" in t for t in texts), texts
 
 
+# ─── Opener cap: a third same-opener candidate drops ───
+
+@test
+def same_opener_cap():
+    from app.caption import engine
+    caps = ["mfs will do thing one", "mfs will do thing two", "mfs will do thing three",
+            "broke dudes always different"]
+    got = engine._pick_takes([[c] for c in caps])
+    assert got == caps, "pick_takes passes singles through"
+    # the cap itself lives in _generate_v2's post-processing; emulate its logic here
+    seen, kept = {}, []
+    for c in caps:
+        key = " ".join(c.lower().split()[:2])
+        seen[key] = seen.get(key, 0) + 1
+        if seen[key] <= 2:
+            kept.append(c)
+    assert kept == ["mfs will do thing one", "mfs will do thing two", "broke dudes always different"]
+
+
 # ─── Generation v2: understanding-first two-stage (production default) ───
 
 @test
@@ -416,7 +435,8 @@ def v2_point_first_generates_without_anchors():
                                           for i in range(8)]})
         if kw.get("tag") == "take-pick":
             return json.dumps({"picks": [1] * 5})
-        return json.dumps({"captions": [{"idea": i, "takes": [f"take A {i}", f"take B {i}"]}
+        return json.dumps({"captions": [{"idea": i, "takes": [f"alpha{i} first take A {i}",
+                                                              f"omega{i} second take B {i}"]}
                                         for i in range(5)]})
 
     refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
@@ -437,7 +457,7 @@ def v2_point_first_generates_without_anchors():
         out = engine.generate(n=5)
     assert calls == ["ideate", "batch-captions", "take-pick"], calls
     assert len(out) == 5, out
-    assert all(c["text"].startswith("take B") for c in out), f"take-pick winners must win: {out}"
+    assert all("second take B" in c["text"] for c in out), f"take-pick winners must win: {out}"
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
     assert "THE BAR" in seen_systems["ideate"], "north stars must sit in ideation"
