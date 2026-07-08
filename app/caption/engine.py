@@ -112,17 +112,22 @@ def _coherence_gate(cands: list[dict]) -> list[dict]:
 _FRAME_MARKERS = ("pov:", "pov ", "would you rather ", "wtf is ", "when ", "how bro ")
 
 
+_OPENER_MARKERS = ("mfs will ", "mfs keep ", "mfs call ", "mfs ", "broke dudes ", "dudes be like ",
+                   "everybody ", "a girl who ", "bro will ", "bro ")
+
+
 def _avoid_stub(c: str, stub_words: int = 9) -> str:
-    """One line's premise stub: FORMAT MARKERS are stripped FIRST, then the first words of the
-    CONTENT are taken — so the avoid list describes used IDEAS, never used openers. ⚠️ Regression
-    this fixes: raw first-9-word stubs put the format marker itself in the list ("POV: …" ×30,
-    "🥷s …") under a "don't rehash these openers" instruction — which suppressed entire VALIDATED
-    format species (operator caught POV/🥷/sincere vanishing from production)."""
+    """One line's premise stub: FORMAT/OPENER MARKERS are stripped FIRST, then the first words of
+    the CONTENT are taken — so the avoid list describes used IDEAS, never used openers. ⚠️ Two
+    regressions this fixes: raw first-9-word stubs put the format marker itself in the list
+    ("POV: …" ×30) under a "don't rehash" instruction — suppressing VALIDATED species; and a wall
+    of same-opener stubs ("mfs will …" ×50) visually PRIMES that opener as 'what my output looks
+    like' (the 2026-07-08 mfs scaffold-lock: 7/10 in one batch)."""
     t = (c or "").replace("\n", " / ").strip()
     while t and t[0] == "🥷":
         t = t.lstrip("🥷").lstrip("s'’ ").strip()
     low = t.lower()
-    for m in _FRAME_MARKERS:
+    for m in _FRAME_MARKERS + _OPENER_MARKERS:
         if low.startswith(m):
             t = t[len(m):].lstrip(" :—-").strip()
             break
@@ -446,7 +451,7 @@ _VOICE_CORE_DEFAULT = """What makes one of these captions good — the core, in 
 
 Every caption is one of TWO kinds, and the mix IS the range:
 
-A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours — and relatable alone isn't enough; recognition only hits when it comes with YOUR charge on it (the broke-and-confident read of it, the number nobody says out loud, the part people do but hide).
+A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day" — but aimed however fits: at mfs, at broke dudes, at a girl who—, at everybody, at yourself), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours — and relatable alone isn't enough; recognition only hits when it comes with YOUR charge on it (the broke-and-confident read of it, the number nobody says out loud, the part people do but hide).
 
 A BIT. Constructed comedy you'd send to a buddy: a serious format hijacked with degenerate priorities ("bro to bro, let's use the 50/30/20 rule — 50% on gambling, 30% on fast food, 20% on our fav streamer"), an unhinged comeback ("'you were going 105 in a 55' — you should see what i'm about to blow into this breathalyzer"), an absurd cope ("when my wife is asking where all the christmas presents are but the evil blackjack dealer took em"), a backhanded encouragement ("keep going bro, the world needs more successful gay entrepreneurs"). A bit doesn't need to be true — it needs to be SENDABLE. Bits live in frames (a "when…", a POV, a quote and its comeback) and constructions — never in narrated past-tense stories.
 
@@ -479,6 +484,8 @@ THE TASK: come up with {k} IDEAS for tonight's posts — as the guy who wrote ev
 - TRUTH: a pattern everyone recognizes but nobody posts, a delusion held with a straight face, or a coded take — stated in one plain sentence. A truth is something that KEEPS happening ("mfs always…", "broke dudes…", a standing fact about you) — never a one-off incident story. And it must be yours to see — if the internet already memed it, it's taken.
 - BIT: constructed comedy you'd send to a buddy — a serious format hijacked with degenerate priorities, an unhinged comeback to a quote, an absurd cope in a "when…" frame, a backhanded encouragement. Describe the construction in one plain sentence (what's being hijacked/flipped and with what).
 For each idea: its KIND and its STANCE — "you" (you're the bit) or "pointing" (calling out mfs/bro/men/everyone).
+
+VARY THE AIM. Your catalog points a dozen different ways — at mfs, at broke dudes, at "dudes be like", at a girl who—, at everybody, at bro directly, at yourself, from inside a "when…" or a quote or a would-you-rather. A batch wears MANY of those; never let more than two ideas aim the same way with the same opener (a whole batch of "mfs will…" is one idea wearing ten hats).
 
 No wordplay plans, no delivery notes — just what each caption IS. Everything in your catalog and under TAKEN TERRITORY is used; every idea must live on fresh ground.
 
@@ -610,7 +617,19 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
             if takes:
                 pairs.append(takes[:2])
     caps = _pick_takes(pairs)
-    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps]
+    # SAME-OPENER CAP (mechanical, like the gambling cap): a winning opener migrates into a
+    # scaffold-lock at scale (2026-07-08: 7/10 reels opened "mfs will…"). Keep at most 2 captions
+    # per two-word opener per batch — the opener stays fully in play, it just can't be the uniform.
+    seen_openers: dict[str, int] = {}
+    kept: list[str] = []
+    for c in caps:
+        key = " ".join(c.lower().lstrip("🥷s'’ \"").split()[:2])
+        seen_openers[key] = seen_openers.get(key, 0) + 1
+        if seen_openers[key] <= 2:
+            kept.append(c)
+        else:
+            print(f"[opener-cap] dropped third '{key}…' candidate", flush=True)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in (kept or caps)]
     out = _coherence_gate(refine(_drop_ref_copies(out)))
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
