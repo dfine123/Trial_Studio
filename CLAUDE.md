@@ -114,6 +114,18 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   footage-reactive caption mode (hero clip context into ideation — 2 of 5 north stars are ABOUT
   their footage; the clip-aware lane exists unused), P4 chooser bar = north stars (eval-gated), P5
   rapid text-only taste loops on /grade between reel rounds.
+  **ROUND-5 ALIGNMENT (2026-07-08, commits cdd3685+5cccc27):** round 5 (29 reels, mean 5.03) proved
+  the reground frame stuck (operator now grades premise-vs-delivery; the 9 = "mfs keep the
+  headphones in with nothing playing"); dominant miss = good point + flat LAST FIVE WORDS → **TAKE
+  COMPETITION** (Stage B types 2 takes per idea; sonnet take-pick keeps the better, tag=take-pick);
+  kill-class = narrated past-tense INCIDENT stories → pattern-never-incident in the core; operator
+  range-correction: don't narrow to truths — **TWO-WING core: TRUTH (pattern) + BIT (sendable
+  construction: format hijack / unhinged comeback / absurd cope / backhanded encouragement — "would
+  a guy send this to his buddy")**, ideation returns kind+stance mix; 4 BIT north stars seeded
+  (9 total — note 3/4 are gambling-themed: watch for gambling over-index in bits, add non-gambling
+  stars if so); authored-capture accepts "would have been better" as claim 8; POST
+  /api/debug/corpus-add = direct operator-gold insertion (miner-miss fallback; used for the
+  split-it-even line, p073); audio matching maps grindset builds to heavy/locked-in tracks.
 - **⭐ GENERATION = v2 UNDERSTANDING-FIRST (2026-07-07, commit fbe1774, operator directive: "orient
   the system for SUCCESS, not to follow a list of rules… stop morphing the catalog").** Production
   (`engine._generate_v2`, both batch + reel paths) now runs the lab's operator-corrected two-stage:
