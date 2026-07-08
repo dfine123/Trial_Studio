@@ -430,6 +430,7 @@ def v2_point_first_generates_without_anchors():
         seen_systems[kw.get("tag")] = system
         if kw.get("tag") == "ideate":
             return json.dumps({"points": [{"kind": "bit" if i % 3 == 0 else "truth",
+                                           "move": f"move {i % 4}",
                                            "point": f"a plain idea {i}",
                                            "stance": "pointing" if i % 2 else "you"}
                                           for i in range(8)]})

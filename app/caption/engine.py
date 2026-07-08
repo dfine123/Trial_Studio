@@ -487,9 +487,11 @@ For each idea: its KIND and its STANCE — "you" (you're the bit) or "pointing" 
 
 VARY THE AIM. Your catalog points a dozen different ways — at mfs, at broke dudes, at "dudes be like", at a girl who—, at everybody, at bro directly, at yourself, from inside a "when…" or a quote or a would-you-rather. A batch wears MANY of those; never let more than two ideas aim the same way with the same opener (a whole batch of "mfs will…" is one idea wearing ten hats).
 
+VARY THE MOVE. A contradiction callout ("does X but also Y") is ONE move — not the whole set, and a batch full of it is the same joke eight times. Your catalog runs many: the delusion testimonial ("i've never…"), the exchange where you answer wrong on purpose ("she said… so i…"), the hijacked format / absurd math, the coded take the reader decodes, the "when…" cope with the villain externalized, the backhanded encouragement, the would-you-rather, the flex with a visible crack. Label each idea with its MOVE (short, your own words); spread the batch across at least four different moves, max two ideas per move.
+
 No wordplay plans, no delivery notes — just what each caption IS. Everything in your catalog and under TAKEN TERRITORY is used; every idea must live on fresh ground.
 
-Return ONLY JSON: {"points": [{"kind": "truth" | "bit", "point": "one plain sentence", "stance": "you" | "pointing"}]}"""
+Return ONLY JSON: {"points": [{"kind": "truth" | "bit", "move": "the move, in 2-4 words", "point": "one plain sentence", "stance": "you" | "pointing"}]}"""
 
 _TYPE_IT_TAIL = """
 
@@ -557,7 +559,7 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]
     taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs + ns_stubs if x))
     note = (notes or "").strip()
-    k = n + 3   # overgenerate points; stage B writes only the strongest n
+    k = n + 4   # overgenerate ideas; the move-cap may drop some, stage B writes the strongest n
 
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
@@ -590,12 +592,26 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     if not points:
         raise RuntimeError("v2 ideation returned no points after retry")
 
+    # SAME-MOVE CAP (mechanical, self-labeled): the loop amplifies the winning MECHANISM into a
+    # monoculture exactly like it amplified the winning opener (2026-07-08: 7/8 reels were the
+    # contradiction-callout move). Max 2 ideas per move label per batch.
+    seen_moves: dict[str, int] = {}
+    kept_pts = []
+    for p in points:
+        mv = " ".join((p.get("move") or "other").lower().split())[:32]
+        seen_moves[mv] = seen_moves.get(mv, 0) + 1
+        if seen_moves[mv] <= 2:
+            kept_pts.append(p)
+        else:
+            print(f"[move-cap] dropped extra '{mv}' idea", flush=True)
+    points = kept_pts or points
+
     system = (persona() + "\n\n" + core
               + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
               + bar
               + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
     b_user = "THE IDEAS:\n" + "\n".join(
-        f"[{i}] ({p.get('kind') or 'truth'} / {p.get('stance') or 'you'}) {p.get('point')}"
+        f"[{i}] ({p.get('kind') or 'truth'} / {p.get('move') or '?'} / {p.get('stance') or 'you'}) {p.get('point')}"
         for i, p in enumerate(points))
     # the big system (persona+core+wall+bar) is stable between learn rounds — cache it
     b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
