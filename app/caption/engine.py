@@ -438,13 +438,48 @@ def _render_anchors(anchors: list[dict]) -> str:
     return "\n\n".join(renders)
 
 
-_IDEATE_PROD_TAIL = """
+# ── THE VOICE CORE (operator-owned; replaces the accreted craft mechanics in v2 paths) ──
+# Derived 2026-07-08 from the operator's north-star references + catalog + every grade. Stored on
+# the volume (var/voice_core.md, GET/POST /api/voice-core) so the OPERATOR can edit the system's
+# taste directly; this constant is only the seed/fallback.
+_VOICE_CORE_DEFAULT = """What makes one of these captions good — the core, in order:
 
-THE TASK: come up with {k} IDEAS for tonight's posts — each a PREMISE plus its PLAY — as the guy who wrote every caption above. That catalog is YOUR posted work: its premises are TAKEN (so is everything under TAKEN TERRITORY below), but its voice, its moves, its way of seeing things is exactly who you are — every idea must feel like it fell out of the same brain, aimed at fresh territory.
-- PREMISE: fresh, specific, charged — something you haven't posted about, seen the way only YOU see it.
-- PLAY: how it's DELIVERED — a moment the reader lands inside mid-beat (a "POV:", a "when…", a snapped line of dialogue), an exchange where the punch is said TO someone, a build the reader walks into, one of your own frames on a completely fresh moment, or a shape you invent. Dropped-in, never NARRATED like a short story. A matter-of-fact observation is the failure mode — every idea carries a bit.
+THE POINT. Every caption is SAYING something you could state in one plain sentence: a real human truth everyone recognizes but nobody posts ("people buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). The point carries the caption — clever wording around nothing is nothing. And the point must actually TRACK: if its own logic doesn't hold on a literal read, it isn't a point, it's noise.
 
-Return ONLY JSON: {"ideas": [{"premise": "the specific charged observation/moment", "play": "the delivery"}]}"""
+SAID, NOT WRITTEN. It reads like a thought you had, not a joke you built — thrown away, casual, zero setup ceremony, no punchline architecture asking for applause. The funniest guy in the room doesn't perform; he just says it. If a line looks crafted — engineered wordplay, a landing that winks at you — it's dead.
+
+THE READER FINISHES IT. Under-explain on purpose. "I used to get 0 girls.. then I started partying. Now I get 10x more" — the reader does the math and gets rewarded. Recognition ("I know this guy / I AM this guy"), a decode, hidden math: the reader supplies the laugh. The caption never laughs at itself.
+
+STANCE. Sometimes you're the bit — a self-own, a delusional testimonial, a flex with a visible crack. Just as often you're POINTING — at mfs, at bro, at men, at everyone ("how rich bro would be if he got every dollar back from g*mbling"). The pointing voice is half the game; don't default to performing.
+
+THE SOUND. Lowercase slang, emoji when they land (😭🙏✌️), real specifics from YOUR world. Confidence everywhere — even the self-owns are worn with a smirk, never seeking sympathy."""
+
+
+def voice_core() -> str:
+    """The operator-editable taste core (volume file; falls back to the seed above)."""
+    try:
+        with open(os.path.join("var", "voice_core.md"), encoding="utf-8") as f:
+            t = f.read().strip()
+        if t:
+            return t
+    except Exception:  # noqa: BLE001
+        pass
+    return _VOICE_CORE_DEFAULT
+
+
+_IDEATE_POINTS_TAIL = """
+
+THE TASK: come up with {k} POINTS for tonight's posts — as the guy who wrote every caption above. A point is what the caption SAYS, in one plain sentence: a real human truth everyone recognizes but nobody posts, a delusion you hold with a completely straight face, or a coded take the reader gets to decode. For each point, its STANCE: "you" (you're the bit — self-own, delusional testimonial, cracked flex) or "pointing" (you're calling it out — mfs, bro, men, everyone). Mix both.
+
+No delivery notes, no shapes, no wordplay plans — JUST what each caption says. Everything in your catalog and under TAKEN TERRITORY is used; every point must live on fresh ground you haven't touched, seen the way only you see it.
+
+Return ONLY JSON: {"points": [{"point": "one plain sentence — what the caption says", "stance": "you" | "pointing"}]}"""
+
+_TYPE_IT_TAIL = """
+
+THE TASK: below are {k} POINTS — what each caption is supposed to SAY. Type each one the way YOU would actually type it: said, not written; thrown away, not performed; under-explained so the reader finishes it. The catalog above is your own posted work (its premises are taken — it shows your sound); THE BAR is the standard to sit next to without embarrassing yourself. Keep each point's stance. Write the strongest {n} of the {k}; drop any point you can't make land at that bar.
+
+Return ONLY JSON, no prose: {"captions": ["caption (\\n for line breaks)", "..."]}"""
 
 
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
@@ -452,62 +487,68 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     system for SUCCESS, not to follow a list of rules… the point of grading is to communicate
     what's good and WHY, not adding to a list of captions that get morphed randomly").
 
-    Two-stage, REFERENCE-ALIGNED at both stages (operator correction 2026-07-07 v2.1: "keep the
-    same alignment we had by using the references with these" — codex-only ideation lost the
-    voice; a description of greatness is lossy — the lab v3 lesson, re-learned in production):
-      Stage A — IDEATE premise+play pairs AS the catalog's author: the full voice system
-        (persona + reference wall + mechanics — v1's exact alignment machinery) with the catalog
-        AND recent output as TAKEN territory. The references carry the voice INTO the ideas;
-        taken-territory keeps the premises fresh by construction. No anchor duty = no morphs.
-      Stage B — EXECUTE with the wall as BAR + sound-check (premises locked, topics can't be
-        hijacked; the wall carries the texture at full fidelity; codex rides as understanding).
-    Then the same production curation as always: regurgitation drop → subtractive refine →
-    chooser. Candidates carry EMPTY anchor_refs (grade attribution/rotation are v1 concepts; in
-    v2 grades feed the corpus + the codex — the understanding — which is the loop the operator
-    actually asked for; /api/reels/learn force-rebuilds the codex)."""
-    from app.caption import lab
-    codex = lab.build_codex().get("codex") or ""
+    POINT-FIRST, reference-aligned two-stage (the 2026-07-08 REGROUND — built from the operator's
+    north-star references: "the overall voice and framing, and THE POINT of the caption, the
+    actual premise of what it's saying"):
+      Stage A — IDEATE POINTS as the catalog's author (persona + full wall + the VOICE CORE +
+        the north-star BAR): each point = what the caption SAYS in one plain sentence (a
+        recognizable truth / a straight-faced delusion / a coded take) + its stance ("you" =
+        you're the bit; "pointing" = calling out mfs/bro/men). No delivery notes, no shapes —
+        the "play" language produced fan-fiction scenes and over-crafting. Catalog + north
+        stars + recent output = TAKEN territory; no anchor duty = no morphs.
+      Stage B — TYPE IT: say each point the way he'd actually type it (said-not-written, the
+        reader finishes it), catalog = the sound, north stars = the bar; strongest n only.
+    Then the same curation as always: regurgitation/morph drop → subtractive refine → chooser.
+    Candidates carry EMPTY anchor_refs (in the reground loop grades feed the corpus, the north
+    stars, and the operator-editable voice core — var/voice_core.md via /api/voice-core)."""
+    from app.caption import northstars
     refs = load_refs()
+    ns_rows = northstars.load()
     ref_stubs = [_avoid_stub(r.get("caption") or "") for r in refs]
-    taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs if x))
+    ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]
+    taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs + ns_stubs if x))
     note = (notes or "").strip()
-    k = n + 3   # overgenerate ideas; stage B writes only the strongest n
+    k = n + 3   # overgenerate points; stage B writes only the strongest n
 
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
-    a_sys = voice_system(ref_block) + _IDEATE_PROD_TAIL.replace("{k}", str(k))
+    core = voice_core()
+    ns_block = northstars.block()
+    bar = (f"\n\nTHE BAR — lines the operator holds up as the standard (study the LEVEL and the "
+           f"sound; their premises are taken):\n{ns_block}" if ns_block else "")
+    a_sys = (persona() + _BRIDGE.format(references=ref_block) + core + bar
+             + _IDEATE_POINTS_TAIL.replace("{k}", str(k)))
     a_user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + f"TAKEN TERRITORY — every one of these premises is used; yours must live elsewhere:\n{taken}\n"
+        + f"TAKEN TERRITORY — every one of these is used; your points must live elsewhere:\n{taken}\n"
         + f"Recently generated (also taken): {_avoid_block()}\n\n"
-        + f"Generate {k} ideas."
+        + f"Generate {k} points."
     )
-    # v1's exact alignment machinery (persona + wall + mechanics) — stable between learn rounds, cached
-    ideas = []
-    for _attempt in (1, 2):   # a truncated/malformed ideation JSON is retryable, not fatal
+    points = []
+    for _attempt in (1, 2):   # a truncated/malformed JSON is retryable, not fatal
         a_out = complete_json(a_sys, a_user, effort="high", max_tokens=16000,
                               cache_system=True, tag="ideate")
         s, e = a_out.find("{"), a_out.rfind("}")
         if s != -1 and e != -1:
             try:
-                ideas = [p for p in json.loads(a_out[s:e + 1]).get("ideas", [])
-                         if (p.get("premise") or "").strip()]
+                points = [p for p in json.loads(a_out[s:e + 1]).get("points", [])
+                          if (p.get("point") or "").strip()]
             except json.JSONDecodeError:
-                ideas = []
-        if ideas:
+                points = []
+        if points:
             break
-        print("[v2] ideation parse failed — retrying", flush=True)
-    if not ideas:
-        raise RuntimeError("v2 ideation returned no ideas after retry")
+        print("[v2] point ideation parse failed — retrying", flush=True)
+    if not points:
+        raise RuntimeError("v2 ideation returned no points after retry")
 
-    system = (persona() + "\n\n" + _MECHANICS
-              + "\n\nTHE CODEX — why your lines hit:\n\n" + codex
-              + "\n\nYOUR CATALOG (the bar to clear; premises taken):\n\n" + ref_block
-              + lab._EXECUTE_SYS_TAIL.replace("{k}", str(len(ideas))).replace("{n}", str(n)))
-    b_user = "LOCKED IDEAS:\n" + "\n".join(
-        f"[{i}] PREMISE: {p.get('premise')}\n    PLAY: {p.get('play') or '(invent the sharpest shape)'}"
-        for i, p in enumerate(ideas))
-    # the big system (persona+mechanics+codex+wall) is stable between learn rounds — cache it
+    system = (persona() + "\n\n" + core
+              + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
+              + bar
+              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
+    b_user = "THE POINTS:\n" + "\n".join(
+        f"[{i}] ({p.get('stance') or 'you'}) {p.get('point')}"
+        for i, p in enumerate(points))
+    # the big system (persona+core+wall+bar) is stable between learn rounds — cache it
     b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
                           cache_system=True, tag="batch-captions")
     s, e = b_out.find("{"), b_out.rfind("}")

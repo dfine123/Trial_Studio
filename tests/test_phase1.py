@@ -400,21 +400,27 @@ def morph_guard_drops_noun_swaps_keeps_frames():
 # ─── Generation v2: understanding-first two-stage (production default) ───
 
 @test
-def v2_two_stage_generates_without_anchors():
-    from app.caption import engine, lab
+def v2_point_first_generates_without_anchors():
+    from app.caption import engine
     from app.config import settings
     calls = []
+    seen_systems = {}
 
     def fake_llm(system, user, **kw):
         calls.append(kw.get("tag"))
+        seen_systems[kw.get("tag")] = system
         if kw.get("tag") == "ideate":
-            return json.dumps({"ideas": [{"premise": f"premise {i}", "play": f"play {i}",
-                                          "charge": "collapse"} for i in range(8)]})
+            return json.dumps({"points": [{"point": f"a plain truth {i}",
+                                           "stance": "pointing" if i % 2 else "you"}
+                                          for i in range(8)]})
         return json.dumps({"captions": [f"caption {i}" for i in range(5)]})
 
     refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
+    ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
+           "point": "people buy productivity aids to keep doing nothing"}]
+    import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
-         patched(lab, build_codex=lambda force=False: {"codex": "THE CODEX TEXT"}), \
+         patched(ns_mod, load=lambda: list(ns)), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
                  _avoid_block=lambda *a, **k: "(none yet)",
@@ -429,9 +435,12 @@ def v2_two_stage_generates_without_anchors():
     assert len(out) == 5, out
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
+    assert "THE BAR" in seen_systems["ideate"], "north stars must sit in ideation"
+    assert "energy drinks" in seen_systems["batch-captions"], "north stars must sit in execution"
+    assert "THE POINT" in seen_systems["ideate"], "voice core must sit in ideation"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
-         patched(lab, build_codex=lambda force=False: {"codex": "X"}), \
+         patched(ns_mod, load=lambda: []), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
                  _avoid_block=lambda *a, **k: "(none yet)", persona=lambda: "P",
                  refine=lambda cands: cands, _drop_ref_copies=lambda cands: cands,

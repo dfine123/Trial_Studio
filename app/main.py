@@ -1938,6 +1938,58 @@ def api_debug_grades_dump(type: str | None = None):
     return {"n": len(recs), "records": recs}
 
 
+class NorthStarAdd(BaseModel):
+    caption: str
+    point: str | None = None
+    stance: str | None = None
+
+
+@app.get("/api/northstars")
+def api_northstars_list():
+    from app.caption import northstars
+    return {"north_stars": northstars.load()}
+
+
+@app.post("/api/northstars")
+def api_northstars_add(req: NorthStarAdd):
+    """Operator intake for gold-standard captions from the wild — THE BAR generation writes to."""
+    from app.caption import northstars
+    return northstars.add(req.caption, req.point, req.stance)
+
+
+@app.delete("/api/northstars/{ns_id}")
+def api_northstars_remove(ns_id: str):
+    from app.caption import northstars
+    if not northstars.remove(ns_id):
+        raise HTTPException(status_code=404, detail="unknown north star")
+    return {"ok": True}
+
+
+class VoiceCoreUpdate(BaseModel):
+    text: str
+
+
+@app.get("/api/voice-core")
+def api_voice_core_get():
+    from app.caption.engine import voice_core
+    return {"text": voice_core()}
+
+
+@app.post("/api/voice-core")
+def api_voice_core_set(req: VoiceCoreUpdate):
+    """The OPERATOR edits the system's taste directly — this text sits in every v2 generation."""
+    t = (req.text or "").strip()
+    if len(t) < 100:
+        raise HTTPException(status_code=400, detail="core text suspiciously short — refusing")
+    path = os.path.join("var", "voice_core.md")
+    os.makedirs("var", exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(t)
+    os.replace(tmp, path)
+    return {"ok": True, "chars": len(t)}
+
+
 class SlateProbe(BaseModel):
     k: int = 5
 
