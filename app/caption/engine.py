@@ -444,13 +444,19 @@ def _render_anchors(anchors: list[dict]) -> str:
 # taste directly; this constant is only the seed/fallback.
 _VOICE_CORE_DEFAULT = """What makes one of these captions good — the core, in order:
 
-THE POINT. Every caption is SAYING something you could state in one plain sentence: a real human truth everyone recognizes but nobody posts ("people buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). The point carries the caption — clever wording around nothing is nothing. And the point must actually TRACK: if its own logic doesn't hold on a literal read, it isn't a point, it's noise.
+Every caption is one of TWO kinds, and the mix IS the range:
+
+A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours.
+
+A BIT. Constructed comedy you'd send to a buddy: a serious format hijacked with degenerate priorities ("bro to bro, let's use the 50/30/20 rule — 50% on gambling, 30% on fast food, 20% on our fav streamer"), an unhinged comeback ("'you were going 105 in a 55' — you should see what i'm about to blow into this breathalyzer"), an absurd cope ("when my wife is asking where all the christmas presents are but the evil blackjack dealer took em"), a backhanded encouragement ("keep going bro, the world needs more successful gay entrepreneurs"). A bit doesn't need to be true — it needs to be SENDABLE. Bits live in frames (a "when…", a POV, a quote and its comeback) and constructions — never in narrated past-tense stories.
+
+THE TEST. Truth or bit, one question decides: would a guy screenshot this and send it to his buddy — recognition ("this is so you") or just funny enough to forward? If no, it's filler.
 
 SAID, NOT WRITTEN. It reads like a thought you had, not a joke you built — thrown away, casual, zero setup ceremony, no punchline architecture asking for applause. The funniest guy in the room doesn't perform; he just says it. If a line looks crafted — engineered wordplay, a landing that winks at you — it's dead.
 
-THE READER FINISHES IT. Under-explain on purpose. "I used to get 0 girls.. then I started partying. Now I get 10x more" — the reader does the math and gets rewarded. Recognition ("I know this guy / I AM this guy"), a decode, hidden math: the reader supplies the laugh. The caption never laughs at itself.
+THE READER FINISHES IT. Under-explain on purpose. "I used to get 0 girls.. then I started partying. Now I get 10x more" — the reader does the math and gets rewarded. Recognition, a decode, hidden math: the reader supplies the laugh. The caption never laughs at itself.
 
-STANCE. Sometimes you're the bit — a self-own, a delusional testimonial, a flex with a visible crack. Just as often you're POINTING — at mfs, at bro, at men, at everyone ("how rich bro would be if he got every dollar back from g*mbling"). The pointing voice is half the game; don't default to performing.
+STANCE. Sometimes you're the bit — a self-own, a delusional testimonial, a flex with a visible crack. Just as often you're POINTING — at mfs, at bro, at men, at everyone. The pointing voice is half the game; don't default to performing.
 
 THE SOUND. Lowercase slang, emoji when they land (😭🙏✌️), real specifics from YOUR world. Confidence everywhere — even the self-owns are worn with a smirk, never seeking sympathy."""
 
@@ -469,17 +475,50 @@ def voice_core() -> str:
 
 _IDEATE_POINTS_TAIL = """
 
-THE TASK: come up with {k} POINTS for tonight's posts — as the guy who wrote every caption above. A point is what the caption SAYS, in one plain sentence: a real human truth everyone recognizes but nobody posts, a delusion you hold with a completely straight face, or a coded take the reader gets to decode. For each point, its STANCE: "you" (you're the bit — self-own, delusional testimonial, cracked flex) or "pointing" (you're calling it out — mfs, bro, men, everyone). Mix both.
+THE TASK: come up with {k} IDEAS for tonight's posts — as the guy who wrote every caption above — a MIX of the two kinds:
+- TRUTH: a pattern everyone recognizes but nobody posts, a delusion held with a straight face, or a coded take — stated in one plain sentence. A truth is something that KEEPS happening ("mfs always…", "broke dudes…", a standing fact about you) — never a one-off incident story. And it must be yours to see — if the internet already memed it, it's taken.
+- BIT: constructed comedy you'd send to a buddy — a serious format hijacked with degenerate priorities, an unhinged comeback to a quote, an absurd cope in a "when…" frame, a backhanded encouragement. Describe the construction in one plain sentence (what's being hijacked/flipped and with what).
+For each idea: its KIND and its STANCE — "you" (you're the bit) or "pointing" (calling out mfs/bro/men/everyone).
 
-No delivery notes, no shapes, no wordplay plans — JUST what each caption says. Everything in your catalog and under TAKEN TERRITORY is used; every point must live on fresh ground you haven't touched, seen the way only you see it.
+No wordplay plans, no delivery notes — just what each caption IS. Everything in your catalog and under TAKEN TERRITORY is used; every idea must live on fresh ground.
 
-Return ONLY JSON: {"points": [{"point": "one plain sentence — what the caption says", "stance": "you" | "pointing"}]}"""
+Return ONLY JSON: {"points": [{"kind": "truth" | "bit", "point": "one plain sentence", "stance": "you" | "pointing"}]}"""
 
 _TYPE_IT_TAIL = """
 
-THE TASK: below are {k} POINTS — what each caption is supposed to SAY. Type each one the way YOU would actually type it: said, not written; thrown away, not performed; under-explained so the reader finishes it. The catalog above is your own posted work (its premises are taken — it shows your sound); THE BAR is the standard to sit next to without embarrassing yourself. Keep each point's stance. Write the strongest {n} of the {k}; drop any point you can't make land at that bar.
+THE TASK: below are {k} IDEAS — what each caption is supposed to be. For each of the strongest {n}, type it TWO different ways you might actually post it: said, not written; thrown away, not performed; under-explained so the reader finishes it. Two genuinely different takes — different wording, maybe different framing — so the better landing can win; the difference between a 4 and a 9 is usually the last five words. The catalog above is your own posted work (its premises are taken — it shows your sound); THE BAR is the standard to sit next to without embarrassing yourself. Keep each idea's kind and stance. Drop any idea you can't make land at that bar.
 
-Return ONLY JSON, no prose: {"captions": ["caption (\\n for line breaks)", "..."]}"""
+Return ONLY JSON, no prose: {"captions": [{"idea": <0-based idea index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
+
+
+def _pick_takes(pairs: list[list[str]]) -> list[str]:
+    """TAKE COMPETITION (round-5 alignment: the dominant miss was 'good premise, flat last five
+    words'). Each idea arrives as up to two takes; one cheap call by the non-inverted judge
+    (settings.chooser_model) keeps the take that lands better. Fail-safe: first take on any
+    error. Selection-layer, not a craft rule — competition beats prescriptions here."""
+    from app.config import settings
+    if not pairs:
+        return []
+    real = [(i, p) for i, p in enumerate(pairs) if len(p) >= 2]
+    picks = {i: 0 for i, _ in real}
+    if real:
+        listing = "\n\n".join(f"PAIR {j}:\n  [0] " + p[0].replace("\n", " / ")
+                              + "\n  [1] " + p[1].replace("\n", " / ")
+                              for j, (_, p) in enumerate(real))
+        sys_p = (persona() + "\n\nYou typed two takes of each idea below. For each pair pick the "
+                 "take you'd ACTUALLY post — the one that lands read cold; said, not written; the "
+                 "last five words decide. Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
+        try:
+            out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
+                                model=getattr(settings, "chooser_model", None) or None)
+            s, e = out.find("{"), out.rfind("}")
+            got = json.loads(out[s:e + 1]).get("picks", []) if s != -1 else []
+            for j, (i, p) in enumerate(real):
+                if j < len(got) and got[j] in (0, 1):
+                    picks[i] = int(got[j])
+        except Exception:  # noqa: BLE001 — competition must never break generation
+            pass
+    return [p[picks.get(i, 0)] if len(p) > 1 else p[0] for i, p in enumerate(pairs)]
 
 
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
@@ -545,21 +584,30 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
               + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
               + bar
               + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
-    b_user = "THE POINTS:\n" + "\n".join(
-        f"[{i}] ({p.get('stance') or 'you'}) {p.get('point')}"
+    b_user = "THE IDEAS:\n" + "\n".join(
+        f"[{i}] ({p.get('kind') or 'truth'} / {p.get('stance') or 'you'}) {p.get('point')}"
         for i, p in enumerate(points))
     # the big system (persona+core+wall+bar) is stable between learn rounds — cache it
     b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
                           cache_system=True, tag="batch-captions")
     s, e = b_out.find("{"), b_out.rfind("}")
-    caps: list[str] = []
+    entries: list = []
     if s != -1 and e != -1:
         try:
-            caps = [c for c in json.loads(b_out[s:e + 1]).get("captions", [])
-                    if isinstance(c, str) and c.strip()]
+            entries = json.loads(b_out[s:e + 1]).get("captions", [])
         except json.JSONDecodeError:
-            caps = []
-    out = [{"text": c.strip(), "anchor_ref": None, "anchor_refs": []} for c in caps[:n]]
+            entries = []
+    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe)
+    pairs: list[list[str]] = []
+    for ent in entries[: n]:
+        if isinstance(ent, str) and ent.strip():
+            pairs.append([ent.strip()])
+        elif isinstance(ent, dict):
+            takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
+            if takes:
+                pairs.append(takes[:2])
+    caps = _pick_takes(pairs)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps]
     out = _coherence_gate(refine(_drop_ref_copies(out)))
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")

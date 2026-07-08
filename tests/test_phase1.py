@@ -410,10 +410,14 @@ def v2_point_first_generates_without_anchors():
         calls.append(kw.get("tag"))
         seen_systems[kw.get("tag")] = system
         if kw.get("tag") == "ideate":
-            return json.dumps({"points": [{"point": f"a plain truth {i}",
+            return json.dumps({"points": [{"kind": "bit" if i % 3 == 0 else "truth",
+                                           "point": f"a plain idea {i}",
                                            "stance": "pointing" if i % 2 else "you"}
                                           for i in range(8)]})
-        return json.dumps({"captions": [f"caption {i}" for i in range(5)]})
+        if kw.get("tag") == "take-pick":
+            return json.dumps({"picks": [1] * 5})
+        return json.dumps({"captions": [{"idea": i, "takes": [f"take A {i}", f"take B {i}"]}
+                                        for i in range(5)]})
 
     refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
@@ -431,13 +435,15 @@ def v2_point_first_generates_without_anchors():
                  log_generated=lambda texts: None,
                  complete_json=fake_llm):
         out = engine.generate(n=5)
-    assert calls == ["ideate", "batch-captions"], calls
+    assert calls == ["ideate", "batch-captions", "take-pick"], calls
     assert len(out) == 5, out
+    assert all(c["text"].startswith("take B") for c in out), f"take-pick winners must win: {out}"
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
     assert "THE BAR" in seen_systems["ideate"], "north stars must sit in ideation"
     assert "energy drinks" in seen_systems["batch-captions"], "north stars must sit in execution"
-    assert "THE POINT" in seen_systems["ideate"], "voice core must sit in ideation"
+    assert "A TRUTH" in seen_systems["ideate"] and "A BIT" in seen_systems["ideate"], \
+        "two-wing voice core must sit in ideation"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: []), \

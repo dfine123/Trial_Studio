@@ -214,7 +214,7 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
     return ranked
 
 
-_AUDIO_MATCH_SYS = """You pick the AUDIO that best backs a short-form caption for a 9:16 reel — the track's vibe should AMPLIFY the caption's tone. A blunt / deadpan / contemptuous line wants blunt, hard, aggressive audio; an absurd flex or a hype brag wants upbeat / celebratory; a reflective or sincere line wants slower / atmospheric. Match the ENERGY and the ATTITUDE, not the topic.
+_AUDIO_MATCH_SYS = """You pick the AUDIO that best backs a short-form caption for a 9:16 reel — the track's vibe should AMPLIFY the caption's tone. A blunt / deadpan / contemptuous line wants blunt, hard, aggressive audio; an absurd flex or a hype brag wants upbeat / celebratory; a reflective or sincere line wants slower / atmospheric; a grindset / motivational / no-one-saw-me build wants heavy, locked-in, motivational audio — never playful. Match the ENERGY and the ATTITUDE, not the topic.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the best-fitting audio>}"""
 
