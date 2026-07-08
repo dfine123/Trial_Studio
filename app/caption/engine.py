@@ -446,7 +446,7 @@ _VOICE_CORE_DEFAULT = """What makes one of these captions good — the core, in 
 
 Every caption is one of TWO kinds, and the mix IS the range:
 
-A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours.
+A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day"), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours — and relatable alone isn't enough; recognition only hits when it comes with YOUR charge on it (the broke-and-confident read of it, the number nobody says out loud, the part people do but hide).
 
 A BIT. Constructed comedy you'd send to a buddy: a serious format hijacked with degenerate priorities ("bro to bro, let's use the 50/30/20 rule — 50% on gambling, 30% on fast food, 20% on our fav streamer"), an unhinged comeback ("'you were going 105 in a 55' — you should see what i'm about to blow into this breathalyzer"), an absurd cope ("when my wife is asking where all the christmas presents are but the evil blackjack dealer took em"), a backhanded encouragement ("keep going bro, the world needs more successful gay entrepreneurs"). A bit doesn't need to be true — it needs to be SENDABLE. Bits live in frames (a "when…", a POV, a quote and its comeback) and constructions — never in narrated past-tense stories.
 
@@ -507,7 +507,10 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
                               for j, (_, p) in enumerate(real))
         sys_p = (persona() + "\n\nYou typed two takes of each idea below. For each pair pick the "
                  "take you'd ACTUALLY post — the one that lands read cold; said, not written; the "
-                 "last five words decide. Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
+                 "last five words decide. A take whose referents drift (\"your mom\" then \"him\") "
+                 "always loses; when takes are close, the one with the NAMED specific (the "
+                 "Rothschilds, not \"every rich guy\") wins. "
+                 "Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
         try:
             out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
                                 model=getattr(settings, "chooser_model", None) or None)
