@@ -299,6 +299,12 @@
             <select id="audio"></select>
             <label class="u-label rail-label" for="genfolder">Generate from</label>
             <select id="genfolder"></select>
+            <label class="u-label rail-label" for="shotstyle">Shot style</label>
+            <select id="shotstyle">
+              <option value="0">Mashup — beat-cut clips</option>
+              <option value="1">Single clip</option>
+              <option value="2">Two clips</option>
+            </select>
             <label class="u-label rail-label" for="notes">Notes — optional nudge</label>
             <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
             <label class="u-label rail-label" for="count">How many reels</label>
@@ -832,7 +838,23 @@ async function loadProfiles() {
   const sel = document.getElementById('profileSel');
   sel.innerHTML = PROFILES.map(p => `<option value="${p.id}"${p.active ? ' selected' : ''}>${p.name}</option>`).join('');
   loadVoices();   // the voice picker is scoped to the active profile
+  loadShotStyle();
 }
+async function loadShotStyle() {
+  const active = (PROFILES.find(p => p.active) || {}).id;
+  if (!active) return;
+  try {
+    const s = await (await fetch(`/api/profiles/${active}/settings`)).json();
+    document.getElementById('shotstyle').value = String(s.max_shots || 0);
+  } catch (_) {}
+}
+document.getElementById('shotstyle').onchange = async (e) => {
+  const active = (PROFILES.find(p => p.active) || {}).id;
+  if (!active) return;
+  await fetch(`/api/profiles/${active}/settings`, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ max_shots: parseInt(e.target.value, 10) }) });
+  toast(e.target.value === '0' ? 'Mashup style' : `${e.target.value === '1' ? 'Single' : 'Two'}-clip style saved`);
+};
 async function switchProfile(id) {
   await fetch('/api/profiles/active', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
   location.reload();   // re-scope everything (clips, folders, generation, voice) to the new profile
