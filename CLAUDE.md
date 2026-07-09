@@ -114,6 +114,21 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   footage-reactive caption mode (hero clip context into ideation — 2 of 5 north stars are ABOUT
   their footage; the clip-aware lane exists unused), P4 chooser bar = north stars (eval-gated), P5
   rapid text-only taste loops on /grade between reel rounds.
+  **BEST-OF-MORE REBUILD (2026-07-09, commit bce94a6) — quality regression fix.** Operator: recent
+  output "losing the really good captions, generating a ton of mid ones" (measured: Base==Check
+  quality, so engine-wide not voice-specific; a wall of competent 6-7s, no 9-10 peaks). Root cause:
+  the stacked HARD diversity caps (opener + move) could only REMOVE captions and removed for SPREAD
+  not quality — flattening peaks (the canon's transform-layer-neuters pattern; I added them after
+  the round-6 peak). REBUILT quality-led: overgenerate ~1.5n idea POOL (k=n+max(5,n//2), NO hard
+  move cap), execute ALL ideas (was [:n]), take-competition, then `_select_best` (best-of-more:
+  sonnet judge picks the n BANGERS with SOFT diversity — "quality first, variety only breaks
+  near-ties"). The batch path gained a best-of gate it never had. Diversity now lives in the
+  VARY-THE-MOVE/AIM ideation prompt (diverse pool) + soft selection, never hard drops. Verified:
+  peaks back ("a situationship is just a relationship where he's not paying yet"; jersey-bowling-
+  league flex-with-a-crack; "a dude's watch tells you more about his debt than his money") AND 7/7
+  distinct openers per batch. ⚠️ PER-VOICE STATE: a new profile is born with EMPTY corpus+persona →
+  generation now FAILS LOUDLY (pick a voice first); Check is a stale 100%-Base-overlap copy with an
+  OLD persona (no unemployed-not-poor) — engine fixes apply to it, but its persona/corpus lag Base.
   **ROUND-5 ALIGNMENT (2026-07-08, commits cdd3685+5cccc27):** round 5 (29 reels, mean 5.03) proved
   the reground frame stuck (operator now grades premise-vs-delivery; the 9 = "mfs keep the
   headphones in with nothing playing"); dominant miss = good point + flat LAST FIVE WORDS → **TAKE
