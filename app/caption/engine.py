@@ -453,23 +453,19 @@ def _render_anchors(anchors: list[dict]) -> str:
 # Derived 2026-07-08 from the operator's north-star references + catalog + every grade. Stored on
 # the volume (var/voice_core.md, GET/POST /api/voice-core) so the OPERATOR can edit the system's
 # taste directly; this constant is only the seed/fallback.
-_VOICE_CORE_DEFAULT = """What makes one of these captions good — the core, in order:
+_VOICE_CORE_DEFAULT = """What separates your bangers from your dead ones — the one line, from your own grades:
 
-Every caption is one of TWO kinds, and the mix IS the range:
+CONCRETE, NEVER ABSTRACT. Your 10s are always something you can SEE, or a specific character doing a specific thing: raccoons eating every single night, a 50-year-old genuinely hyped explaining his 401k match, the hater losing his mind when the vending machine drops two bags of chips, a guy proud he's in debt from a car that hits 60 in 3 seconds, flying bro out after you hit a million to ask if that "no homo" in 2019 was real. Your 1s are almost always an abstract DEFINITION of a concept — "an alarm clock is just your boss waking you up for free," "a job interview is just begging with better posture," "a resume is just a list of everyone you made rich except yourself." The "X is just Y" reframe FEELS clever but it's a tweet about a concept, not you being a menace. It is the single most common shape in your dead pile. Don't write it.
 
-A TRUTH. Something real you could state in one plain sentence: a pattern everyone recognizes but nobody posts ("mfs will buy energy drinks just to do nothing all day" — but aimed however fits: at mfs, at broke dudes, at a girl who—, at everybody, at yourself), a delusion held with a completely straight face ("from a very young age i knew something was wrong with everyone else"), or a coded take the reader decodes ("men look at mileage not the year"). A truth is a PATTERN — something that keeps happening — never a one-off incident story; narrated past-tense incidents read as fiction. It must actually track on a literal read, and it has to be YOURS to see: if the internet already made it a meme (plane claps), it's not yours — and relatable alone isn't enough; recognition only hits when it comes with YOUR charge on it (the broke-and-confident read of it, the number nobody says out loud, the part people do but hide).
+SPECIFIC AND FROM YOUR WORLD. The detail that lands is exact and yours — the Rothschilds (not "rich people"), an LED sign with your name on it (not "expensive stuff"), a $997 course on how to sell a $997 course, "no homo back in 2019." Vague dies ("equity," "my first deal"). Random-but-not-yours dies ("name embroidered on my gym towel"). It has to be a thing from your life: loud money, the come-up, degen gambling, spectacle, bro. And the LAST beat has to land on a concrete image — never a soft summary word ("with better posture", "a diagnosis", "some days just take longer to load" all die there).
 
-A BIT. Constructed comedy you'd send to a buddy: a serious format hijacked with degenerate priorities ("bro to bro, let's use the 50/30/20 rule — 50% on gambling, 30% on fast food, 20% on our fav streamer"), an unhinged comeback ("'you were going 105 in a 55' — you should see what i'm about to blow into this breathalyzer"), an absurd cope ("when my wife is asking where all the christmas presents are but the evil blackjack dealer took em"), a backhanded encouragement ("keep going bro, the world needs more successful gay entrepreneurs"). A bit doesn't need to be true — it needs to be SENDABLE. Bits live in frames (a "when…", a POV, a quote and its comeback) and constructions — never in narrated past-tense stories.
+DELUSIONAL CONFIDENCE. You never complain or explain. You flex the dumb thing like it's superior ("we in stealth mode," "i'm tryna nut twice before noon"), roast someone dead-on ("she believed in me when nobody else did / bc nobody else was that dumb"), or state something unhinged completely straight (edging taught you more about delayed gratification than any finance guru). Worn with a smirk, never seeking sympathy.
 
-THE TEST. Truth or bit, one question decides: would a guy screenshot this and send it to his buddy — recognition ("this is so you") or just funny enough to forward? If no, it's filler.
+SAID, NOT WRITTEN. It reads like a thought you threw away — no setup ceremony, no punchline architecture, nothing that winks at you. The funniest guy in the room doesn't perform; he just says it.
 
-SAID, NOT WRITTEN. It reads like a thought you had, not a joke you built — thrown away, casual, zero setup ceremony, no punchline architecture asking for applause. The funniest guy in the room doesn't perform; he just says it. If a line looks crafted — engineered wordplay, a landing that winks at you — it's dead.
+THE READER FINISHES IT. Under-explain. Recognition ("this is so him"), a decode, hidden math — the reader supplies the laugh. The caption never laughs at itself.
 
-THE READER FINISHES IT. Under-explain on purpose. "I used to get 0 girls.. then I started partying. Now I get 10x more" — the reader does the math and gets rewarded. Recognition, a decode, hidden math: the reader supplies the laugh. The caption never laughs at itself.
-
-STANCE. Sometimes you're the bit — a self-own, a delusional testimonial, a flex with a visible crack. Just as often you're POINTING — at mfs, at bro, at men, at everyone. The pointing voice is half the game; don't default to performing.
-
-THE SOUND. Lowercase slang, emoji when they land (😭🙏✌️), real specifics from YOUR world. Confidence everywhere — even the self-owns are worn with a smirk, never seeking sympathy."""
+THE SHAPES you actually run (all of them concrete, none of them abstract definitions): a specific scene ("she asks X, i can't say Y so i say Z"), a "when my phone buzzes…" moment, "Dudes be like '[quote]' / [brutal turn]", a "we are not the same" flex with a vivid self-own, an animal/hater held up as anti-cope, absurd-math schemes, would-you-rather, a POV, a quote and its comeback."""
 
 
 def voice_core() -> str:
@@ -584,25 +580,31 @@ def _select_best(caps: list[str], n: int) -> list[str]:
     return (kept + rest)[:n]
 
 
-def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
-    """UNDERSTANDING-FIRST generation (production v2 — operator directive 2026-07-07: "orient the
-    system for SUCCESS, not to follow a list of rules… the point of grading is to communicate
-    what's good and WHY, not adding to a list of captions that get morphed randomly").
+_CONCRETE_TAIL = """
 
-    POINT-FIRST, reference-aligned two-stage (the 2026-07-08 REGROUND — built from the operator's
-    north-star references: "the overall voice and framing, and THE POINT of the caption, the
-    actual premise of what it's saying"):
-      Stage A — IDEATE POINTS as the catalog's author (persona + full wall + the VOICE CORE +
-        the north-star BAR): each point = what the caption SAYS in one plain sentence (a
-        recognizable truth / a straight-faced delusion / a coded take) + its stance ("you" =
-        you're the bit; "pointing" = calling out mfs/bro/men). No delivery notes, no shapes —
-        the "play" language produced fan-fiction scenes and over-crafting. Catalog + north
-        stars + recent output = TAKEN territory; no anchor duty = no morphs.
-      Stage B — TYPE IT: say each point the way he'd actually type it (said-not-written, the
-        reader finishes it), catalog = the sound, north stars = the bar; strongest n only.
-    Then the same curation as always: regurgitation/morph drop → subtractive refine → chooser.
-    Candidates carry EMPTY anchor_refs (in the reground loop grades feed the corpus, the north
-    stars, and the operator-editable voice core — var/voice_core.md via /api/voice-core)."""
+Write {n} NEW captions you'd post today — as this creator, in this exact voice.
+
+The one rule above every other: CONCRETE, never abstract. Each caption is something the reader can SEE — a specific scene, a specific character doing a specific thing, a real recognized behavior, or you flexing the dumb thing with a straight face. Look at your catalog above: raccoons eating every night, a 50-year-old genuinely hyped explaining his 401k match, the hater losing it when the vending machine drops two bags of chips, a guy proud he's in debt from a car that hits 60 in 3 seconds. Those are the bar.
+
+An ABSTRACT DEFINITION of a concept is DEAD — "an alarm clock is just your boss waking you up for free," "a job interview is just begging with better posture." The "X is just Y" reframe feels clever but it's a tweet about a concept, not you being a menace. Do not write a single one.
+
+The specific detail that lands is EXACT and YOURS: the Rothschilds not "rich people," an LED sign with your name on it not "expensive stuff," "no homo back in 2019," a $997 course on how to sell a $997 course. Vague dies. Random-but-not-from-your-world dies. Land the last beat on a concrete image, never a soft summary word.
+
+Brand new premises — everything in your catalog and in the taken list is used; go somewhere new but stay unmistakably you. As varied across your whole range as the catalog is.
+
+Return ONLY JSON, no prose: {"captions": ["the caption (\\n for line breaks)", "..."]}"""
+
+
+def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
+    """CONCRETE-FIRST, REFERENCE-DOMINATED generation (2026-07-09 rebuild, from the operator's
+    caption-level analysis: his 10s are CONCRETE scenes/images/specific-in-world flexes; his 1s are
+    ABSTRACT "X is just Y" definitions of concepts). One shot: the whole corpus is the voice (its
+    concrete texture is the grounding), the persona embodies him, the voice core + north-star BAR
+    name the concrete-not-abstract standard, and he writes fresh concrete captions. NO point-first
+    ideation (it manufactured the abstract deaths), NO LLM judge in the pipeline (they prefer the
+    abstract-clever — the select-best/chooser inversion), NO caps. Curation stays subtractive:
+    morph/regurgitation drop → refine. The operator's GRADES are the only quality signal; they feed
+    the corpus (richer concrete grounding) and the operator-editable voice core (var/voice_core.md)."""
     from app.caption import northstars
     refs = load_refs()
     if not refs:
@@ -611,76 +613,35 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
         # quietly shipped a whole batch this way and read as a system regression)
         raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
                            "on the Generation Studio voice cards before generating")
-    ns_rows = northstars.load()
-    ref_stubs = [_avoid_stub(r.get("caption") or "") for r in refs]
-    ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]
-    taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs + ns_stubs if x))
     note = (notes or "").strip()
-    k = n + 3   # small idea buffer; stage B writes the strongest n (the round-6 engine the operator
-                # rated best — NO overgen+LLM-select, that judge picked corny-quotable lines 2026-07-09)
-
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
     core = voice_core()
     ns_block = northstars.block()
-    bar = (f"\n\nTHE BAR — lines the operator holds up as the standard (study the LEVEL and the "
-           f"sound; their premises are taken):\n{ns_block}" if ns_block else "")
-    a_sys = (persona() + _BRIDGE.format(references=ref_block) + core + bar
-             + _IDEATE_POINTS_TAIL.replace("{k}", str(k)))
-    a_user = (
+    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (this concrete, this "
+           f"specific; their premises are taken):\n{ns_block}" if ns_block else "")
+    system = (persona() + _BRIDGE.format(references=ref_block) + core + bar
+              + _CONCRETE_TAIL.replace("{n}", str(n)))
+    user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + f"TAKEN TERRITORY — every one of these is used; your points must live elsewhere:\n{taken}\n"
-        + f"Recently generated (also taken): {_avoid_block()}\n\n"
-        + f"Generate {k} points."
+        + f"Recently generated — also used, go elsewhere: {_avoid_block()}\n\n"
+        + f"Write {n} captions."
     )
-    points = []
+    caps: list[str] = []
     for _attempt in (1, 2):   # a truncated/malformed JSON is retryable, not fatal
-        a_out = complete_json(a_sys, a_user, effort="high", max_tokens=16000,
-                              cache_system=True, tag="ideate")
-        s, e = a_out.find("{"), a_out.rfind("}")
+        text = complete_json(system, user, effort="high", max_tokens=4000,
+                             cache_system=True, tag="batch-captions")
+        s, e = text.find("{"), text.rfind("}")
         if s != -1 and e != -1:
             try:
-                points = [p for p in json.loads(a_out[s:e + 1]).get("points", [])
-                          if (p.get("point") or "").strip()]
+                caps = [c.strip() for c in json.loads(text[s:e + 1]).get("captions", [])
+                        if isinstance(c, str) and c.strip()]
             except json.JSONDecodeError:
-                points = []
-        if points:
+                caps = []
+        if caps:
             break
-        print("[v2] point ideation parse failed — retrying", flush=True)
-    if not points:
-        raise RuntimeError("v2 ideation returned no points after retry")
-
-    # NOTE: NO hard move/opener caps and NO LLM best-of judge — both made it WORSE (caps flattened
-    # peaks by dropping for spread; the select-best judge picked corny-quotable "X is just Y"
-    # aphorisms, the operator's named failure mode). Diversity is soft, from the VARY prompt only;
-    # the model writes the strongest n directly — the round-6 engine the operator rated best.
-    system = (persona() + "\n\n" + core
-              + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
-              + bar
-              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
-    b_user = "THE IDEAS:\n" + "\n".join(
-        f"[{i}] ({p.get('kind') or 'truth'} / {p.get('move') or '?'} / {p.get('stance') or 'you'}) {p.get('point')}"
-        for i, p in enumerate(points))
-    b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
-                          cache_system=True, tag="batch-captions")
-    s, e = b_out.find("{"), b_out.rfind("}")
-    entries: list = []
-    if s != -1 and e != -1:
-        try:
-            entries = json.loads(b_out[s:e + 1]).get("captions", [])
-        except json.JSONDecodeError:
-            entries = []
-    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe)
-    pairs: list[list[str]] = []
-    for ent in entries[: n]:
-        if isinstance(ent, str) and ent.strip():
-            pairs.append([ent.strip()])
-        elif isinstance(ent, dict):
-            takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
-            if takes:
-                pairs.append(takes[:2])
-    caps = _pick_takes(pairs)                                  # best delivery per idea (round-6 win)
-    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps]
+        print("[v2] caption parse failed — retrying", flush=True)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps[:n]]
     out = _coherence_gate(refine(_drop_ref_copies(out)))
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")

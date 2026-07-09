@@ -460,48 +460,40 @@ def v2_point_first_generates_without_anchors():
     def fake_llm(system, user, **kw):
         calls.append(kw.get("tag"))
         seen_systems[kw.get("tag")] = system
-        if kw.get("tag") == "ideate":
-            return json.dumps({"points": [{"kind": "bit" if i % 3 == 0 else "truth",
-                                           "move": f"move {i % 4}",
-                                           "point": f"a plain idea {i}",
-                                           "stance": "pointing" if i % 2 else "you"}
-                                          for i in range(8)]})
-        if kw.get("tag") == "take-pick":
-            return json.dumps({"picks": [1] * 20})
-        return json.dumps({"captions": [{"idea": i, "takes": [f"alpha{i} first take A {i}",
-                                                              f"omega{i} second take B {i}"]}
-                                        for i in range(8)]})
+        return json.dumps({"captions": [f"a concrete caption {i}" for i in range(5)]})
 
-    refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
+    refs = [{"ref_id": "r1", "caption": "raccoons don't got a resume and they eating", "why_it_works": "w"}]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
            "point": "people buy productivity aids to keep doing nothing"}]
     import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
-         patched(ns_mod, load=lambda: list(ns)), \
+         patched(ns_mod, load=lambda: list(ns), block=lambda: "- mfs will buy energy drinks"), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
                  _avoid_block=lambda *a, **k: "(none yet)",
                  persona=lambda: "P",
+                 voice_core=lambda: "CONCRETE, NEVER ABSTRACT",
                  refine=lambda cands: cands,
                  _drop_ref_copies=lambda cands: cands,
                  _coherence_gate=lambda cands: cands,
                  log_generated=lambda texts: None,
                  complete_json=fake_llm):
         out = engine.generate(n=5)
-    assert calls == ["ideate", "batch-captions", "take-pick"], calls
+    assert calls == ["batch-captions"], f"single-shot reference-dominated (no ideate/judge): {calls}"
     assert len(out) == 5, out
-    assert all("second take B" in c["text"] for c in out), f"take-pick winners must win: {out}"
+    assert all(c["text"].startswith("a concrete caption") for c in out), out
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
-    assert "THE BAR" in seen_systems["ideate"], "north stars must sit in ideation"
-    assert "energy drinks" in seen_systems["batch-captions"], "north stars must sit in execution"
-    assert "A TRUTH" in seen_systems["ideate"] and "A BIT" in seen_systems["ideate"], \
-        "two-wing voice core must sit in ideation"
+    sysp = seen_systems["batch-captions"]
+    assert "raccoons" in sysp, "the whole corpus (concrete voice) must be the grounding"
+    assert "energy drinks" in sysp, "north-star BAR must sit in the system"
+    assert "CONCRETE" in sysp, "the concrete-first voice core must sit in the system"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
-         patched(ns_mod, load=lambda: []), \
+         patched(ns_mod, load=lambda: [], block=lambda: ""), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
                  _avoid_block=lambda *a, **k: "(none yet)", persona=lambda: "P",
+                 voice_core=lambda: "CONCRETE",
                  refine=lambda cands: cands, _drop_ref_copies=lambda cands: cands,
                  _coherence_gate=lambda cands: cands, log_generated=lambda texts: None,
                  complete_json=fake_llm):
