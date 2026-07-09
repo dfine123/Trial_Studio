@@ -298,6 +298,13 @@ def generate_reel(
     # (and, in compose, the audio) to that; a blank reel just stays under the 9s ceiling.
     dur_cap = min(bp.duration, _DUR_MAX) if no_caption else _target_duration(caption_text)
     slots = build_slot_plan(bp.beat_map, bp.duration, max_reel=dur_cap)
+    # SINGLE-CLIP STYLE: a profile whose footage is meant as 1-2 clip videos (not a mashup) caps
+    # the shot count — the beat plan still times the cut(s), there are just fewer of them.
+    from app import profiles
+    from app.generate.sequencer import cap_shots
+    max_shots = profiles.profile_settings().get("max_shots")
+    if max_shots:
+        slots = cap_shots(slots, int(max_shots))
     reel_dur = slots[-1].end
 
     # CAPTION-FIT LEADS: rank the clips by how well each fits THIS caption, then select_segments takes

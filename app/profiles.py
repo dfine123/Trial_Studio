@@ -114,6 +114,30 @@ def lab_pool_path(pid: uuid.UUID | None = None) -> str:  return voice_file(_suff
 def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)   # PROFILE-owned
 
 
+def settings_path(pid: uuid.UUID | None = None) -> str:  return voice_file("profile_settings.json", pid or active_id())
+
+
+def profile_settings(pid: uuid.UUID | None = None) -> dict:
+    """PROFILE-owned knobs (style, not voice): e.g. max_shots for a 1-2 clip profile. Own-profile
+    file (NOT voice-pointed) — style follows the creator's footage, not the borrowed voice."""
+    try:
+        with open(voice_file("profile_settings.json", pid or active_id()), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def set_profile_settings(patch: dict, pid: uuid.UUID | None = None) -> dict:
+    cur = profile_settings(pid)
+    cur.update({k: v for k, v in patch.items() if v is not None})
+    path = voice_file("profile_settings.json", pid or active_id())
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cur, f)
+    os.replace(tmp, path)
+    return cur
+
+
 def read_persona(pid: uuid.UUID) -> str:
     try:
         with open(persona_path(pid), encoding="utf-8") as f:

@@ -30,6 +30,28 @@ class Slot:
         return self.end - self.start
 
 
+def cap_shots(slots: list[Slot], max_shots: int | None) -> list[Slot]:
+    """Merge a beat-cut slot plan down to at most `max_shots` shots — for profiles whose clips
+    are meant as 1-2 clip videos rather than mashups. Cut points stay ON existing slot
+    boundaries (still beat-aligned): pick the boundaries nearest to even time splits."""
+    if not max_shots or max_shots < 1 or len(slots) <= max_shots:
+        return slots
+    start, end = slots[0].start, slots[-1].end
+    total = end - start
+    bounds = [s.end for s in slots[:-1]]
+    cuts: list[float] = []
+    for j in range(1, max_shots):
+        target = start + total * j / max_shots
+        candidates = [b for b in bounds if b not in cuts and (not cuts or b > cuts[-1])]
+        if not candidates:
+            break
+        cuts.append(min(candidates, key=lambda b: abs(b - target)))
+    pts = [start] + cuts + [end]
+    merged = [Slot(idx=i, start=pts[i], end=pts[i + 1])
+              for i in range(len(pts) - 1) if pts[i + 1] > pts[i] + 0.05]
+    return merged or slots
+
+
 def build_slot_plan(
     beat_map: list[float],
     audio_duration: float,

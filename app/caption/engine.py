@@ -54,6 +54,12 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
         return t
 
     refs = [(r.get("caption") or "") for r in load_refs() if (r.get("caption") or "").strip()]
+    try:    # NORTH STARS are exemplars too — with a thin corpus they become super-attractors
+            # (2026-07-09: a fresh profile noun-swapped the hater-lottery star into "mortgage")
+        from app.caption import northstars
+        refs += [(r.get("caption") or "") for r in northstars.load() if (r.get("caption") or "").strip()]
+    except Exception:  # noqa: BLE001
+        pass
     kept = [c for c in cands
             if not any(_too_similar(c.get("text") or "", t)
                        or _too_similar(content(c.get("text") or ""), content(t), thr=0.62)
@@ -554,6 +560,12 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     stars, and the operator-editable voice core — var/voice_core.md via /api/voice-core)."""
     from app.caption import northstars
     refs = load_refs()
+    if not refs:
+        # a profile whose voice has no corpus must FAIL LOUDLY — generating from an empty wall
+        # produces generic feed-slop and north-star noun-swaps (2026-07-09: a fresh profile
+        # quietly shipped a whole batch this way and read as a system regression)
+        raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
+                           "on the Generation Studio voice cards before generating")
     ns_rows = northstars.load()
     ref_stubs = [_avoid_stub(r.get("caption") or "") for r in refs]
     ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]

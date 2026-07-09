@@ -1955,6 +1955,24 @@ def api_debug_corpus_add(req: CorpusAdd):
     return {"ref_id": rid, "already": rid is None}
 
 
+class ProfileSettings(BaseModel):
+    max_shots: int | None = None   # 1-2 for single-clip profiles; None/0 = mashup (unbounded)
+
+
+@app.get("/api/profiles/{pid}/settings")
+def api_profile_settings_get(pid: str):
+    return profiles.profile_settings(uuid.UUID(pid))
+
+
+@app.post("/api/profiles/{pid}/settings")
+def api_profile_settings_set(pid: str, req: ProfileSettings):
+    """PROFILE-owned style knobs (max_shots for 1-2 clip profiles). Own-profile file — style
+    follows the creator's footage, independent of the borrowed voice."""
+    ms = req.max_shots
+    patch = {"max_shots": (int(ms) if ms and ms > 0 else 0)} if ms is not None else {}
+    return profiles.set_profile_settings(patch, uuid.UUID(pid))
+
+
 class NorthStarAdd(BaseModel):
     caption: str
     point: str | None = None

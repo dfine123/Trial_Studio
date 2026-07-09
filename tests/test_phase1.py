@@ -397,6 +397,38 @@ def morph_guard_drops_noun_swaps_keeps_frames():
     assert any("lime scooter" in t for t in texts), texts
 
 
+# ─── Single-clip style: cap_shots merges a beat plan down, cuts stay on beats ───
+
+@test
+def cap_shots_merges_to_max_on_beats():
+    from app.generate.sequencer import Slot, cap_shots
+    slots = [Slot(idx=i, start=float(i), end=float(i + 1)) for i in range(8)]  # 8 shots, 0..8s
+    two = cap_shots(slots, 2)
+    assert len(two) == 2, two
+    assert two[0].start == 0.0 and two[-1].end == 8.0, "span preserved"
+    # the internal cut lands on an original slot boundary (still beat-aligned)
+    assert two[0].end in {s.end for s in slots[:-1]}
+    one = cap_shots(slots, 1)
+    assert len(one) == 1 and one[0].start == 0.0 and one[0].end == 8.0
+    # already within cap or no cap -> untouched
+    assert cap_shots(slots, 10) is slots
+    assert cap_shots(slots, None) is slots
+    assert cap_shots(slots, 0) is slots
+
+
+@test
+def empty_voice_generation_fails_loudly():
+    from app.caption import engine
+    from app.config import settings
+    with patched(settings, generation_engine="v2"), \
+         patched(engine, load_refs=lambda *a, **k: []):
+        try:
+            engine.generate(n=5)
+            assert False, "empty-voice generation must raise"
+        except RuntimeError as ex:
+            assert "no references" in str(ex)
+
+
 # ─── Opener cap: a third same-opener candidate drops ───
 
 @test
