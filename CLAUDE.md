@@ -97,6 +97,28 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐ CONCRETE-FIRST (2026-07-09, commit 6effd6b) — the caption-level truth, THE current engine.**
+  Operator: stop analyzing "as a mechanical thing… you have to understand whats going on with the
+  actual captions." I read all 280 graded WITH his notes. THE LINE between his 10s and his 1s:
+  **CONCRETE (a scene/image/specific-in-world flex you can SEE — raccoons eating, a 50yo hyped about
+  his 401k match, the hater losing it over 2 free chip bags, debt from a car that hits 60 in 3s)
+  vs ABSTRACT (an "X is just Y" DEFINITION of a concept — "an alarm clock is just your boss waking
+  you up for free"). "X is just Y" is the single most common shape in his DEAD pile.** His hand-
+  written fixes are always generic→specific-and-in-world (the Rothschilds not "rich people"; an LED
+  sign not "a coin i can't pronounce"). MY ERROR named at the caption level: point-first ideation
+  STRUCTURALLY manufactured the abstract deaths (ideate a "point"→ abstract observation→ "X is just
+  Y"); my LLM judges PREFER the abstract-clever (why select-best/chooser inverted); my taxonomy
+  (truth/bit/moves/stances) never encoded concrete-vs-abstract, the actual axis. REBUILT: single-
+  shot REFERENCE-DOMINATED — whole corpus = the concrete voice grounding, persona embodies him,
+  voice_core rewritten CONCRETE-FIRST (names the X-is-just-Y death explicitly; pushed live to
+  var/voice_core.md), north stars = the bar; he writes fresh concrete captions in ONE call. NO
+  point-first, NO LLM judges in-pipeline, NO caps; curation stays subtractive (morph-drop + refine).
+  Verified: 0/15 abstract "X is just Y" across 2 batches, concrete scenes/images throughout
+  ("possums been playing dead their whole life and still eating better than a dude pulling doubles";
+  "8k on drone fireworks that spell my name so the whole city gotta look up"; "we are not the same"
+  with Tony-at-3am). GRADES are the only quality signal — do NOT re-add LLM judges or trust my
+  eyeball. **The 280-grade trajectory was FLAT (~5.3) the whole prior arc — all my machinery moved
+  nothing; this is the first rebuild from the actual comedy, not a diagram of it.**
 - **⭐⭐ THE REGROUND (2026-07-08, commit 5f51dee) — generation rebuilt from the operator's NORTH
   STARS.** Operator supplied 5 gold-standard captions from the wild ("the overall voice and framing,
   and THE POINT — the actual premise of what it's saying") after judging our output over-crafted.
