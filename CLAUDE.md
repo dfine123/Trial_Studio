@@ -123,10 +123,15 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   move cap), execute ALL ideas (was [:n]), take-competition, then `_select_best` (best-of-more:
   sonnet judge picks the n BANGERS with SOFT diversity — "quality first, variety only breaks
   near-ties"). The batch path gained a best-of gate it never had. Diversity now lives in the
-  VARY-THE-MOVE/AIM ideation prompt (diverse pool) + soft selection, never hard drops. Verified:
-  peaks back ("a situationship is just a relationship where he's not paying yet"; jersey-bowling-
-  league flex-with-a-crack; "a dude's watch tells you more about his debt than his money") AND 7/7
-  distinct openers per batch. ⚠️ PER-VOICE STATE: a new profile is born with EMPTY corpus+persona →
+  VARY-THE-MOVE/AIM ideation prompt (diverse pool) + soft selection, never hard drops.
+  ⚠️⚠️ **REVERTED SAME DAY (commit 8996515):** the operator called the select-best picks "some of the
+  worst captions ive ever seen" — an LLM told to pick "bangers" chose corny-quotable "X is just Y"
+  aphorisms (his named failure mode; the SAME inversion class as the reel chooser). Back to the
+  round-6 engine (point-first + take-competition, strongest-n, no LLM select, no caps). **META-RULE
+  (load-bearing): do NOT add LLM quality-judges, and do NOT trust my own eyeball "these are good" —
+  the ONLY reliable quality signal is the operator's GRADES. Verify by SHOWING output neutrally for
+  his judgment, never by asserting peaks.**
+  ⚠️ PER-VOICE STATE: a new profile is born with EMPTY corpus+persona →
   generation now FAILS LOUDLY (pick a voice first); Check is a stale 100%-Base-overlap copy with an
   OLD persona (no unemployed-not-poor) — engine fixes apply to it, but its persona/corpus lag Base.
   **ROUND-5 ALIGNMENT (2026-07-08, commits cdd3685+5cccc27):** round 5 (29 reels, mean 5.03) proved
