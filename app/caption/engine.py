@@ -539,6 +539,52 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
     return [p[picks.get(i, 0)] if len(p) > 1 else p[0] for i, p in enumerate(pairs)]
 
 
+def _select_best(caps: list[str], n: int) -> list[str]:
+    """QUALITY-LED selection (2026-07-09 regression fix): pick the n BEST captions from an
+    overgenerated pool — best-of-more, the same principle as best-of-5 for reels. Replaces the
+    hard opener/move DROP caps, which could only remove captions and removed for SPREAD not
+    quality — flattening the distribution (operator: 'losing the really good ones, generating a
+    ton of mid ones'). Diversity is SOFT here: favor a spread, but a clearly-better caption
+    always survives. Uses the non-inverted judge (settings.chooser_model). Fail-safe: soft
+    opener-cap then first-n."""
+    from app.config import settings
+    pool = [c for c in caps if (c or "").strip()]
+    if len(pool) <= n:
+        return pool
+    listing = "\n".join(f"[{i}] {c.replace(chr(10), ' / ')}" for i, c in enumerate(pool))
+    sys_p = (persona() + "\n\n" + voice_core()
+             + "\n\nYou drafted these captions tonight. Pick the " + str(n) + " you'd ACTUALLY "
+             "post — the BANGERS, the ones that hit hardest read cold, the ones you'd screenshot "
+             "and send. Every pick must clear the bar; leave the mid ones behind. Favor a spread of "
+             "openers and angles so the set isn't one joke ten times — BUT never keep a weaker "
+             "caption just to vary; quality first, variety only breaks near-ties.\n\n"
+             'Return ONLY JSON: {"picks": [the ' + str(n) + " 0-based indices, best first]}")
+    try:
+        out = complete_json(sys_p, listing, effort="medium", max_tokens=600, tag="select-best",
+                            model=getattr(settings, "chooser_model", None) or None)
+        s, e = out.find("{"), out.rfind("}")
+        idxs = json.loads(out[s:e + 1]).get("picks", []) if s != -1 else []
+        seen, chosen = set(), []
+        for i in idxs:
+            if isinstance(i, int) and 0 <= i < len(pool) and i not in seen:
+                seen.add(i)
+                chosen.append(pool[i])
+            if len(chosen) >= n:
+                break
+        if len(chosen) >= min(n, 2):
+            return chosen[:n]
+    except Exception:  # noqa: BLE001 — selection must never break generation
+        pass
+    # fallback: soft opener spread, then fill
+    seen_op: dict[str, int] = {}
+    kept, rest = [], []
+    for c in pool:
+        key = " ".join(c.lower().lstrip("🥷s'’ \"").split()[:2])
+        seen_op[key] = seen_op.get(key, 0) + 1
+        (kept if seen_op[key] <= 2 else rest).append(c)
+    return (kept + rest)[:n]
+
+
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     """UNDERSTANDING-FIRST generation (production v2 — operator directive 2026-07-07: "orient the
     system for SUCCESS, not to follow a list of rules… the point of grading is to communicate
@@ -571,7 +617,8 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]
     taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs + ns_stubs if x))
     note = (notes or "").strip()
-    k = n + 4   # overgenerate ideas; the move-cap may drop some, stage B writes the strongest n
+    k = n + max(5, n // 2)   # overgenerate a POOL (~1.5n ideas) -> best-of-more; _select_best keeps
+                             # the n bangers (peak-quality-led, replaces the hard diversity drops)
 
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
@@ -604,29 +651,19 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     if not points:
         raise RuntimeError("v2 ideation returned no points after retry")
 
-    # SAME-MOVE CAP (mechanical, self-labeled): the loop amplifies the winning MECHANISM into a
-    # monoculture exactly like it amplified the winning opener (2026-07-08: 7/8 reels were the
-    # contradiction-callout move). Max 2 ideas per move label per batch.
-    seen_moves: dict[str, int] = {}
-    kept_pts = []
-    for p in points:
-        mv = " ".join((p.get("move") or "other").lower().split())[:32]
-        seen_moves[mv] = seen_moves.get(mv, 0) + 1
-        if seen_moves[mv] <= 2:
-            kept_pts.append(p)
-        else:
-            print(f"[move-cap] dropped extra '{mv}' idea", flush=True)
-    points = kept_pts or points
-
+    # NOTE: the hard move/opener DROP caps were REMOVED (2026-07-09) — they could only remove
+    # captions, and removed for SPREAD not quality, flattening peaks. Diversity now lives in the
+    # VARY-THE-MOVE/AIM ideation prompt (a diverse POOL) + _select_best's soft diversity (quality
+    # first). The whole overgenerated pool goes to stage B; best-of-more surfaces the bangers.
     system = (persona() + "\n\n" + core
               + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
               + bar
-              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
+              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(len(points))))
     b_user = "THE IDEAS:\n" + "\n".join(
         f"[{i}] ({p.get('kind') or 'truth'} / {p.get('move') or '?'} / {p.get('stance') or 'you'}) {p.get('point')}"
         for i, p in enumerate(points))
-    # the big system (persona+core+wall+bar) is stable between learn rounds — cache it
-    b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
+    # bigger pool of takes now (best-of-more) — raise the ceiling so the takes JSON never truncates
+    b_out = complete_json(system, b_user, effort="high", max_tokens=12000,
                           cache_system=True, tag="batch-captions")
     s, e = b_out.find("{"), b_out.rfind("}")
     entries: list = []
@@ -635,30 +672,21 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
             entries = json.loads(b_out[s:e + 1]).get("captions", [])
         except json.JSONDecodeError:
             entries = []
-    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe)
+    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe).
+    # ALL ideas execute now (was [:n]) — the pool is what best-of-more selects from.
     pairs: list[list[str]] = []
-    for ent in entries[: n]:
+    for ent in entries:
         if isinstance(ent, str) and ent.strip():
             pairs.append([ent.strip()])
         elif isinstance(ent, dict):
             takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
             if takes:
                 pairs.append(takes[:2])
-    caps = _pick_takes(pairs)
-    # SAME-OPENER CAP (mechanical, like the gambling cap): a winning opener migrates into a
-    # scaffold-lock at scale (2026-07-08: 7/10 reels opened "mfs will…"). Keep at most 2 captions
-    # per two-word opener per batch — the opener stays fully in play, it just can't be the uniform.
-    seen_openers: dict[str, int] = {}
-    kept: list[str] = []
-    for c in caps:
-        key = " ".join(c.lower().lstrip("🥷s'’ \"").split()[:2])
-        seen_openers[key] = seen_openers.get(key, 0) + 1
-        if seen_openers[key] <= 2:
-            kept.append(c)
-        else:
-            print(f"[opener-cap] dropped third '{key}…' candidate", flush=True)
-    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in (kept or caps)]
-    out = _coherence_gate(refine(_drop_ref_copies(out)))
+    caps = _pick_takes(pairs)                                  # best delivery per idea
+    caps = [c.get("text") for c in refine(_drop_ref_copies(   # morph/regurgitation drop + trim
+        [{"text": c} for c in caps])) if (c.get("text") or "").strip()]
+    caps = _select_best(caps, n)                              # best-of-more: keep the n bangers
+    out = _coherence_gate([{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps])
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])

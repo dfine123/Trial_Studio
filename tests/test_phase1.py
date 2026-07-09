@@ -467,10 +467,16 @@ def v2_point_first_generates_without_anchors():
                                            "stance": "pointing" if i % 2 else "you"}
                                           for i in range(8)]})
         if kw.get("tag") == "take-pick":
-            return json.dumps({"picks": [1] * 5})
+            return json.dumps({"picks": [1] * 20})
+        if kw.get("tag") == "select-best":
+            # pick the first 5 pool indices (the pool is bigger than n now)
+            return json.dumps({"picks": [0, 1, 2, 3, 4]})
+        # stage B executes ALL ideas now — echo one row per idea in the user listing
+        n_ideas = user.count("\n[")  # rough count of "[i] (...)" lines
+        n_ideas = max(n_ideas, 8)
         return json.dumps({"captions": [{"idea": i, "takes": [f"alpha{i} first take A {i}",
                                                               f"omega{i} second take B {i}"]}
-                                        for i in range(5)]})
+                                        for i in range(n_ideas)]})
 
     refs = [{"ref_id": "r1", "caption": "a real catalog line", "why_it_works": "w"}]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
@@ -488,7 +494,7 @@ def v2_point_first_generates_without_anchors():
                  log_generated=lambda texts: None,
                  complete_json=fake_llm):
         out = engine.generate(n=5)
-    assert calls == ["ideate", "batch-captions", "take-pick"], calls
+    assert calls == ["ideate", "batch-captions", "take-pick", "select-best"], calls
     assert len(out) == 5, out
     assert all("second take B" in c["text"] for c in out), f"take-pick winners must win: {out}"
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
@@ -497,6 +503,7 @@ def v2_point_first_generates_without_anchors():
     assert "energy drinks" in seen_systems["batch-captions"], "north stars must sit in execution"
     assert "A TRUTH" in seen_systems["ideate"] and "A BIT" in seen_systems["ideate"], \
         "two-wing voice core must sit in ideation"
+    assert "select-best" in seen_systems, "best-of-more selection must run"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: []), \
