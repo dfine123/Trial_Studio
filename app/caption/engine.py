@@ -540,13 +540,12 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
 
 
 def _select_best(caps: list[str], n: int) -> list[str]:
-    """QUALITY-LED selection (2026-07-09 regression fix): pick the n BEST captions from an
-    overgenerated pool — best-of-more, the same principle as best-of-5 for reels. Replaces the
-    hard opener/move DROP caps, which could only remove captions and removed for SPREAD not
-    quality — flattening the distribution (operator: 'losing the really good ones, generating a
-    ton of mid ones'). Diversity is SOFT here: favor a spread, but a clearly-better caption
-    always survives. Uses the non-inverted judge (settings.chooser_model). Fail-safe: soft
-    opener-cap then first-n."""
+    """⚠️ SHELVED — MEASURED NEGATIVE (2026-07-09). Built as a best-of-more quality selector, but
+    an LLM told to pick "the bangers you'd screenshot and send" pulls toward CORNY-QUOTABLE lines
+    (definitional "X is just Y" aphorisms, worn takes) — the operator's named failure mode; it
+    selected the worst captions in the pool. Same class as the reel-chooser inversion: an LLM's
+    "quality" taste is not the operator's. NOT called; kept only for the record. The reliable
+    quality signal is the operator's GRADES, never an LLM judge."""
     from app.config import settings
     pool = [c for c in caps if (c or "").strip()]
     if len(pool) <= n:
@@ -617,8 +616,8 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     ns_stubs = [_avoid_stub(r.get("caption") or "") for r in ns_rows]
     taken = "\n".join("- " + s for s in dict.fromkeys(x for x in ref_stubs + ns_stubs if x))
     note = (notes or "").strip()
-    k = n + max(5, n // 2)   # overgenerate a POOL (~1.5n ideas) -> best-of-more; _select_best keeps
-                             # the n bangers (peak-quality-led, replaces the hard diversity drops)
+    k = n + 3   # small idea buffer; stage B writes the strongest n (the round-6 engine the operator
+                # rated best — NO overgen+LLM-select, that judge picked corny-quotable lines 2026-07-09)
 
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
@@ -651,19 +650,18 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     if not points:
         raise RuntimeError("v2 ideation returned no points after retry")
 
-    # NOTE: the hard move/opener DROP caps were REMOVED (2026-07-09) — they could only remove
-    # captions, and removed for SPREAD not quality, flattening peaks. Diversity now lives in the
-    # VARY-THE-MOVE/AIM ideation prompt (a diverse POOL) + _select_best's soft diversity (quality
-    # first). The whole overgenerated pool goes to stage B; best-of-more surfaces the bangers.
+    # NOTE: NO hard move/opener caps and NO LLM best-of judge — both made it WORSE (caps flattened
+    # peaks by dropping for spread; the select-best judge picked corny-quotable "X is just Y"
+    # aphorisms, the operator's named failure mode). Diversity is soft, from the VARY prompt only;
+    # the model writes the strongest n directly — the round-6 engine the operator rated best.
     system = (persona() + "\n\n" + core
               + "\n\nYOUR CATALOG (your posted work — the sound; premises taken):\n\n" + ref_block
               + bar
-              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(len(points))))
+              + _TYPE_IT_TAIL.replace("{k}", str(len(points))).replace("{n}", str(n)))
     b_user = "THE IDEAS:\n" + "\n".join(
         f"[{i}] ({p.get('kind') or 'truth'} / {p.get('move') or '?'} / {p.get('stance') or 'you'}) {p.get('point')}"
         for i, p in enumerate(points))
-    # bigger pool of takes now (best-of-more) — raise the ceiling so the takes JSON never truncates
-    b_out = complete_json(system, b_user, effort="high", max_tokens=12000,
+    b_out = complete_json(system, b_user, effort="high", max_tokens=8000,
                           cache_system=True, tag="batch-captions")
     s, e = b_out.find("{"), b_out.rfind("}")
     entries: list = []
@@ -672,21 +670,18 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
             entries = json.loads(b_out[s:e + 1]).get("captions", [])
         except json.JSONDecodeError:
             entries = []
-    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe).
-    # ALL ideas execute now (was [:n]) — the pool is what best-of-more selects from.
+    # normalize: {idea, takes:[..]} rows (a bare string counts as a single take — fail-safe)
     pairs: list[list[str]] = []
-    for ent in entries:
+    for ent in entries[: n]:
         if isinstance(ent, str) and ent.strip():
             pairs.append([ent.strip()])
         elif isinstance(ent, dict):
             takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
             if takes:
                 pairs.append(takes[:2])
-    caps = _pick_takes(pairs)                                  # best delivery per idea
-    caps = [c.get("text") for c in refine(_drop_ref_copies(   # morph/regurgitation drop + trim
-        [{"text": c} for c in caps])) if (c.get("text") or "").strip()]
-    caps = _select_best(caps, n)                              # best-of-more: keep the n bangers
-    out = _coherence_gate([{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps])
+    caps = _pick_takes(pairs)                                  # best delivery per idea (round-6 win)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps]
+    out = _coherence_gate(refine(_drop_ref_copies(out)))
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])
