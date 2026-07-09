@@ -590,7 +590,11 @@ An ABSTRACT DEFINITION of a concept is DEAD — "an alarm clock is just your bos
 
 The specific detail that lands is EXACT and YOURS: the Rothschilds not "rich people," an LED sign with your name on it not "expensive stuff," "no homo back in 2019," a $997 course on how to sell a $997 course. Vague dies. Random-but-not-from-your-world dies. Land the last beat on a concrete image, never a soft summary word.
 
-Brand new premises — everything in your catalog and in the taken list is used; go somewhere new but stay unmistakably you. As varied across your whole range as the catalog is.
+Brand new premises — everything in your catalog and in the taken list is used; go somewhere new but stay unmistakably you.
+
+Make the {n} genuinely DIFFERENT from each other — no two run the same shape or move. At most ONE "we are not the same" flex, ONE spectacle-spend, ONE "dudes be like", ONE would-you-rather in the whole set; spread the rest across your range (a scene, a "when…", an animal/hater anti-cope, a quote-and-comeback, absurd math, a decode). A batch that runs the same move twice is a miss.
+
+Keep every one TIGHT — the tight ones land, the wordy ones die. If a line is over-explaining (an extra clause the joke didn't need, a date, a "and never came back to"), cut it. And if you're just re-running a line already in your catalog with new nouns, scrap it — that's not new.
 
 Return ONLY JSON, no prose: {"captions": ["the caption (\\n for line breaks)", "..."]}"""
 
