@@ -97,7 +97,36 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐⭐⭐ CONCRETE-FIRST (2026-07-09, commit 6effd6b) — the caption-level truth, THE current engine.**
+- **⭐⭐⭐⭐ THE REVITALIZATION (2026-07-10, commit aa4bd51) — THE current engine, built from a
+  full-system review.** After the re-skin collapse (every option a catalog noun-swap: hyenas=
+  raccoons, a literal 2-day-old jumbotron repeat, a killed-3/10 re-run, a fixed 6-family template
+  wheel per set), the operator ordered a full re-evaluation. A 10-agent review (winners-as-jokes,
+  kill taxonomy, directive timeline, prompt-stack forensics, batch ancestor-trace, era post-mortem
+  + 3 adversarial passes) proved FOUR root causes: (1) ~13 winner fragments QUOTED inside
+  voice_core/_CONCRETE_TAIL/_pick_takes = super-attractors (canon 7 violated by me); (2) ideation
+  + taken-territory amputated (the prompt referenced a taken list that DIDN'T EXIST); (3) the
+  named-shape roster + "at most ONE X" quotas + "safe = proven lanes" = a checklist the model
+  filled identically every set; (4) guards blind to recent output/kills/siblings. THE ENGINE NOW:
+  **Stage A IDEATE ROUGH LINES** (persona + wall framed ONCE "every premise USED" + purged
+  principle-only voice core + north-star decoded POINTS only; user msg = positive license "your
+  territory is YOURS, only these specific bits are taken" + TAKEN TERRITORY = star premises +
+  recent window incl. same-batch + windowed recent kills; rough in-voice lines, self-labeled
+  move-spread roster-free, both wings, safe↔swing over PREMISE risk) → **Stage B RETYPE** (full
+  wall + full-text star bar; TWO takes per idea, ALL ideas — no strongest-n cut) → take-pick
+  (same-idea only, purged) → guard extended (corpus+stars+recent(200)+killed texts, morph .62) →
+  intra-set same-joke dedup → **reskin_check** (NEW: identity-only sonnet screen for semantic
+  same-joke-new-nouns; settings drop|log|off; fail-open) → refine → ship in ideation order.
+  DELETED: _select_best, hard caps, the shape roster. REJECTED by 3 adversarial passes: family
+  counters/cooldowns/skeleton-classifier-as-dropper (re-creates the caps failure), all-corpus stub
+  walls (off-voice flight), stance/edge as ideation validity (the c57fbd8 genericizer). Kills
+  block EXECUTIONS forever at the guard; premises only cool briefly (canon 2). Instruction-layer
+  purity is now a TEST (instruction_layers_quote_no_winners) — never quote winners/shapes into
+  prompts again. Verified structurally: 2 batches → 0 template repeats, 0 X-is-just-Y, 0 intra/
+  cross-batch same-joke pairs, max ancestor containment .55 (below the .62 morph line); purged
+  core pushed live to var/voice_core.md. Review bundle: tmp/revitalize/ (local). Quality verdict
+  belongs to the operator's grades ONLY.
+- **⭐⭐⭐ CONCRETE-FIRST (2026-07-09, commit 6effd6b) — the caption-level truth (axis retained; its
+  single-shot vehicle superseded by the revitalization above).**
   Operator: stop analyzing "as a mechanical thing… you have to understand whats going on with the
   actual captions." I read all 280 graded WITH his notes. THE LINE between his 10s and his 1s:
   **CONCRETE (a scene/image/specific-in-world flex you can SEE — raccoons eating, a 50yo hyped about
