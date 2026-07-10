@@ -448,57 +448,122 @@ def same_opener_cap():
     assert kept == ["mfs will do thing one", "mfs will do thing two", "broke dudes always different"]
 
 
-# ─── Generation v2: understanding-first two-stage (production default) ───
+# ─── Generation v2: the revitalized two-stage (ideate rough lines → retype → curate) ───
 
 @test
-def v2_point_first_generates_without_anchors():
+def v2_revitalized_flow_and_surfaces():
     from app.caption import engine
     from app.config import settings
     calls = []
-    seen_systems = {}
+    seen = {}
 
     def fake_llm(system, user, **kw):
         calls.append(kw.get("tag"))
-        seen_systems[kw.get("tag")] = system
-        return json.dumps({"captions": [f"a concrete caption {i}" for i in range(5)]})
+        seen[kw.get("tag")] = (system, user)
+        if kw.get("tag") == "ideate":
+            return json.dumps({"ideas": [{"kind": "bit" if i % 3 == 0 else "truth",
+                                          "move": f"play {i}",
+                                          "line": f"alpha{i} beta{i} gamma{i} delta{i} rough line"}
+                                         for i in range(8)]})
+        if kw.get("tag") == "take-pick":
+            return json.dumps({"picks": [1] * 20})
+        return json.dumps({"captions": [{"idea": i,
+                                         "takes": [f"epsilon{i} zeta{i} eta{i} theta{i} first take",
+                                                   f"iota{i} kappa{i} lam{i} mu{i} second take"]}
+                                        for i in range(8)]})
 
     refs = [{"ref_id": "r1", "caption": "raccoons don't got a resume and they eating", "why_it_works": "w"}]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
            "point": "people buy productivity aids to keep doing nothing"}]
     import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
-         patched(ns_mod, load=lambda: list(ns), block=lambda: "- mfs will buy energy drinks"), \
+         patched(ns_mod, load=lambda: list(ns),
+                 block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)",
+                 points_block=lambda: "- people buy productivity aids to keep doing nothing"), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
-                 _avoid_block=lambda *a, **k: "(none yet)",
+                 recent_generated=lambda *a, **k: [],
+                 _killed_texts=lambda: [],
                  persona=lambda: "P",
                  voice_core=lambda: "CONCRETE, NEVER ABSTRACT",
                  refine=lambda cands: cands,
-                 _drop_ref_copies=lambda cands: cands,
                  _coherence_gate=lambda cands: cands,
                  log_generated=lambda texts: None,
                  complete_json=fake_llm):
         out = engine.generate(n=5)
-    assert calls == ["batch-captions"], f"single-shot reference-dominated (no ideate/judge): {calls}"
-    assert len(out) == 5, out
-    assert all(c["text"].startswith("a concrete caption") for c in out), out
+    assert calls == ["ideate", "batch-captions", "take-pick"], calls
+    assert len(out) == 5, [c["text"] for c in out]
+    assert all("second take" in c["text"] for c in out), f"take-pick winners must win: {out}"
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
-    sysp = seen_systems["batch-captions"]
-    assert "raccoons" in sysp, "the whole corpus (concrete voice) must be the grounding"
-    assert "energy drinks" in sysp, "north-star BAR must sit in the system"
-    assert "CONCRETE" in sysp, "the concrete-first voice core must sit in the system"
+    a_sys, a_user = seen["ideate"]
+    b_sys, _ = seen["batch-captions"]
+    assert "raccoons" in a_sys and "raccoons" in b_sys, "the full wall grounds BOTH stages"
+    assert "USED ground" in a_sys, "the wall must be framed as taken territory"
+    assert "productivity aids" in a_sys and "energy drinks" not in a_sys, \
+        "ideation sees north-star POINTS, never full star texts (super-attractor)"
+    assert "energy drinks" in b_sys, "execution sees the full-text BAR"
+    assert "TAKEN TERRITORY" in a_user, "the taken block must be enumerated in the user msg"
+    assert "YOURS" in a_user, "the positive territory license must ride with the taken block"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
-         patched(ns_mod, load=lambda: [], block=lambda: ""), \
+         patched(ns_mod, load=lambda: [], block=lambda: "", points_block=lambda: ""), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
-                 _avoid_block=lambda *a, **k: "(none yet)", persona=lambda: "P",
-                 voice_core=lambda: "CONCRETE",
-                 refine=lambda cands: cands, _drop_ref_copies=lambda cands: cands,
-                 _coherence_gate=lambda cands: cands, log_generated=lambda texts: None,
-                 complete_json=fake_llm):
+                 recent_generated=lambda *a, **k: [], _killed_texts=lambda: [],
+                 persona=lambda: "P", voice_core=lambda: "CONCRETE",
+                 refine=lambda cands: cands, _coherence_gate=lambda cands: cands,
+                 log_generated=lambda texts: None, complete_json=fake_llm):
         out2 = engine.generate_independent(k=5)
     assert len(out2) == 5 and all(not c["anchor_refs"] for c in out2)
+
+
+@test
+def v2_guards_block_recent_kills_and_siblings():
+    from app.caption import engine
+    import app.caption.northstars as ns_mod
+    refs = [{"ref_id": "r1", "caption": "Buy a chicken for 20 dollars, make it lay 10 eggs a day, "
+                                        "charge millions per egg", "why_it_works": "w"}]
+    with patched(ns_mod, load=lambda: []), \
+         patched(engine, load_refs=lambda *a, **k: list(refs),
+                 recent_generated=lambda *a, **k: ["dropped 15k renting the stadium jumbotron to congratulate myself"],
+                 _killed_texts=lambda: ["she asked what i drive but i can't say it's on an 84 month loan so i just say german"]):
+        cands = [
+            {"text": "Buy a chicken for 21 dollars, make it lay 10 eggs a day, charge millions per egg"},  # corpus morph
+            {"text": "dropped 9k renting the stadium jumbotron to congratulate myself again"},              # recent repeat
+            {"text": "she asked what i drive but i can't say it's on an 84 month loan so i say german"},    # killed re-run
+            {"text": "a completely fresh idea about a totally different subject entirely tonight"},
+        ]
+        kept = engine._drop_ref_copies(cands)
+    assert [c["text"] for c in kept] == [cands[3]["text"]], \
+        f"corpus morphs, recent repeats, and killed re-runs must all drop: {[c['text'][:40] for c in kept]}"
+    # intra-set same-joke dedup: the later sibling drops, distinct ones survive
+    sibs = [
+        {"text": "possums play dead for a living and still eat better than you"},
+        {"text": "possums play dead for a living and they still eat better than you do"},
+        {"text": "my dad asks when i'm getting a real job while i'm up on some kid's free throws"},
+    ]
+    kept2 = engine._drop_same_joke_siblings(sibs)
+    assert len(kept2) == 2 and kept2[0]["text"] == sibs[0]["text"] and kept2[1]["text"] == sibs[2]["text"]
+
+
+@test
+def instruction_layers_quote_no_winners():
+    """Canon 7 (super-attractors): no winner texts/props and no shape roster may appear in any
+    always-on instruction constant. This is the regression guard for the 2026-07-10 collapse."""
+    import inspect
+    from app.caption import engine
+    # GENERATION-visible surfaces only. (_reskin_check's judge prompt legitimately NAMES formats —
+    # it must know a shared format is NOT a re-skin, or it would false-drop validated species.)
+    surfaces = (engine._VOICE_CORE_DEFAULT + engine._IDEATE_TAIL + engine._RETYPE_TAIL
+                + inspect.getsource(engine._pick_takes))
+    low = surfaces.lower()
+    banned = ["raccoon", "vending machine", "led sign", "rothschild", "energy drinks",
+              "401k match", "no homo", "alarm clock", "begging with better posture",
+              "stealth mode", "nut twice", "she believed in me", "edging",
+              "we are not the same", "dudes be like", "would-you-rather", "would you rather",
+              "spectacle-spend", "jumbotron"]
+    hits = [b for b in banned if b in low]
+    assert not hits, f"quoted winners / shape roster leaked into instruction layers: {hits}"
 
 
 # ─── Heal-on-ingest: AI-generated low-spec clips normalize instead of rejecting ───

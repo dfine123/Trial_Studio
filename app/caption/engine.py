@@ -60,6 +60,13 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
         refs += [(r.get("caption") or "") for r in northstars.load() if (r.get("caption") or "").strip()]
     except Exception:  # noqa: BLE001
         pass
+    # RECENT OUTPUT + OPERATOR KILLS are comparison sets too (2026-07-10 revitalization: a literal
+    # 2-day-old repeat and a killed-3/10 re-run both shipped because the guard only saw the corpus)
+    try:
+        refs += [t for t in recent_generated(200) if (t or "").strip()]
+        refs += [t for t in _killed_texts() if (t or "").strip()]
+    except Exception:  # noqa: BLE001
+        pass
     kept = [c for c in cands
             if not any(_too_similar(c.get("text") or "", t)
                        or _too_similar(content(c.get("text") or ""), content(t), thr=0.62)
@@ -453,19 +460,21 @@ def _render_anchors(anchors: list[dict]) -> str:
 # Derived 2026-07-08 from the operator's north-star references + catalog + every grade. Stored on
 # the volume (var/voice_core.md, GET/POST /api/voice-core) so the OPERATOR can edit the system's
 # taste directly; this constant is only the seed/fallback.
-_VOICE_CORE_DEFAULT = """What separates your bangers from your dead ones — the one line, from your own grades:
+_VOICE_CORE_DEFAULT = """What separates your bangers from your dead ones — from your own grades. Principles only; your catalog above is the only place examples live, and its premises are all used.
 
-CONCRETE, NEVER ABSTRACT. Your 10s are always something you can SEE, or a specific character doing a specific thing: raccoons eating every single night, a 50-year-old genuinely hyped explaining his 401k match, the hater losing his mind when the vending machine drops two bags of chips, a guy proud he's in debt from a car that hits 60 in 3 seconds, flying bro out after you hit a million to ask if that "no homo" in 2019 was real. Your 1s are almost always an abstract DEFINITION of a concept — "an alarm clock is just your boss waking you up for free," "a job interview is just begging with better posture," "a resume is just a list of everyone you made rich except yourself." The "X is just Y" reframe FEELS clever but it's a tweet about a concept, not you being a menace. It is the single most common shape in your dead pile. Don't write it.
+CONCRETE, NEVER ABSTRACT. A winner is something the reader can SEE: a specific scene, a specific character caught doing a specific thing, a real behavior everyone recognizes, or you flexing a dumb specific with a straight face. The most common shape in your dead pile is the ABSTRACT DEFINITION — a payoff that merely reframes a concept ("[thing] is just [cynical reframe]"). It feels clever; it's a tweet about a concept, not you being a menace. If the payoff can't be pictured or caught happening, it's dead.
 
-SPECIFIC AND FROM YOUR WORLD. The detail that lands is exact and yours — the Rothschilds (not "rich people"), an LED sign with your name on it (not "expensive stuff"), a $997 course on how to sell a $997 course, "no homo back in 2019." Vague dies ("equity," "my first deal"). Random-but-not-yours dies ("name embroidered on my gym towel"). It has to be a thing from your life: loud money, the come-up, degen gambling, spectacle, bro. And the LAST beat has to land on a concrete image — never a soft summary word ("with better posture", "a diagnosis", "some days just take longer to load" all die there).
+IN YOUR WORLD, EXACT. The detail that lands is precise and native to your life: loud money, degen positions, bro rituals, the come-up, spectacle with your name on it. A vague stand-in dies; an exact named thing lands. But exact-and-random-outside-your-world dies too — the specific has to be one a guy living your life would actually reach for.
 
-DELUSIONAL CONFIDENCE. You never complain or explain. You flex the dumb thing like it's superior ("we in stealth mode," "i'm tryna nut twice before noon"), roast someone dead-on ("she believed in me when nobody else did / bc nobody else was that dumb"), or state something unhinged completely straight (edging taught you more about delayed gratification than any finance guru). Worn with a smirk, never seeking sympathy.
+PATTERN, NEVER INCIDENT. A truth is something that KEEPS happening — a standing fact, a repeated behavior, a type of guy. A narrated one-off past-tense story reads as fan-fiction and dies. Frames ("when…", a POV, a quote-and-reply) drop the reader INTO a moment; they never narrate it from a distance.
 
-SAID, NOT WRITTEN. It reads like a thought you threw away — no setup ceremony, no punchline architecture, nothing that winks at you. The funniest guy in the room doesn't perform; he just says it.
+DELUSIONAL CONFIDENCE. You never complain, never explain, never seek sympathy. You flex the objectively-bad thing like it's superior, roast dead-on, or state the unhinged completely straight. Even the self-owns are worn with a smirk. Broke is only ever material for a flex.
 
-THE READER FINISHES IT. Under-explain. Recognition ("this is so him"), a decode, hidden math — the reader supplies the laugh. The caption never laughs at itself.
+SAID, NOT WRITTEN. It reads like a thought you threw away — no setup ceremony, no punchline architecture, nothing that winks at the reader. The funniest guy in the room doesn't perform; he just says it.
 
-THE SHAPES you actually run (all of them concrete, none of them abstract definitions): a specific scene ("she asks X, i can't say Y so i say Z"), a "when my phone buzzes…" moment, "Dudes be like '[quote]' / [brutal turn]", a "we are not the same" flex with a vivid self-own, an animal/hater held up as anti-cope, absurd-math schemes, would-you-rather, a POV, a quote and its comeback."""
+THE READER FINISHES IT. Under-explain. Recognition, a decode, hidden math — the reader supplies the laugh, and the caption never laughs at itself. The LAST beat lands on the concrete image; a soft summary word at the end kills an otherwise-live line. Anything after the decode trigger is flab — cut it.
+
+TWO WINGS, ALWAYS BOTH. A TRUTH (a caught pattern with YOUR charge on it) and a BIT (constructed comedy a guy screenshots and sends his buddy — a hijacked format, an unhinged comeback, an absurd cope, a backhanded encouragement). Neither wing is the whole voice."""
 
 
 def voice_core() -> str:
@@ -480,26 +489,31 @@ def voice_core() -> str:
     return _VOICE_CORE_DEFAULT
 
 
-_IDEATE_POINTS_TAIL = """
+_IDEATE_TAIL = """
 
-THE TASK: come up with {k} IDEAS for tonight's posts — as the guy who wrote every caption above — a MIX of the two kinds:
-- TRUTH: a pattern everyone recognizes but nobody posts, a delusion held with a straight face, or a coded take — stated in one plain sentence. A truth is something that KEEPS happening ("mfs always…", "broke dudes…", a standing fact about you) — never a one-off incident story. And it must be yours to see — if the internet already memed it, it's taken.
-- BIT: constructed comedy you'd send to a buddy — a serious format hijacked with degenerate priorities, an unhinged comeback to a quote, an absurd cope in a "when…" frame, a backhanded encouragement. Describe the construction in one plain sentence (what's being hijacked/flipped and with what).
-For each idea: its KIND and its STANCE — "you" (you're the bit) or "pointing" (calling out mfs/bro/men/everyone).
+THE TASK: pitch {k} NEW captions for tonight — rough. Write each one the way you'd thumb it into your notes app: not a description of a joke, THE joke, unpolished. You'll retype the keepers sharper after.
 
-VARY THE AIM. Your catalog points a dozen different ways — at mfs, at broke dudes, at "dudes be like", at a girl who—, at everybody, at bro directly, at yourself, from inside a "when…" or a quote or a would-you-rather. A batch wears MANY of those; never let more than two ideas aim the same way with the same opener (a whole batch of "mfs will…" is one idea wearing ten hats).
+Each pitch is one of your two kinds — mix both across the set:
+- a TRUTH: a pattern you keep seeing (it KEEPS happening — a standing fact, a type of guy, a repeated behavior; never a one-off incident story), seen with YOUR charge on it.
+- a BIT: constructed comedy a guy would screenshot and send his buddy.
 
-VARY THE MOVE. A contradiction callout ("does X but also Y") is ONE move — not the whole set, and a batch full of it is the same joke eight times. Your catalog runs many: the delusion testimonial ("i've never…"), the exchange where you answer wrong on purpose ("she said… so i…"), the hijacked format / absurd math, the coded take the reader decodes, the "when…" cope with the villain externalized, the backhanded encouragement, the would-you-rather, the flex with a visible crack. Label each idea with its MOVE (short, your own words); spread the batch across at least four different moves, max two ideas per move.
+Born concrete: every pitch is built on something the reader can SEE — a specific scene, character, behavior, number, or prop from YOUR life. A payoff that merely defines or reframes a concept is dead on arrival; scrap it at the pitch stage.
 
-No wordplay plans, no delivery notes — just what each caption IS. Everything in your catalog and under TAKEN TERRITORY is used; every idea must live on fresh ground.
+FRESH GROUND ONLY. Every premise in your catalog above is used. Everything under TAKEN TERRITORY is used. Re-skinning a used bit with new nouns is not a new caption — it's the same caption in a costume, and it's the one thing tonight cannot be. New idea, or it doesn't get pitched.
 
-Return ONLY JSON: {"points": [{"kind": "truth" | "bit", "move": "the move, in 2-4 words", "point": "one plain sentence", "stance": "you" | "pointing"}]}"""
+VARY THE MOVE. Label each pitch's move in your own words (2-4 words — whatever YOU'D call the play it runs). Spread the set across at least four different moves, at most two pitches per move, and vary who each one is aimed at.
 
-_TYPE_IT_TAIL = """
+SPAN YOUR RANGE: a few pitches you're dead sure of — a fresh idea executed with total confidence — and a few real swings — an idea further out than you'd normally risk. A swing is still concrete and still yours; it's the premise that's further out, never the voice.
 
-THE TASK: below are {k} IDEAS — what each caption is supposed to be. For each of the strongest {n}, type it TWO different ways you might actually post it: said, not written; thrown away, not performed; under-explained so the reader finishes it. Two genuinely different takes — different wording, maybe different framing — so the better landing can win; the difference between a 4 and a 9 is usually the last five words. The catalog above is your own posted work (its premises are taken — it shows your sound); THE BAR is the standard to sit next to without embarrassing yourself. Keep each idea's kind and stance. Drop any idea you can't make land at that bar.
+Return ONLY JSON, no prose: {"ideas": [{"kind": "truth" | "bit", "move": "your own words", "line": "the rough caption (\\n for line breaks)"}]}"""
 
-Return ONLY JSON, no prose: {"captions": [{"idea": <0-based idea index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
+_RETYPE_TAIL = """
+
+THE TASK: below are your own rough pitches from tonight — the ideas are locked. Retype each one TWO different finished ways you might actually post it. Two genuinely different takes — different wording, maybe different framing — so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
+
+Typed like you: said, not written — thrown away, never performed. Under-explained — the reader finishes it. The last beat lands ON the concrete image; nothing after the decode trigger. PRECISION on a literal read: grant the premise, but the numbers compute, the comparisons map one-to-one, and the referents hold steady. Tight — cut any clause the joke doesn't need. A frame ("when…", a POV, a quote-and-reply) drops the reader INTO the moment; a narrated past-tense story reads as fan-fiction and dies.
+
+Return ONLY JSON, no prose: {"captions": [{"idea": <0-based pitch index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
 
 
 def _pick_takes(pairs: list[list[str]]) -> list[str]:
@@ -518,9 +532,9 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
                               for j, (_, p) in enumerate(real))
         sys_p = (persona() + "\n\nYou typed two takes of each idea below. For each pair pick the "
                  "take you'd ACTUALLY post — the one that lands read cold; said, not written; the "
-                 "last five words decide. A take whose referents drift (\"your mom\" then \"him\") "
-                 "always loses; when takes are close, the one with the NAMED specific (the "
-                 "Rothschilds, not \"every rich guy\") wins. "
+                 "last five words decide. A take whose referents drift mid-line always loses; when "
+                 "takes are close, the one whose specific is NAMED and exact beats the one with a "
+                 "vague stand-in. "
                  "Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
         try:
             out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
@@ -535,82 +549,148 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
     return [p[picks.get(i, 0)] if len(p) > 1 else p[0] for i, p in enumerate(pairs)]
 
 
-def _select_best(caps: list[str], n: int) -> list[str]:
-    """⚠️ SHELVED — MEASURED NEGATIVE (2026-07-09). Built as a best-of-more quality selector, but
-    an LLM told to pick "the bangers you'd screenshot and send" pulls toward CORNY-QUOTABLE lines
-    (definitional "X is just Y" aphorisms, worn takes) — the operator's named failure mode; it
-    selected the worst captions in the pool. Same class as the reel-chooser inversion: an LLM's
-    "quality" taste is not the operator's. NOT called; kept only for the record. The reliable
-    quality signal is the operator's GRADES, never an LLM judge."""
-    from app.config import settings
-    pool = [c for c in caps if (c or "").strip()]
-    if len(pool) <= n:
-        return pool
-    listing = "\n".join(f"[{i}] {c.replace(chr(10), ' / ')}" for i, c in enumerate(pool))
-    sys_p = (persona() + "\n\n" + voice_core()
-             + "\n\nYou drafted these captions tonight. Pick the " + str(n) + " you'd ACTUALLY "
-             "post — the BANGERS, the ones that hit hardest read cold, the ones you'd screenshot "
-             "and send. Every pick must clear the bar; leave the mid ones behind. Favor a spread of "
-             "openers and angles so the set isn't one joke ten times — BUT never keep a weaker "
-             "caption just to vary; quality first, variety only breaks near-ties.\n\n"
-             'Return ONLY JSON: {"picks": [the ' + str(n) + " 0-based indices, best first]}")
+# NOTE: _select_best (an LLM "banger" picker) lived here 2026-07-09 and was DELETED the same day —
+# measured negative: an LLM ranking ideas by quality inverts toward the abstract-clever, the
+# operator's named failure mode ("some of the worst captions ive ever seen"). Cross-idea LLM
+# quality judges are banned from this pipeline; the operator's grades are the only quality signal.
+
+
+def _killed_texts() -> list[str]:
+    """Every operator-killed (≤4) graded caption for the active voice — the REJECT list. A killed
+    execution may never ship again (raw or morphed); the guard blocks TEXTS, never topics — a
+    premise that died on a flat landing stays reachable (canon: a miss is evidence about an
+    execution, not a verdict on the format)."""
     try:
-        out = complete_json(sys_p, listing, effort="medium", max_tokens=600, tag="select-best",
+        from app.corpus import reels
+        return [(r.get("caption") or "") for r in reels.graded()
+                if ((r.get("grade") or {}).get("rating") or 0) <= 4 and (r.get("caption") or "").strip()]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _taken_block(recent_window: int = 150, kill_window: int = 40) -> str:
+    """TAKEN TERRITORY for ideation — only what the reference wall cannot show: north-star premises
+    (their morph incident is documented), the recent-generation window (incl. sets generated earlier
+    in the same serial batch), and a WINDOWED slice of recent kills (kills block executions forever
+    at the guard; here they only cool the premise briefly — never a permanent topic fence). The
+    corpus's own taken-ness is carried by the wall's framing, not re-enumerated (a 300-stub wall of
+    prohibitions primes and drowns — the review's over-avoidance finding). Stubs stay marker-stripped
+    9-word content openers (the measured-safe rendering)."""
+    items: list[str] = []
+    try:
+        from app.caption import northstars
+        items += [_avoid_stub(r.get("caption") or "") for r in northstars.load()]
+    except Exception:  # noqa: BLE001
+        pass
+    items += [_avoid_stub(c) for c in recent_generated(recent_window)]
+    items += [_avoid_stub(c) for c in _killed_texts()[-kill_window:]]
+    return "\n".join("- " + s for s in dict.fromkeys(s for s in items if s)) or "(none yet)"
+
+
+def _drop_same_joke_siblings(cands: list[dict]) -> list[dict]:
+    """Intra-set identity dedup: two options in ONE set that are the same joke (morph-tier match
+    against each other) — the later one drops. This is the copy-guard class (removes duplicates of
+    a thing), never a spread cap (never removes for distribution)."""
+    from app.corpus.promote import _too_similar
+    kept: list[dict] = []
+    for c in cands:
+        t = c.get("text") or ""
+        if any(_too_similar(t, k.get("text") or "", thr=0.62) for k in kept):
+            continue
+        kept.append(c)
+    return kept
+
+
+def _reskin_check(cands: list[dict]) -> list[dict]:
+    """IDENTITY-only LLM screen for semantic re-skins the word-overlap guard is blind to (the
+    same-joke-wearing-new-nouns class: an animal bit re-cast with a different animal shares almost
+    no literal words with its ancestor). For each candidate, its mechanically-nearest neighbors
+    (word containment ≥ .35) from corpus + north stars + recent + kills are shown to a sonnet
+    judge asked ONE question: same joke re-skinned, yes/no. This is identity classification (like
+    the why_it_works labeler), NOT a quality ranking — the judge-inversion evidence does not
+    apply. Modes via settings.reskin_check: 'drop' | 'log' | 'off'; fail-open on any error."""
+    from app.config import settings
+    from app.corpus.promote import _norm
+    mode = (getattr(settings, "reskin_check", "drop") or "drop").lower()
+    if mode == "off" or not cands:
+        return cands
+
+    def _containment(a: str, b: str) -> float:
+        wa, wb = set(_norm(a).split()), set(_norm(b).split())
+        if not wa or not wb:
+            return 0.0
+        return len(wa & wb) / min(len(wa), len(wb))
+    pool: list[str] = [(r.get("caption") or "") for r in load_refs()]
+    try:
+        from app.caption import northstars
+        pool += [(r.get("caption") or "") for r in northstars.load()]
+    except Exception:  # noqa: BLE001
+        pass
+    pool += recent_generated(200)
+    pool += _killed_texts()
+    pool = [p for p in pool if p.strip()]
+    pairs = []   # (cand_idx, neighbor_texts)
+    for i, c in enumerate(cands):
+        t = c.get("text") or ""
+        scored = sorted(((_containment(t, p), p) for p in pool), reverse=True)
+        near = [p for s, p in scored[:2] if s >= 0.35]
+        if near:
+            pairs.append((i, near))
+    if not pairs:
+        return cands
+    listing = "\n\n".join(
+        f"PAIR {j}:\nNEW: " + (cands[i].get("text") or "").replace("\n", " / ")
+        + "\n" + "\n".join("OLD: " + p.replace("\n", " / ") for p in near)
+        for j, (i, near) in enumerate(pairs))
+    sys_p = ("You compare captions for IDENTITY only — never quality. For each pair: is NEW the "
+             "same joke as an OLD one wearing different nouns (same mechanism + same premise, "
+             "slots swapped)? A caption that shares only a FORMAT (a would-you-rather, a POV, a "
+             "quote-reply) but runs a genuinely different idea is NOT a re-skin. "
+             'Return ONLY JSON: {"reskin": [true/false per pair, in order]}')
+    try:
+        out = complete_json(sys_p, listing, effort="low", max_tokens=400, tag="reskin-check",
                             model=getattr(settings, "chooser_model", None) or None)
         s, e = out.find("{"), out.rfind("}")
-        idxs = json.loads(out[s:e + 1]).get("picks", []) if s != -1 else []
-        seen, chosen = set(), []
-        for i in idxs:
-            if isinstance(i, int) and 0 <= i < len(pool) and i not in seen:
-                seen.add(i)
-                chosen.append(pool[i])
-            if len(chosen) >= n:
-                break
-        if len(chosen) >= min(n, 2):
-            return chosen[:n]
-    except Exception:  # noqa: BLE001 — selection must never break generation
-        pass
-    # fallback: soft opener spread, then fill
-    seen_op: dict[str, int] = {}
-    kept, rest = [], []
-    for c in pool:
-        key = " ".join(c.lower().lstrip("🥷s'’ \"").split()[:2])
-        seen_op[key] = seen_op.get(key, 0) + 1
-        (kept if seen_op[key] <= 2 else rest).append(c)
-    return (kept + rest)[:n]
-
-
-_CONCRETE_TAIL = """
-
-Write {n} NEW captions you'd post today — as this creator, in this exact voice.
-
-The one rule above every other: CONCRETE, never abstract. Each caption is something the reader can SEE — a specific scene, a specific character doing a specific thing, a real recognized behavior, or you flexing the dumb thing with a straight face. Look at your catalog above: raccoons eating every night, a 50-year-old genuinely hyped explaining his 401k match, the hater losing it when the vending machine drops two bags of chips, a guy proud he's in debt from a car that hits 60 in 3 seconds. Those are the bar.
-
-An ABSTRACT DEFINITION of a concept is DEAD — "an alarm clock is just your boss waking you up for free," "a job interview is just begging with better posture." The "X is just Y" reframe feels clever but it's a tweet about a concept, not you being a menace. Do not write a single one.
-
-The specific detail that lands is EXACT and YOURS: the Rothschilds not "rich people," an LED sign with your name on it not "expensive stuff," "no homo back in 2019," a $997 course on how to sell a $997 course. Vague dies. Random-but-not-from-your-world dies. Land the last beat on a concrete image, never a soft summary word.
-
-Brand new premises — everything in your catalog and in the taken list is used; go somewhere new but stay unmistakably you.
-
-Make the {n} genuinely DIFFERENT from each other — no two run the same shape or move. At most ONE "we are not the same" flex, ONE spectacle-spend, ONE "dudes be like", ONE would-you-rather in the whole set; spread the rest across your range (a scene, a "when…", an animal/hater anti-cope, a quote-and-comeback, absurd math, a decode). A batch that runs the same move twice is a miss.
-
-These are OPTIONS on the table, so span the spectrum deliberately: a couple SAFE ones — squarely in your proven lanes, the shapes and territory your catalog already wins in — and a couple BIGGER SWINGS — a weirder image, a colder roast, a more unhinged flex than you'd normally risk. A swing is still concrete and still you; it's the premise that's further out, never the voice.
-
-Keep every one TIGHT — the tight ones land, the wordy ones die. If a line is over-explaining (an extra clause the joke didn't need, a date, a "and never came back to"), cut it. And if you're just re-running a line already in your catalog with new nouns, scrap it — that's not new.
-
-Return ONLY JSON, no prose: {"captions": ["the caption (\\n for line breaks)", "..."]}"""
+        flags = json.loads(out[s:e + 1]).get("reskin", []) if s != -1 else []
+        hit = {i for j, (i, _) in enumerate(pairs) if j < len(flags) and flags[j] is True}
+        if hit:
+            shown = " ".join(f"[{(cands[i].get('text') or '')[:60]!r}]" for i in hit)
+            print(f"[reskin] mode={mode} flagged={len(hit)}/{len(cands)} {shown}", flush=True)
+        if mode != "drop" or not hit:
+            return cands
+        kept = [c for i, c in enumerate(cands) if i not in hit]
+        return kept if kept else cands
+    except Exception:  # noqa: BLE001 — the screen must never break generation
+        return cands
 
 
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
-    """CONCRETE-FIRST, REFERENCE-DOMINATED generation (2026-07-09 rebuild, from the operator's
-    caption-level analysis: his 10s are CONCRETE scenes/images/specific-in-world flexes; his 1s are
-    ABSTRACT "X is just Y" definitions of concepts). One shot: the whole corpus is the voice (its
-    concrete texture is the grounding), the persona embodies him, the voice core + north-star BAR
-    name the concrete-not-abstract standard, and he writes fresh concrete captions. NO point-first
-    ideation (it manufactured the abstract deaths), NO LLM judge in the pipeline (they prefer the
-    abstract-clever — the select-best/chooser inversion), NO caps. Curation stays subtractive:
-    morph/regurgitation drop → refine. The operator's GRADES are the only quality signal; they feed
-    the corpus (richer concrete grounding) and the operator-editable voice core (var/voice_core.md)."""
+    """THE REVITALIZED ENGINE (2026-07-10, built from the full-system review: all 280 grades, the
+    corpus, every operator directive, prompt-stack forensics, and an era post-mortem — the round-6
+    architecture restored with the concrete-first axis inside it and the prompt stack PURGED).
+
+    WHAT the review proved: the re-skin collapse was caused by (1) winner captions QUOTED inside
+    instruction layers (super-attractors — canon 7), (2) the ideation/taken-territory freshness
+    machinery amputated, (3) a named-shape roster + "proven lanes" spectrum acting as a template
+    checklist, (4) guards blind to recent output, kills, and siblings. Every mechanism here maps
+    to that evidence:
+
+    Stage A — IDEATE ROUGH LINES (the WHAT): persona + full wall (framed ONCE: the voice and the
+      bar, every premise USED) + purged principle-only voice core + north-star decoded POINTS +
+      _IDEATE_TAIL. User msg: a positive license (his territory is HIS — only specific bits are
+      taken) + TAKEN TERRITORY (north-star premises, recent window incl. same-batch sets, windowed
+      recent kills) + the lean note. Ideas arrive as rough IN-VOICE lines (never analyst
+      "points" — the plain-sentence intermediate manufactured the abstract deaths), self-labeled
+      move spread (roster-free), both wings, safe↔swing over PREMISE risk only.
+    Stage B — RETYPE SHARPER (the HOW): same wall as craft calibration + north-star FULL texts +
+      _RETYPE_TAIL; TWO takes per idea (all ideas — no "strongest n" cross-idea cut), then take
+      competition (same-idea delivery pick — round-6-validated, non-inverting).
+    Curation (mechanical, subtractive): extended regurgitation/morph guard (corpus + stars +
+      recent + kills) → intra-set same-joke dedup → identity-only re-skin screen → refine →
+      coherence (off). No cross-idea LLM quality judges. No hard diversity caps. Ship the first n
+      survivors in ideation order (the model's own implicit ranking).
+    The operator's GRADES are the only quality signal; they feed the corpus, the kill list, and
+    the operator-editable voice core (var/voice_core.md). Rollback: GENERATION_ENGINE=v1."""
     from app.caption import northstars
     refs = load_refs()
     if not refs:
@@ -620,35 +700,79 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
         raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
                            "on the Generation Studio voice cards before generating")
     note = (notes or "").strip()
+    k = n + 3   # overgen buffer: the guards may drop; a short set ships rather than loop
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
                             if (r.get("caption") or "").strip())
     core = voice_core()
-    ns_block = northstars.block()
-    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (this concrete, this "
-           f"specific; their premises are taken):\n{ns_block}" if ns_block else "")
-    system = (persona() + _BRIDGE.format(references=ref_block) + core + bar
-              + _CONCRETE_TAIL.replace("{n}", str(n)))
-    user = (
+    wall = ("\n\nBelow are your REAL posted captions — the voice, the range, and the craft bar. "
+            "They show HOW you write; every premise in them is USED ground, never material for "
+            "tonight:\n\n" + ref_block + "\n\n")
+
+    # Stage A — ideate rough lines on fresh ground
+    points_bar = northstars.points_block()
+    a_bar = (f"\n\nTHE BAR — the level every post has to hit (each of these premises is taken):\n"
+             f"{points_bar}" if points_bar else "")
+    a_sys = persona() + wall + core + a_bar + _IDEATE_TAIL.replace("{k}", str(k))
+    a_user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + f"Recently generated — also used, go elsewhere: {_avoid_block()}\n\n"
-        + f"Write {n} captions."
+        + "Your territory is YOURS — money, degen positions, bro rituals, spectacle, the come-up "
+        "are your subjects tonight like every night. What's taken is these SPECIFIC bits, not "
+        "the ground they stand on:\n\nTAKEN TERRITORY:\n" + _taken_block()
+        + f"\n\nPitch {k} rough captions."
     )
-    caps: list[str] = []
-    for _attempt in (1, 2):   # a truncated/malformed JSON is retryable, not fatal
-        text = complete_json(system, user, effort="high", max_tokens=4000,
-                             cache_system=True, tag="batch-captions")
-        s, e = text.find("{"), text.rfind("}")
+    ideas: list[dict] = []
+    for _attempt in (1, 2):   # truncated/malformed JSON is retryable, not fatal
+        a_out = complete_json(a_sys, a_user, effort="high", max_tokens=8000,
+                              cache_system=True, tag="ideate")
+        s, e = a_out.find("{"), a_out.rfind("}")
         if s != -1 and e != -1:
             try:
-                caps = [c.strip() for c in json.loads(text[s:e + 1]).get("captions", [])
-                        if isinstance(c, str) and c.strip()]
+                ideas = [i for i in json.loads(a_out[s:e + 1]).get("ideas", [])
+                         if isinstance(i, dict) and (i.get("line") or "").strip()]
             except json.JSONDecodeError:
-                caps = []
-        if caps:
+                ideas = []
+        if ideas:
             break
-        print("[v2] caption parse failed — retrying", flush=True)
-    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps[:n]]
-    out = _coherence_gate(refine(_drop_ref_copies(out)))
+        print("[v2] ideation parse failed — retrying", flush=True)
+    if not ideas:
+        raise RuntimeError("v2 ideation returned no ideas after retry")
+
+    # Stage B — retype every idea two ways; take competition keeps the better landing
+    b_sys = persona() + wall + core \
+        + (f"\n\nTHE BAR — the standard to sit next to without embarrassing yourself:\n"
+           f"{northstars.block()}" if northstars.block() else "") \
+        + _RETYPE_TAIL
+    b_user = "YOUR ROUGH PITCHES:\n" + "\n".join(
+        f"[{i}] ({d.get('kind') or 'truth'} / {d.get('move') or '?'}) "
+        + (d.get("line") or "").replace("\n", " / ")
+        for i, d in enumerate(ideas))
+    b_out = complete_json(b_sys, b_user, effort="high", max_tokens=12000,
+                          cache_system=True, tag="batch-captions")
+    s, e = b_out.find("{"), b_out.rfind("}")
+    entries: list = []
+    if s != -1 and e != -1:
+        try:
+            entries = json.loads(b_out[s:e + 1]).get("captions", [])
+        except json.JSONDecodeError:
+            entries = []
+    pairs: list[list[str]] = []
+    for ent in entries:
+        if isinstance(ent, str) and ent.strip():
+            pairs.append([ent.strip()])
+        elif isinstance(ent, dict):
+            takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
+            if takes:
+                pairs.append(takes[:2])
+    if not pairs:   # fail-safe: ship the rough lines rather than nothing
+        pairs = [[(d.get("line") or "").strip()] for d in ideas]
+    caps = _pick_takes(pairs)
+
+    # mechanical curation — subtractive only, in ideation order (the model's own implicit ranking)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps if (c or "").strip()]
+    out = _drop_same_joke_siblings(_drop_ref_copies(out))
+    out = _reskin_check(out)
+    out = _coherence_gate(refine(out))
+    out = out[:n]
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])

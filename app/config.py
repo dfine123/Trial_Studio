@@ -68,6 +68,11 @@ class Settings(BaseSettings):
                                                   # precision — the class is sloppy-mapping (taste), not parse
                                                   # failure; a judge can't split it from absurdism. Kept for
                                                   # future re-tests via /api/debug/gate-check.
+    reskin_check: str = "drop"                    # 'drop' | 'log' | 'off' — IDENTITY-only screen for semantic
+                                                  # re-skins (same joke wearing new nouns) that word-overlap
+                                                  # guards can't see (the raccoons->hyenas class, 2026-07-10
+                                                  # revitalization). Identity classification like the labeler,
+                                                  # never a quality judge; fail-open on any error.
     openai_api_key: str = ""
     openai_caption_model: str = "gpt-4o"          # OpenAI model for the A/B (override via OPENAI_CAPTION_MODEL)
 

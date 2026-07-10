@@ -65,3 +65,21 @@ def block() -> str:
         pt = (r.get("point") or "").strip()
         lines.append("- " + cap + (f"\n   (the point: {pt})" if pt else ""))
     return "\n".join(lines)
+
+
+def points_block() -> str:
+    """The BAR as DECODED POINTS ONLY — for ideation, where the standard matters but always-on
+    full exemplar texts act as super-attractors (the documented star-morph incident). Full texts
+    render only at execution (block()), halving always-on exposure."""
+    rows = load()
+    if not rows:
+        return ""
+    lines = []
+    for r in rows:
+        pt = (r.get("point") or "").strip()
+        if pt:
+            lines.append(f"- {pt}")
+        else:   # a star with no decoded point falls back to a premise stub, never the full text
+            cap = " ".join((r.get("caption") or "").replace("\n", " ").split()[:9])
+            lines.append(f"- {cap}…")
+    return "\n".join(lines)
