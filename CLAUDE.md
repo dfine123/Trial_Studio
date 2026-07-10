@@ -97,7 +97,22 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **ROUND-7 NATURALNESS SHIFT (2026-07-10, commit f40c97c).** First sparked-engine round: mean 3.22,
+- **⭐⭐⭐⭐⭐⭐⭐ MESSAGE-FIRST FUSED SLATE (2026-07-10, commit 21fba10) — THE current engine + THE
+  ORBIT LAW.** Operator on the sparked engine: "every caption is just 'rewrite (insert reference)'…
+  too lazy… the system is missing actually understanding principles… voice, formats, and the actual
+  message/point/subject aren't steps, they are FACTORS of one process aligned across the board."
+  Confirmed in data: the horoscope ref was rewritten twice in ONE round (weatherman/get-rich-reel),
+  no-one-clapped rewritten WITH the operator's own punch-up note. **THE ORBIT LAW (proven 4 eras —
+  v1 anchors→morphs, quoted winners→super-attractors, format assignments→template-fills,
+  sparks→rewrites): a specific reference shown as a slot's SEED puts the output in its orbit. The
+  corpus lives in ONE place: the ambient WALL. Never build per-slot exemplar seeds again, under
+  any name.** Generation now = one fused creative act: each post STARTS from something worth
+  saying (message/point/subject from his world — brief section WHERE A CAPTION STARTS), finds its
+  shape, typed in his voice — one motion, not steps; k different attacks incl. ≥1 genuine
+  experiment; "your catalog is who you ARE, not material — a cousin of an old post = throw it
+  out." Take-comp + guards unchanged; anchor_refs=[] (attribution retired with seeds). Verified:
+  nearest-ref containment dropped from ~0.5-0.6 rewrites to 0.23-0.43 across 2 slates (one 0.53
+  fresh-slot family instance — his validated 9-10 mode, not a rewrite). Brief 7.7k chars live. First sparked-engine round: mean 3.22,
   15/18 killed. Kill classes: SCAFFOLDED CONSTRUCTIONS (two balanced clauses — "reads awkwardly",
   "trying to be clever"; the yours-vs-mine money-comparison frame is RETIRED by operator order),
   NO DIRECTION ("doesnt have a point"), and an mfs-phone-observation SPECIES FLOOD (~20/60 options;
