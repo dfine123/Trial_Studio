@@ -97,8 +97,27 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐ DIALED ALIGNMENT (2026-07-10, commit 7b7b692) — operator's direct calibration; CURRENT slate
-  design.** Half proven formats / half free: a trio from the 53-format book dealt per batch via
+- **⭐⭐⭐⭐⭐⭐⭐⭐ V3: SEED → FIVE ENGINES → SELECTOR (2026-07-10, commits 83d435d+95727b1) — THE
+  current engine; the operator's own architecture, built full-scale.** One VARIATION SEED per set
+  (`app/caption/seeds.py`: ~380-entry bank in-world/everyday/abstract; mechanical random.choice —
+  never an LLM; 1-in-8 two-seed collisions) fans to FIVE fully-separate interaction-point engines
+  IN PARALLEL (`app/caption/charters.py`): **SCREENSHOT** (motivate: sting+push in the same words,
+  exact detail, blunt>clever), **SEND** (shareable: an implicated recipient, the forward is a MOVE),
+  **EXOTIC** (pure principles, ZERO formats, genuinely-new constructions), **MIRROR** (recognition:
+  real/un-named/charged catches), **MENACE** (character: the delusion ALWAYS wins, live scenes).
+  Each charter = a complete self-contained system-prompt core (persona+wall+charter+bar) stemming
+  from the accumulated understanding but written independently — **no engine knows the others
+  exist** (tested: no engine/slate/option words, no shared 12-grams, no quoted winners; exotic has
+  no palette by design). The 5 outputs ARE the option set (k=5): five different jobs per card.
+  **SEED-DRIFT IS ENFORCED STRUCTURALLY** (the operator's hardest rule: "the caption owes the seed
+  NOTHING"): hard rule in the tail + mechanical literalism check per engine with one redrift retry
+  (live verify had caught 4/5 crab-captions from seed "a crab"; post-fix: 0 literal across 3 sets).
+  Per-candidate `engine`+`seed` attribution → grades/picks accumulate per interaction lane. Take-
+  comp shared; guards unchanged; charters operator-editable via GET/POST /api/charters
+  (var/charters/<id>.md). ~40-70s/set (parallel). generation_engine=v3 (v2/v1 rollbacks intact).
+  Learn-loop addition: per-round, charters get re-synthesized per-lane like the brief was.
+- **⭐ DIALED ALIGNMENT (2026-07-10, commit 7b7b692) — operator's direct calibration (superseded by
+  V3; the diary-entry law + subjects lens live on inside the charters).** Half proven formats / half free: a trio from the 53-format book dealt per batch via
   grade-weighted least-used rotation (VARIATES batch-by-batch — "shouldn't be the same 3 every
   time"), skeleton+mechanism only, swap-if-doesn't-click; format recurrence is never the problem,
   stale substance is ("we aren't in the business of taking formats and swapping words, but having
