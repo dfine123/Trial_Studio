@@ -276,6 +276,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   (`source=lab_promoted`, near-dup guarded); re-grade <8 clears the row's claim. Endpoints:
   `POST /api/lab/generate {n}` · `/api/lab/grade` · `/api/lab/stats` · `/api/lab/rebuild-codex`.
 
+- **CAPTION OPTIONS + OPERATOR-PICK RE-RENDER (2026-07-10, commit ed2dd5e).** Every reel card ships
+  with its full option set (k=6, one call, deliberate SPECTRUM: safe proven-lane options + bigger
+  swings — in-prompt positive priming, no judges/caps). The chooser only picks the DEFAULT render;
+  clicking a different option on the card re-produces the reel with that caption FIXED
+  (`POST /api/reels/recaption {reel_id, caption}` job + poll `/api/reels/recaption/{job_id}` —
+  same audio track, clips re-react, duration re-scales, folder scope preserved via record
+  `folder_id`, old mp4 cleaned up, record updated IN PLACE under the same reel_id). The swap is
+  logged on the record (`caption_swaps: [{from, to, ts}]`) — **"operator picked X over default Y"
+  is the highest-fidelity taste signal the system gets** (future chooser-eval cases should mine
+  graded reels' swaps). Operator-typed text not among options becomes an `operator_authored`
+  chosen candidate. UI: `.ropts` rows on each card (✓ = current), click → overlay → poll → card
+  refills. E2E verified live (6 options w/ spectrum, recaption OK, swap logged, HEAD 200).
+
 ## Reel pipeline
 
 - Caption-first: caption generated (audio-agnostic) → `match_audio` picks the track whose vibe
