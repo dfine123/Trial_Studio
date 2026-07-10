@@ -87,6 +87,19 @@
   .status { margin-top:12px; color:var(--muted); font-size:13px; min-height:20px; display:flex; align-items:center; gap:8px; }
   /* canvas */
   .rmeta-audio { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* caption OPTIONS on the card — the operator's pick re-renders the reel */
+  .ropts { display:flex; flex-direction:column; gap:5px; margin-top:9px; }
+  .ropts-h { font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; opacity:.55; margin-bottom:1px; }
+  .ropt { text-align:left; font-family:inherit; font-size:12.5px; line-height:1.35; padding:7px 9px; border-radius:9px;
+    border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s; white-space:pre-wrap; }
+  .ropt:hover { border-color:var(--acc); color:var(--text); }
+  .ropt.on { border-color:var(--acc); background:color-mix(in srgb, var(--acc) 9%, transparent); color:var(--text); cursor:default; }
+  .ropt.on::before { content:'✓ '; color:var(--acc); font-weight:700; }
+  .rmedia { position:relative; }
+  .recap-ov { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:10px; background:rgba(5,6,10,.74); backdrop-filter:blur(2px); border-radius:inherit; }
+  .recap-ov .recap-txt { font-size:12px; color:var(--muted); }
   .val.done { background:var(--good-bg); color:var(--good); box-shadow:none; }
   .val.done:hover { transform:none; background:var(--good-bg); }
   .val.pop { animation:pop .4s var(--spring); }
@@ -287,7 +300,7 @@
       <span class="statchip click" id="statDrive" title="Google Drive sync" style="display:none"></span>
     </header>
     <section class="view on" id="view-studio">
-      <div class="head"><h2>Generation Studio</h2><p class="vsub">Configure on the left, generate, triage on the right. Each caption is best-of-5, cut to the beat with the audio baked in — validate the keepers straight to Drive.</p></div>
+      <div class="head"><h2>Generation Studio</h2><p class="vsub">Configure on the left, generate, triage on the right. Every reel comes with 6 caption options — safe to out-there — pick a better one and it re-renders. Validate the keepers straight to Drive.</p></div>
       <div class="wb">
         <aside class="wb-rail">
           <div class="panel">
@@ -690,7 +703,7 @@ function phCard(i, n, state) {
       <div class="gscene gs-match"><div class="fr f1"></div><div class="fr f2"></div><div class="fr f3"></div></div>
       <div class="gscene gs-beat"><div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="cutline"></div></div>
       <div class="gscene gs-render"><div class="rframe"><i class="fill"></i><i class="scan"></i></div></div>
-      <div class="ph-phase">Writing the caption — best of 5</div>
+      <div class="ph-phase">Writing 6 caption options</div>
       <div class="ph-flavor"></div>
       <div class="prog det"><i></i></div></div>
       <div class="rbody"><span class="u-label">Reel ${i} of ${n}</span></div>`;
@@ -701,10 +714,10 @@ function phCard(i, n, state) {
     <div class="rbody"><span class="u-label">Reel ${i} · queued</span></div>`;
 }
 function startProgress(card) {
-  const phases = ['Writing the caption — best of 5', 'Matching clips to the caption', 'Cutting to the beat', 'Rendering in 1080p'];
+  const phases = ['Writing 6 caption options', 'Matching clips to the caption', 'Cutting to the beat', 'Rendering in 1080p'];
   const scenes = ['gs-write', 'gs-match', 'gs-beat', 'gs-render'];
   const FLAVOR = [
-    ['channeling the voice…', 'best of 5, judged cold', 'no corporate, no poetry'],
+    ['channeling the voice…', 'safe ones and big swings', 'no corporate, no poetry'],
     ['reading the library…', 'footage that plays off the line', 'no twins, no repeats'],
     ['finding the drop…', 'every cut lands on a beat'],
     ['1080×1920, caption burned in', 'compressing the sauce…'],
@@ -753,12 +766,53 @@ function wireValidate(vb, d) {
 }
 function fillReelCard(card, d, label) {
   card.className = 'card rcard flash';
+  const opts = (d.reel_id && Array.isArray(d.options)) ? d.options.filter(o => (o.text || '').trim()) : [];
   card.innerHTML = `<div class="rmedia"><video controls loop playsinline src="${d.reel_url}"></video></div>
     <div class="rbody"><div class="rcap"></div>
+      ${opts.length > 1 ? `<div class="ropts"><div class="ropts-h">Options — pick one to re-render</div>${opts.map((_, i) => `<button class="ropt" data-i="${i}"></button>`).join('')}</div>` : ''}
       <div class="rmeta rmeta-audio" title="${(label||'').replace(/"/g,'&quot;')}">🎵 ${trim72(label)||'audio'} · ${d.duration}s · ${d.shots} shots</div>
       <div class="ractions"><button class="btn btn-primary btn-sm val">✓ Validate → Drive</button><a class="btn btn-ghost btn-sm dlbtn" href="${d.reel_url}" download title="Download .mp4" aria-label="Download .mp4">↓</a></div></div>`;
   card.querySelector('.rcap').textContent = d.caption || '— blank · no caption —';
+  card.querySelectorAll('.ropt').forEach(row => {
+    const o = opts[+row.dataset.i];
+    row.textContent = o.text;
+    if ((o.text || '').trim() === (d.caption || '').trim()) { row.classList.add('on'); return; }
+    row.onclick = () => recaption(card, d, o.text, label);
+  });
   wireValidate(card.querySelector('.val'), d);
+}
+async function recaption(card, d, text, label) {
+  if (card.dataset.recapping) return;
+  card.dataset.recapping = '1';
+  const media = card.querySelector('.rmedia');
+  const ov = document.createElement('div'); ov.className = 'recap-ov';
+  ov.innerHTML = '<span class="spin"></span><div class="recap-txt">Re-rendering with your pick…</div>';
+  media.appendChild(ov);
+  card.querySelectorAll('.ropt, .val').forEach(b => b.disabled = true);
+  try {
+    const r = await fetch('/api/reels/recaption', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ reel_id: d.reel_id, caption: text }) });
+    if (!r.ok) throw new Error((await r.text()).slice(0,160));
+    const { job_id } = await r.json();
+    let res;
+    for (;;) {
+      await new Promise(x => setTimeout(x, 3000));
+      try { res = await (await fetch('/api/reels/recaption/' + job_id)).json(); } catch (_) { continue; }
+      if (res.state !== 'running') break;
+    }
+    if (res.state !== 'done') throw new Error(res.error || 'render failed');
+    d.reel_url = res.reel_url; d.caption = res.caption;
+    d.duration = res.duration; d.shots = res.shots;
+    delete card.dataset.recapping;
+    fillReelCard(card, d, label);
+    toast('Re-rendered with your pick');
+    loadStats();
+  } catch (e) {
+    delete card.dataset.recapping;
+    ov.remove();
+    card.querySelectorAll('.ropt, .val').forEach(b => b.disabled = false);
+    toast('Re-render failed: ' + e.message, 'err');
+  }
 }
 document.getElementById('notes').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gen').click(); });
 document.getElementById('gen').onclick = async () => {

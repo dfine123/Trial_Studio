@@ -557,6 +557,41 @@ def chooser_uses_configured_judge_model():
     assert pick == "b"
 
 
+# ─── Recaption: operator picks a different caption option ───
+
+@test
+def recaption_updates_record_and_logs_swap():
+    import tempfile as _tf
+    from app.corpus import reels as reel_store
+    with _tf.TemporaryDirectory() as td:
+        path = os.path.join(td, "reels.jsonl")
+        with patched(reel_store, _path=lambda pid=None: path):
+            reel_store.append({
+                "reel_id": "r1", "reel_url": "/reels/old.mp4", "caption": "default line",
+                "candidates": [{"text": "default line", "chosen": True},
+                               {"text": "the better option", "chosen": False}],
+                "clips": [{"clip_id": "c1"}],
+            })
+            rec = reel_store.record_recaption("r1", "/reels/new.mp4", "the better option",
+                                              [{"clip_id": "c2"}])
+            assert rec["caption"] == "the better option"
+            assert rec["reel_url"] == "/reels/new.mp4"
+            assert rec["clips"] == [{"clip_id": "c2"}]
+            flags = {c["text"]: c["chosen"] for c in rec["candidates"]}
+            assert flags == {"default line": False, "the better option": True}, flags
+            swaps = rec["caption_swaps"]
+            assert len(swaps) == 1 and swaps[0]["from"] == "default line" \
+                and swaps[0]["to"] == "the better option", swaps
+            # operator-authored text (not among options) still becomes the chosen candidate
+            rec2 = reel_store.record_recaption("r1", "/reels/new2.mp4", "hand-typed line", [])
+            auth = [c for c in rec2["candidates"] if c.get("operator_authored")]
+            assert len(auth) == 1 and auth[0]["chosen"] is True
+            assert len(rec2["caption_swaps"]) == 2
+            # persisted, not just in-memory
+            assert reel_store.get("r1")["caption"] == "hand-typed line"
+            assert reel_store.record_recaption("nope", "/reels/x.mp4", "y", []) is None
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

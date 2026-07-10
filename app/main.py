@@ -1029,6 +1029,7 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                 "caption_anchor_refs": res.get("caption_anchor_refs") or [],
                 "candidates": res.get("candidates") or [],
                 "clips": res.get("clips") or [],
+                "folder_id": str(req.folder_id) if req.folder_id else None,   # recaption keeps clip scope
                 "voice_profile_id": str(profiles.voice_id()),   # which VOICE generated it (grades credit it)
             })
         except Exception:   # noqa: BLE001 — recording must never break generation
@@ -1040,7 +1041,10 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
 
     return {
         "reel_url": f"/reels/{name}",
+        "reel_id": name.rsplit(".", 1)[0],
         "caption": res["caption"],
+        "options": [{"text": c.get("text"), "chosen": bool(c.get("chosen"))}
+                    for c in (res.get("candidates") or []) if (c.get("text") or "").strip()],
         "duration": res["duration"],
         "shots": res["shots"],
     }
@@ -1099,13 +1103,19 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                     "caption_anchor_refs": res.get("caption_anchor_refs") or [],
                     "candidates": res.get("candidates") or [],
                     "clips": res.get("clips") or [],
+                    "folder_id": str(req.folder_id) if req.folder_id else None,
                     "voice_profile_id": str(profiles.voice_id()),
                 })
             except Exception:  # noqa: BLE001 — recording must never break generation
                 pass
             with _BATCH_LOCK:
                 job["reels"][i] = {"state": "done", "reel_url": f"/reels/{name}",
-                                   "caption": res["caption"], "duration": res["duration"],
+                                   "reel_id": name.rsplit(".", 1)[0],
+                                   "caption": res["caption"],
+                                   "options": [{"text": c.get("text"), "chosen": bool(c.get("chosen"))}
+                                               for c in (res.get("candidates") or [])
+                                               if (c.get("text") or "").strip()],
+                                   "duration": res["duration"],
                                    "shots": res["shots"], "audio_desc": audio_row["description"]}
         except Exception as exc:  # noqa: BLE001
             fail(i, f"render: {exc}")
@@ -1200,6 +1210,90 @@ def api_generate_batch_status(job_id: str):
         raise HTTPException(status_code=404, detail="unknown batch job")
     with _BATCH_LOCK:
         return json.loads(json.dumps(job))   # snapshot, not the live dict
+
+
+# ── Recaption: the operator picked a DIFFERENT caption option on a reel card. Full caption-first
+# re-production with that caption FIXED (clips re-react to the new line, duration re-scales; same
+# audio track — it's part of the card's identity). The swap is logged on the record: "picked X
+# over the default Y" is the highest-fidelity taste signal the system gets, straight from the
+# operator's hands (no LLM judge involved). Runs as a background job (edge 502s long requests). ──
+_RECAP_JOBS: dict[str, dict] = {}
+
+
+class RecaptionRequest(BaseModel):
+    reel_id: str
+    caption: str
+
+
+def _run_recaption(job_id: str, reel_id: str, caption: str) -> None:
+    from app.corpus import reels as reel_store
+    from app.generate.generator import generate_reel
+    job = _RECAP_JOBS[job_id]
+    try:
+        rec = reel_store.get(reel_id)
+        if rec is None:
+            raise RuntimeError("unknown reel")
+        audio_id = (rec.get("audio") or {}).get("id")
+        with SessionLocal() as s:
+            audio = s.get(Audio, uuid.UUID(audio_id)) if audio_id else None
+        if audio is None or not audio.r2_key:
+            raise RuntimeError("this reel's audio is no longer in the library")
+        audio_path = _audio_path(audio)
+        if audio_path is None:
+            raise RuntimeError("audio file missing")
+        clip_ids = None
+        if rec.get("folder_id"):   # keep the original generation's clip scope
+            clip_ids = _clip_ids_in_folder(uuid.UUID(rec["folder_id"])) or None
+        cands = [dict(c) for c in (rec.get("candidates") or [])]
+        for c in cands:   # the operator's pick becomes the chosen candidate (caption_id provenance)
+            c["chosen"] = (c.get("text") or "").strip() == caption.strip()
+        name = f"{uuid.uuid4().hex}.mp4"
+        out = os.path.join(_REELS_DIR, name)
+        res = generate_reel(audio_path=audio_path, niche="", out_path=out,
+                            audio_desc=audio.description, audio_bpm=audio.bpm,
+                            audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
+                            clip_ids=clip_ids,
+                            caption_text=caption, caption_candidates=cands,
+                            work_png=f"tmp/recap_{job_id}.png")
+        old_name = os.path.basename(rec.get("reel_url") or "")
+        reel_store.record_recaption(reel_id, f"/reels/{name}", caption, res.get("clips") or [])
+        if old_name and old_name != name:   # the superseded video: best-effort cleanup
+            try:
+                os.remove(os.path.join(_REELS_DIR, old_name))
+            except OSError:
+                pass
+        job.update({"state": "done", "reel_url": f"/reels/{name}", "caption": caption,
+                    "duration": res.get("duration"), "shots": res.get("shots")})
+    except Exception as exc:  # noqa: BLE001
+        job.update({"state": "failed", "error": str(exc)[:200]})
+
+
+@app.post("/api/reels/recaption")
+def api_reels_recaption(req: RecaptionRequest):
+    """Re-produce a reel with an operator-picked caption option; poll GET /api/reels/recaption/{job_id}."""
+    import threading
+    if settings.demo_mode:
+        raise HTTPException(status_code=403, detail="recaption is operator-only")
+    caption = (req.caption or "").strip()
+    if not caption:
+        raise HTTPException(status_code=400, detail="empty caption")
+    from app.corpus import reels as reel_store
+    if reel_store.get(req.reel_id) is None:
+        raise HTTPException(status_code=404, detail="unknown reel")
+    job_id = uuid.uuid4().hex
+    _RECAP_JOBS[job_id] = {"state": "running"}
+    while len(_RECAP_JOBS) > 20:
+        _RECAP_JOBS.pop(next(iter(_RECAP_JOBS)))
+    threading.Thread(target=_run_recaption, args=(job_id, req.reel_id, caption), daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/reels/recaption/{job_id}")
+def api_reels_recaption_status(job_id: str):
+    job = _RECAP_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown recaption job")
+    return json.loads(json.dumps(job))
 
 
 @app.api_route("/reels/{name}", methods=["GET", "HEAD"])

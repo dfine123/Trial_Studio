@@ -79,6 +79,43 @@ def graded(pid=None) -> list[dict]:
     return [r for r in reversed(_load(pid)) if r.get("grade")]
 
 
+def get(reel_id: str, pid=None) -> dict | None:
+    """Fetch one reel record by id."""
+    return next((r for r in _load(pid) if r.get("reel_id") == reel_id), None)
+
+
+def record_recaption(reel_id: str, new_url: str, new_caption: str, new_clips: list[dict],
+                     pid=None) -> dict | None:
+    """The operator picked a DIFFERENT caption option and the reel was re-produced with it.
+    Updates the record in place (same reel_id — the card is the same entity) and appends the
+    swap to caption_swaps: "picked X over the default Y" is real operator-taste selection
+    data (future chooser-eval cases mine it), a signal no LLM judge provides."""
+    with _LOCK:
+        recs = _load(pid)
+        target = None
+        for r in recs:
+            if r.get("reel_id") != reel_id:
+                continue
+            old = (r.get("caption") or "").strip()
+            r.setdefault("caption_swaps", []).append(
+                {"from": old, "to": new_caption, "ts": time.time()})
+            r["caption"] = new_caption
+            r["reel_url"] = new_url
+            if new_clips:
+                r["clips"] = new_clips
+            matched = False
+            for c in r.get("candidates") or []:
+                hit = (c.get("text") or "").strip() == new_caption.strip()
+                c["chosen"] = hit
+                matched = matched or hit
+            if not matched:   # operator-authored text still becomes the chosen candidate
+                r.setdefault("candidates", []).append(
+                    {"text": new_caption, "chosen": True, "operator_authored": True})
+            target = r
+        _rewrite(recs, pid)
+        return target
+
+
 def mark_promoted(reel_id: str, pid=None) -> None:
     """Flag a reel's caption as promoted into the reference corpus (so it never double-promotes)."""
     with _LOCK:

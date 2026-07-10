@@ -594,6 +594,8 @@ Brand new premises — everything in your catalog and in the taken list is used;
 
 Make the {n} genuinely DIFFERENT from each other — no two run the same shape or move. At most ONE "we are not the same" flex, ONE spectacle-spend, ONE "dudes be like", ONE would-you-rather in the whole set; spread the rest across your range (a scene, a "when…", an animal/hater anti-cope, a quote-and-comeback, absurd math, a decode). A batch that runs the same move twice is a miss.
 
+These are OPTIONS on the table, so span the spectrum deliberately: a couple SAFE ones — squarely in your proven lanes, the shapes and territory your catalog already wins in — and a couple BIGGER SWINGS — a weirder image, a colder roast, a more unhinged flex than you'd normally risk. A swing is still concrete and still you; it's the premise that's further out, never the voice.
+
 Keep every one TIGHT — the tight ones land, the wordy ones die. If a line is over-explaining (an extra clause the joke didn't need, a date, a "and never came back to"), cut it. And if you're just re-running a line already in your catalog with new nouns, scrap it — that's not new.
 
 Return ONLY JSON, no prose: {"captions": ["the caption (\\n for line breaks)", "..."]}"""
