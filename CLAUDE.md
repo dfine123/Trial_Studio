@@ -97,6 +97,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **PRE-GRADING TREND AUDIT (2026-07-10, commits aeaa934+1287611).** Self-audit of a 30-caption
+  sample before the operator graded; found+fixed: (1) FIXED SLATE PORTFOLIO (same 6 lanes every
+  slate; hater-tiny-win 4×/5 slates with jacket-money TWINS) → `_recent_vehicles()` descriptive
+  lane-memory line in the user msg (model reasons over it; never a roster/drop) + brief vary-
+  ACROSS-nights; (2) guard window leak (goat ladder + same-day cure-cancer repeats escaped
+  200/400 windows at hundreds of logged options/day) → **the guard reads the FULL genlog —
+  windows are for prompt budgets only, THE GUARD FORGETS NOTHING**; (3) swapped-specifics twins
+  under .62 → reskin check top-3 @.30 + twins named re-skins. Verified: next 3 slates — old lanes
+  parked, 0 twins. Watch: north-star skeletons can attract riffs (embarrassing-star riffed 2×) —
+  star-side cooldown if >1/round. PROCESS: run this self-audit (sample → read as jokes vs his
+  taste → fix causes) before every invited grading round.
 - **⭐⭐⭐⭐⭐⭐⭐ MESSAGE-FIRST FUSED SLATE (2026-07-10, commit 21fba10) — THE current engine + THE
   ORBIT LAW.** Operator on the sparked engine: "every caption is just 'rewrite (insert reference)'…
   too lazy… the system is missing actually understanding principles… voice, formats, and the actual
