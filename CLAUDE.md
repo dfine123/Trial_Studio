@@ -97,8 +97,31 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐⭐⭐⭐ THE REVITALIZATION (2026-07-10, commit aa4bd51) — THE current engine, built from a
-  full-system review.** After the re-skin collapse (every option a catalog noun-swap: hyenas=
+- **⭐⭐⭐⭐⭐ FORMAT-FORWARD (2026-07-10, commit ba67d3e) — THE current engine; the operator's
+  format law made structural.** Post-revitalization output was fresh but FORMAT-LESS — "weird,
+  corny narrations… the subject is good, but as a caption what is that even supposed to mean"
+  (operator). A 6-agent sweep classified ALL 280 graded + the corpus by format: **narration is a
+  DEAD CLASS (0/16 ever ≥7, 81% killed); every winning band rides recognized vehicles; kills are
+  61% delivery-blame INSIDE proven formats — he kills executions, not shapes. Each format has a
+  load-bearing MECHANISM (true double-read / exact 1:1 mapping / math that computes / genuinely
+  observed behavior) that decides its 9s vs 3s.** THE LAW: format = the proven VEHICLE (licensed,
+  reusable, rotated); premise = the CARGO (must be fresh). Built: **the FORMAT BOOK**
+  (`app/caption/formats.py`, var/formats.json — 53 data-derived formats each w/ skeleton +
+  what-varies + mechanism + grade verdict; operator-editable via GET/POST /api/formats; 7
+  proven-winners incl. fake-company-scene 5/5 zero-kills, bro-text-undercut, world-needs-more,
+  for-perspective-tautology, absurd-math-ladder, hater-tiny-life, sincere-truth (22 corpus lines
+  — the sincere register is load-bearing); 3 dead: wtf-is-x-pussy 6/7 killed, infinite-money-
+  glitch, wym-deflection) + grade-weighted least-used ROTATION (dead de-weighted +3 virtual uses,
+  never dropped) + ONE wildcard slot per set (exploration; must read as a POST, never narration).
+  Stage A pitches one fresh idea INTO each assigned format (assignments render skeleton+mechanism,
+  never verbatim examples); Stage B retypes in-format; per-voice usage logged. Variety is now
+  STRUCTURAL (k distinct vehicles per set — no shape prose, no quotas, no caps; the monoculture
+  problem dissolves by construction). Verified: 17 distinct formats across 2 sets, 0 same-joke
+  pairs, 0 narrations, ancestors ≤.62. The learn loop's next step: grades update format verdicts
+  (the book is the new rotation brain). Sweep artifacts: tmp/revitalize/format_book.json +
+  format_analysis.json (local).
+- **⭐⭐⭐⭐ THE REVITALIZATION (2026-07-10, commit aa4bd51) — the full-system review + purge
+  (still the base architecture under format-forward).** After the re-skin collapse (every option a catalog noun-swap: hyenas=
   raccoons, a literal 2-day-old jumbotron repeat, a killed-3/10 re-run, a fixed 6-family template
   wheel per set), the operator ordered a full re-evaluation. A 10-agent review (winners-as-jokes,
   kill taxonomy, directive timeline, prompt-stack forensics, batch ancestor-trace, era post-mortem
