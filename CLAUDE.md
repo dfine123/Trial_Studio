@@ -97,6 +97,21 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐ THE 8+ EXTRACTION → CHARTERS (2026-07-10, commit 2792d82).** V3's first round was 11/13
+  "you'll do X" reader-lecture. A 3-lens extraction over ALL 59 graded-8+ captions produced the
+  laws now WOVEN into the five charters at principle level: OVERHEARD GROUP CHAT (29/59 winners =
+  third-person/scenes, ZERO prosecute the reader — "nobody forwards their own prosecution");
+  'you' ENERGY-DIRECTION (licensed only when the sting exits AWAY: game/foil/dreamer/bank-victim;
+  reader owns nouns, characters own damning verbs); SNAP vs TAKE (a decode the reader performs vs
+  a point that collects nods; freshness lives in the MAPPING, not the shape); never name the
+  lesson / zero elbow-words (somehow/exactly: 0 in 59 winners); DETONATION endings (last 5 words
+  = a camera shot; 6/7 tens end on the punch beat); one-exhale ~18w texture, line-breaks as beat
+  drops, receipts-as-digits, typed-not-written; 'I' spent on self-incrimination (skin buys the
+  roast license — no-skin verdicts = guru, the register winners never touch). One structural
+  backstop: conservative reader-defendant detector → restage retry (fail-open; dialogue/games/
+  first-person never flagged, tested on real winner texts). VERIFIED vs the winners' fingerprint:
+  lecture 11/13→0/14; register mix ≈ winners; breaks 21% (winners 20%); word median 25→23
+  (winners 18 — watch). Extraction artifacts: winners_vs_now.txt + the workflow journal (local).
 - **⭐⭐⭐⭐⭐⭐⭐⭐ V3: SEED → FIVE ENGINES → SELECTOR (2026-07-10, commits 83d435d+95727b1) — THE
   current engine; the operator's own architecture, built full-scale.** One VARIATION SEED per set
   (`app/caption/seeds.py`: ~380-entry bank in-world/everyday/abstract; mechanical random.choice —
