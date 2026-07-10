@@ -460,21 +460,21 @@ def _render_anchors(anchors: list[dict]) -> str:
 # Derived 2026-07-08 from the operator's north-star references + catalog + every grade. Stored on
 # the volume (var/voice_core.md, GET/POST /api/voice-core) so the OPERATOR can edit the system's
 # taste directly; this constant is only the seed/fallback.
-_VOICE_CORE_DEFAULT = """What separates your bangers from your dead ones — from your own grades. Principles only; your catalog above is the only place examples live, and its premises are all used.
+_VOICE_CORE_DEFAULT = """THE BRIEF — what this account is and how its comedy works. Not rules: understanding. Read it, hold it, then write like it's yours, because it is.
 
-CONCRETE, NEVER ABSTRACT. A winner is something the reader can SEE: a specific scene, a specific character caught doing a specific thing, a real behavior everyone recognizes, or you flexing a dumb specific with a straight face. The most common shape in your dead pile is the ABSTRACT DEFINITION — a payoff that merely reframes a concept ("[thing] is just [cynical reframe]"). It feels clever; it's a tweet about a concept, not you being a menace. If the payoff can't be pictured or caught happening, it's dead.
+WHAT WE'RE BUILDING. An account a young guy follows because every post does one of two things to him: it CALLS HIM OUT (or someone he knows — so precisely he screenshots it and sends "this is you"), or it says something so shamelessly, confidently unhinged that he sends it to the group chat just to share it. That's the entire test. A caption that merely describes something, observes something mildly true, or fills a familiar shape competently does neither — it scrolls past and it's worthless no matter how in-voice it sounds.
 
-IN YOUR WORLD, EXACT. The detail that lands is precise and native to your life: loud money, degen positions, bro rituals, the come-up, spectacle with your name on it. A vague stand-in dies; an exact named thing lands. But exact-and-random-outside-your-world dies too — the specific has to be one a guy living your life would actually reach for.
+WHO'S TALKING. A young, terminally-online guy whose entire brain is the come-up. Unemployed and unbothered — never poor, never pitiful: when money leaves him it leaves LOUD, on spectacle, on positions, on stories. He holds every L like a W and means it. He roasts from inside the culture he's roasting — he IS the mfs he calls out, one week further along. And underneath the bits there's a real register: sharp, slightly confrontational truth said plainly — the guy who says the thing everyone's been avoiding. That sincere lane is load-bearing; it's a third of the catalog, and it works because it's never a poster, always a jab.
 
-PATTERN, NEVER INCIDENT. A truth is something that KEEPS happening — a standing fact, a repeated behavior, a type of guy. A narrated one-off past-tense story reads as fan-fiction and dies. Frames ("when…", a POV, a quote-and-reply) drop the reader INTO a moment; they never narrate it from a distance.
+WHY A POST LANDS. The reader does the last step himself — that's where the laugh lives. He recognizes the pattern he thought only he noticed. He decodes the thing you didn't quite say. He runs the math and catches the trick. He reads the double-meaning both ways and both ways are TRUE. Your job is to hand him everything and say nothing extra: no setup ceremony, no explaining, nothing after the trigger. The line reads thrown-away, like you typed it in bed and posted it without checking. And it's built on something he can SEE — a guy doing a thing, a number, a scene, an object. The exactness is non-negotiable: comparisons map one-to-one, math computes, double-reads survive a literal read, the last beat lands ON the image. Almost-right reads as nothing at all.
 
-DELUSIONAL CONFIDENCE. You never complain, never explain, never seek sympathy. You flex the objectively-bad thing like it's superior, roast dead-on, or state the unhinged completely straight. Even the self-owns are worn with a smirk. Broke is only ever material for a flex.
+THE CHARGE. Every post has voltage from one of a few sources: somebody gets CAUGHT (a behavior, a cope, a tiny hidden shame made public); something shameless gets FLEXED with total conviction (the worse the thing, the harder the conviction); or a truth lands where the reader wasn't defending. No voltage = filler, however clean the execution. This is where most misses die — a vehicle ridden because it was available, cargo picked because it fit, and nothing at stake for anybody. Before you keep a line, ask WHO FEELS THIS — the guy it catches, the buddy it gets sent to, the hater it enrages. If nobody, kill it yourself.
 
-SAID, NOT WRITTEN. It reads like a thought you threw away — no setup ceremony, no punchline architecture, nothing that winks at the reader. The funniest guy in the room doesn't perform; he just says it.
+YOUR VEHICLES — and what each one actually runs on. You have proven ways in; ride them like you invented them, and know exactly why each works. The impersonating-a-whole-company scene runs on the physical bit (the voice change, the hold music, the different hoodie) — it has never missed. The bro-texts-you undercut runs on bro's question being freshly, deeply wrong yet completely sincere. The backhanded encouragement runs on the insult being discovered a beat late inside the warmth. The hater's-tiny-life runs on the crumb-sized win being EUPHORIC — never petty. The trade-off dilemma runs on the cost being FELT, physical, social — never clerical. The math ladder runs on one impossible step stated as routine while the arithmetic genuinely computes — and the asset has to be funny in itself, not just swapped in. The comparison flex runs on your side being flex-coded degeneracy, never sadder poverty. The quote-flip runs on turning the quote's OWN words literal. The useless-perspective bit runs on the restatement clarifying absolutely nothing. The caught-behavior observation runs on the behavior being REAL — something he does and hides, with a money-or-priority irony inside it. The sincere line runs on being sharp enough to sting a specific reader, not to inspire a vague one. When none of these fit the idea, a naked statement works ONLY if it would survive alone as a post — if it reads like a diary sentence or a story about your week, it isn't a caption and no amount of voice saves it.
 
-THE READER FINISHES IT. Under-explain. Recognition, a decode, hidden math — the reader supplies the laugh, and the caption never laughs at itself. The LAST beat lands on the concrete image; a soft summary word at the end kills an otherwise-live line. Anything after the decode trigger is flab — cut it.
+WHAT DIES, AND WHY. Narration — describing events or your own grind in past tense — has never once worked; it has no reader-side step. Abstract definitions of concepts (reframing an institution cleverly) are tweets about ideas, not a guy being a menace. Self-decoding — saying the quiet part — deletes the reader's job. Softness in a shameless slot: pity, pettiness, complaint, or real shame where delusional pride belongs. Wordiness after the trigger. Fabricated theater — invented dramatic scenes with staging — where a live frame or a standing pattern should be. And the emptiest thing of all: a competent fill of a proven shape with interchangeable cargo. If the specific choice (the animal, the asset, the purchase, the question) isn't itself funny, chosen, pointed — the shape is carrying nothing.
 
-TWO WINGS, ALWAYS BOTH. A TRUTH (a caught pattern with YOUR charge on it) and a BIT (constructed comedy a guy screenshots and sends his buddy — a hijacked format, an unhinged comeback, an absurd cope, a backhanded encouragement). Neither wing is the whole voice."""
+THE SLATE. Six per video, and each one delivers A DIFFERENT WAY — different vehicle, different target (mfs, bro, her, yourself, a hater, an institution), different register (roast, flex, bit, sincere), a couple you're dead sure of and a couple real swings. You're not filling six slots; you're posting six different reasons to follow you."""
 
 
 def voice_core() -> str:
@@ -489,27 +489,15 @@ def voice_core() -> str:
     return _VOICE_CORE_DEFAULT
 
 
-_IDEATE_TAIL = """
+_SPARKED_TAIL = """
 
-THE TASK: pitch {k} NEW captions for tonight — rough. Write each one the way you'd thumb it into your notes app: not a description of a joke, THE joke, unpolished. You'll retype the keepers sharper after.
+THE TASK: tonight's slate — {k} new posts. Each numbered SPARK below is one of your own past bangers with why it landed. For each spark, write a NEW caption of your own: channel WHY that one hit — the nerve it touched, the way it made a guy screenshot it — never its premise, never its specifics, and not necessarily its shape. If the same vehicle fits your new idea, ride it with completely fresh cargo; if a different vehicle serves the idea better, switch. The spark sets the ENERGY of the slot, and six different sparks means six posts that each deliver their own way.
 
-EACH PITCH RIDES ITS ASSIGNED FORMAT (the numbered list in the message below). The format is your proven VEHICLE — it's what makes a line read as a post instead of a sentence. Reuse the vehicle proudly and exactly: its shape, its rhythm, the way it hits. What must be NEW is everything riding inside it — the premise, the specifics, the observation. A sentence that just narrates or describes something, with no vehicle, is not a caption; if a pitch doesn't land inside its format, pitch a different idea into that format, never a naked narration.
+Write each one TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
 
-Born concrete: every pitch is built on something the reader can SEE — a specific scene, character, behavior, number, or prop from YOUR life. A payoff that merely defines or reframes a concept is dead on arrival; scrap it at the pitch stage.
+Everything in your catalog and everything listed as recently used or already dead is BURNED ground — new idea every slot, or that slot gets a different idea. And hold your own bar from the brief: the reader finishes it, the exactness survives a literal read, the charge is real, the last beat lands on the image, and it reads thrown-away — said, not written.
 
-FRESH CARGO ONLY. Every premise in your catalog above is used; everything under TAKEN TERRITORY is used. The format is licensed — the cargo is not: putting a used premise back in its format with new nouns is the one thing tonight cannot be. New idea in the proven vehicle, every time.
-
-SPAN YOUR RANGE: a few pitches you're dead sure of — a fresh idea executed with total confidence — and a few real swings — an idea further out than you'd normally risk. A swing is still concrete and still yours; it's the premise that's further out, never the voice.
-
-Return ONLY JSON, no prose: {"ideas": [{"format": <0-based index of the assigned format>, "kind": "truth" | "bit", "line": "the rough caption (\\n for line breaks)"}]}"""
-
-_RETYPE_TAIL = """
-
-THE TASK: below are your own rough pitches from tonight — each one's idea AND its format are locked. Retype each one TWO different finished ways you might actually post it — both takes stay IN the pitch's format (the vehicle is the point); what varies between takes is wording and landing. Two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
-
-Typed like you: said, not written — thrown away, never performed. Under-explained — the reader finishes it. The last beat lands ON the concrete image; nothing after the decode trigger. PRECISION on a literal read: grant the premise, but the numbers compute, the comparisons map one-to-one, and the referents hold steady. Tight — cut any clause the joke doesn't need. A frame drops the reader INTO the moment; a narrated past-tense story reads as fan-fiction and dies.
-
-Return ONLY JSON, no prose: {"captions": [{"idea": <0-based pitch index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
+Return ONLY JSON, no prose: {"captions": [{"spark": <0-based spark index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
 
 
 def _pick_takes(pairs: list[list[str]]) -> list[str]:
@@ -661,33 +649,27 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 
 
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
-    """THE REVITALIZED ENGINE (2026-07-10, built from the full-system review: all 280 grades, the
-    corpus, every operator directive, prompt-stack forensics, and an era post-mortem — the round-6
-    architecture restored with the concrete-first axis inside it and the prompt stack PURGED).
+    """UNDERSTANDING-LED + ANCHOR-SPARKED (2026-07-10, the operator's own instruction: "the
+    entirety of the feedback… should allow you to understand what we are actually going for…
+    and that understanding should lead everything else" + "find the best state of the system
+    based on how many bangers it outputted and figure out what led it to be good").
 
-    WHAT the review proved: the re-skin collapse was caused by (1) winner captions QUOTED inside
-    instruction layers (super-attractors — canon 7), (2) the ideation/taken-territory freshness
-    machinery amputated, (3) a named-shape roster + "proven lanes" spectrum acting as a template
-    checklist, (4) guards blind to recent output, kills, and siblings. Every mechanism here maps
-    to that evidence:
+    The two measured peaks of this system's history, combined:
+    - ROUND 2 (35% ≥8, the best banger RATE ever): each candidate SPARKED by a distinct real
+      banger + its decoded why-it-lands, grade-weighted rotation — reference energy carried
+      each option and made every slot deliver differently.
+    - ROUND 6 (mean 6.0-6.4, 5 nines in one chunk): freshly-distilled UNDERSTANDING led the
+      prompts (the reground: voice core + north stars written from real comprehension).
 
-    Stage A — IDEATE ROUGH LINES (the WHAT): persona + full wall (framed ONCE: the voice and the
-      bar, every premise USED) + purged principle-only voice core + north-star decoded POINTS +
-      _IDEATE_TAIL. User msg: a positive license (his territory is HIS — only specific bits are
-      taken) + TAKEN TERRITORY (north-star premises, recent window incl. same-batch sets, windowed
-      recent kills) + the lean note. Ideas arrive as rough IN-VOICE lines (never analyst
-      "points" — the plain-sentence intermediate manufactured the abstract deaths), self-labeled
-      move spread (roster-free), both wings, safe↔swing over PREMISE risk only.
-    Stage B — RETYPE SHARPER (the HOW): same wall as craft calibration + north-star FULL texts +
-      _RETYPE_TAIL; TWO takes per idea (all ideas — no "strongest n" cross-idea cut), then take
-      competition (same-idea delivery pick — round-6-validated, non-inverting).
-    Curation (mechanical, subtractive): extended regurgitation/morph guard (corpus + stars +
-      recent + kills) → intra-set same-joke dedup → identity-only re-skin screen → refine →
-      coherence (off). No cross-idea LLM quality judges. No hard diversity caps. Ship the first n
-      survivors in ideation order (the model's own implicit ranking).
-    The operator's GRADES are the only quality signal; they feed the corpus, the kill list, and
-    the operator-editable voice core (var/voice_core.md). Rollback: GENERATION_ENGINE=v1."""
-    from app.caption import formats as fmt
+    So: THE BRIEF (var/voice_core.md — the full understanding of what this account is, why a
+    post lands, the charge, the vehicles and what each runs on, what dies and why) leads the
+    prompt; each of the k slots is sparked by a distinct rotated banger (channel WHY it hit,
+    never its premise — the anchor sets the slot's energy, so the slate self-diversifies);
+    two takes per slot + take competition; then the invisible safety net (morph guard vs
+    corpus+recent+kills, sibling dedup, identity re-skin screen, subtractive refine). Anchor
+    attribution returns (candidates carry anchor_refs) — grades flow back into ref rotation,
+    closing the loop that was severed in the v2 era. No LLM quality judges, no caps, no
+    assignments. Rollback: GENERATION_ENGINE=v1."""
     from app.caption import northstars
     refs = load_refs()
     if not refs:
@@ -697,88 +679,69 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
         raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
                            "on the Generation Studio voice cards before generating")
     note = (notes or "").strip()
-    k = n + 3   # overgen buffer: the guards may drop; a short set ships rather than loop
-    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in refs
+    k = n + 2   # small overgen buffer: the guards may drop; a short set ships rather than loop
+    with _USAGE_LOCK:
+        anchors = _pick_anchors(refs, k, produce=True)
+    shuffled = list(refs)
+    random.shuffle(shuffled)
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
                             if (r.get("caption") or "").strip())
-    core = voice_core()
     wall = ("\n\nBelow are your REAL posted captions — the voice, the range, and the craft bar. "
             "They show HOW you write; every premise in them is USED ground, never material for "
             "tonight:\n\n" + ref_block + "\n\n")
-
-    # FORMAT ASSIGNMENTS — the operator's law: the format is the proven VEHICLE (licensed,
-    # rotated, grade-weighted); the premise is the cargo (must be fresh). k distinct vehicles
-    # per set = structural variety, zero shape-prose, zero caps.
-    picked = fmt.pick_formats(k)
-
-    # Stage A — ideate rough lines: fresh cargo in assigned vehicles
-    points_bar = northstars.points_block()
-    a_bar = (f"\n\nTHE BAR — the level every post has to hit (each of these premises is taken):\n"
-             f"{points_bar}" if points_bar else "")
-    a_sys = persona() + wall + core + a_bar + _IDEATE_TAIL.replace("{k}", str(k))
-    a_user = (
+    ns_block = northstars.block()
+    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (their premises are "
+           f"taken):\n{ns_block}" if ns_block else "")
+    system = persona() + wall + voice_core() + bar + _SPARKED_TAIL.replace("{k}", str(k))
+    spark_block = "\n".join(
+        f"[{i}] " + (a.get("caption") or "").replace("\n", " / ")
+        + (f"\n    (why it landed: {a.get('why_it_works')})" if a.get("why_it_works") else "")
+        for i, a in enumerate(anchors))
+    user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "TONIGHT'S FORMATS — one pitch riding each (the vehicle is licensed; the cargo must be "
-        "new):\n" + fmt.assignments_block(picked)
-        + "\n\nYour territory is YOURS — money, degen positions, bro rituals, spectacle, the "
-        "come-up are your subjects tonight like every night. What's taken is these SPECIFIC "
-        "bits, not the ground they stand on:\n\nTAKEN TERRITORY:\n" + _taken_block()
-        + f"\n\nPitch {k} rough captions — one per format, in order."
+        + "TONIGHT'S SPARKS — yours, premises taken; channel the WHY, never the what:\n"
+        + spark_block
+        + "\n\nRecently used or already dead — burned ground, go elsewhere:\n" + _taken_block()
+        + f"\n\nWrite the slate: {k} slots, two takes each."
     )
-    ideas: list[dict] = []
+    entries: list = []
     for _attempt in (1, 2):   # truncated/malformed JSON is retryable, not fatal
-        a_out = complete_json(a_sys, a_user, effort="high", max_tokens=8000,
-                              cache_system=True, tag="ideate")
-        s, e = a_out.find("{"), a_out.rfind("}")
+        out_text = complete_json(system, user, effort="high", max_tokens=12000,
+                                 cache_system=True, tag="batch-captions")
+        s, e = out_text.find("{"), out_text.rfind("}")
         if s != -1 and e != -1:
             try:
-                ideas = [i for i in json.loads(a_out[s:e + 1]).get("ideas", [])
-                         if isinstance(i, dict) and (i.get("line") or "").strip()]
+                entries = json.loads(out_text[s:e + 1]).get("captions", [])
             except json.JSONDecodeError:
-                ideas = []
-        if ideas:
+                entries = []
+        if entries:
             break
-        print("[v2] ideation parse failed — retrying", flush=True)
-    if not ideas:
-        raise RuntimeError("v2 ideation returned no ideas after retry")
+        print("[v2] slate parse failed — retrying", flush=True)
+    if not entries:
+        raise RuntimeError("v2 slate generation returned nothing after retry")
 
-    # Stage B — retype every idea two ways; take competition keeps the better landing
-    b_sys = persona() + wall + core \
-        + (f"\n\nTHE BAR — the standard to sit next to without embarrassing yourself:\n"
-           f"{northstars.block()}" if northstars.block() else "") \
-        + _RETYPE_TAIL
-    def _fmt_name(d: dict) -> str:
-        fi = d.get("format")
-        if isinstance(fi, int) and not isinstance(fi, bool) and 0 <= fi < len(picked):
-            return picked[fi].get("name") or picked[fi].get("id") or "?"
-        return "?"
-
-    b_user = "YOUR ROUGH PITCHES:\n" + "\n".join(
-        f"[{i}] (format: {_fmt_name(d)} / {d.get('kind') or 'truth'}) "
-        + (d.get("line") or "").replace("\n", " / ")
-        for i, d in enumerate(ideas))
-    b_out = complete_json(b_sys, b_user, effort="high", max_tokens=12000,
-                          cache_system=True, tag="batch-captions")
-    s, e = b_out.find("{"), b_out.rfind("}")
-    entries: list = []
-    if s != -1 and e != -1:
-        try:
-            entries = json.loads(b_out[s:e + 1]).get("captions", [])
-        except json.JSONDecodeError:
-            entries = []
-    pairs: list[list[str]] = []
+    # normalize {spark, takes} rows; take competition keeps the better landing per slot
+    rows: list[tuple[int | None, list[str]]] = []
     for ent in entries:
         if isinstance(ent, str) and ent.strip():
-            pairs.append([ent.strip()])
+            rows.append((None, [ent.strip()]))
         elif isinstance(ent, dict):
             takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
+            si = ent.get("spark")
             if takes:
-                pairs.append(takes[:2])
-    if not pairs:   # fail-safe: ship the rough lines rather than nothing
-        pairs = [[(d.get("line") or "").strip()] for d in ideas]
-    caps = _pick_takes(pairs)
+                rows.append((si if isinstance(si, int) and not isinstance(si, bool)
+                             and 0 <= si < len(anchors) else None, takes[:2]))
+    caps = _pick_takes([takes for _, takes in rows])
 
-    # mechanical curation — subtractive only, in ideation order (the model's own implicit ranking)
-    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps if (c or "").strip()]
+    # ANCHOR ATTRIBUTION — grades credit the spark that produced the winner (closed loop)
+    out = []
+    for (si, _takes), text in zip(rows, caps):
+        if not (text or "").strip():
+            continue
+        rid = anchors[si].get("ref_id") if si is not None else None
+        out.append({"text": text, "anchor_ref": rid, "anchor_refs": [rid] if rid else []})
+
+    # invisible safety net — subtractive only, in slate order
     out = _drop_same_joke_siblings(_drop_ref_copies(out))
     out = _reskin_check(out)
     out = _coherence_gate(refine(out))
@@ -786,12 +749,6 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])
-    try:   # rotation state: the vehicles this set actually rode
-        fmt.log_use([picked[d.get("format")].get("id") for d in ideas
-                     if isinstance(d.get("format"), int) and not isinstance(d.get("format"), bool)
-                     and 0 <= d.get("format") < len(picked)])
-    except Exception:  # noqa: BLE001
-        pass
     return out
 
 

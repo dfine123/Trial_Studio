@@ -460,73 +460,59 @@ def v2_revitalized_flow_and_surfaces():
     def fake_llm(system, user, **kw):
         calls.append(kw.get("tag"))
         seen[kw.get("tag")] = (system, user)
-        if kw.get("tag") == "ideate":
-            return json.dumps({"ideas": [{"format": i,
-                                          "kind": "bit" if i % 3 == 0 else "truth",
-                                          "line": f"alpha{i} beta{i} gamma{i} delta{i} rough line"}
-                                         for i in range(8)]})
         if kw.get("tag") == "take-pick":
             return json.dumps({"picks": [1] * 20})
-        return json.dumps({"captions": [{"idea": i,
+        return json.dumps({"captions": [{"spark": i,
                                          "takes": [f"epsilon{i} zeta{i} eta{i} theta{i} first take",
                                                    f"iota{i} kappa{i} lam{i} mu{i} second take"]}
-                                        for i in range(8)]})
+                                        for i in range(7)]})
 
-    refs = [{"ref_id": "r1", "caption": "raccoons don't got a resume and they eating", "why_it_works": "w"}]
+    refs = [{"ref_id": f"r{i}", "caption": f"real banger number {i} about topic{i} thing{i}",
+             "why_it_works": f"decode {i}"} for i in range(9)]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
            "point": "people buy productivity aids to keep doing nothing"}]
-    fixture_formats = [{"id": f"fmt{i}", "name": f"vehicle {i}", "skeleton": f"shape {i} with [slot]",
-                        "what_varies": "the slot", "mechanism": "lands when fresh", "verdict": "solid"}
-                       for i in range(8)]
-    used_formats = []
-    import app.caption.formats as fmt_mod
     import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: list(ns),
-                 block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)",
-                 points_block=lambda: "- people buy productivity aids to keep doing nothing"), \
-         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k],
-                 log_use=lambda ids: used_formats.extend(ids)), \
+                 block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)"), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
+                 _pick_anchors=lambda rs, k, produce=False: list(rs)[:k],
                  recent_generated=lambda *a, **k: [],
                  _killed_texts=lambda: [],
                  persona=lambda: "P",
-                 voice_core=lambda: "CONCRETE, NEVER ABSTRACT",
+                 voice_core=lambda: "THE BRIEF: understanding leads",
                  refine=lambda cands: cands,
                  _coherence_gate=lambda cands: cands,
                  log_generated=lambda texts: None,
                  complete_json=fake_llm):
         out = engine.generate(n=5)
-    assert calls == ["ideate", "batch-captions", "take-pick"], calls
+    assert calls == ["batch-captions", "take-pick"], calls
     assert len(out) == 5, [c["text"] for c in out]
     assert all("second take" in c["text"] for c in out), f"take-pick winners must win: {out}"
-    assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
+    assert all(c["anchor_refs"] and c["anchor_ref"] for c in out), \
+        f"anchor attribution must be LIVE again (closed grade loop): {out}"
+    assert out[0]["anchor_ref"] == "r0" and out[4]["anchor_ref"] == "r4", out
     assert all(c.get("caption_id") for c in out)
-    a_sys, a_user = seen["ideate"]
-    b_sys, b_user = seen["batch-captions"]
-    assert "raccoons" in a_sys and "raccoons" in b_sys, "the full wall grounds BOTH stages"
-    assert "USED ground" in a_sys, "the wall must be framed as taken territory"
-    assert "productivity aids" in a_sys and "energy drinks" not in a_sys, \
-        "ideation sees north-star POINTS, never full star texts (super-attractor)"
-    assert "energy drinks" in b_sys, "execution sees the full-text BAR"
-    assert "TONIGHT'S FORMATS" in a_user and "vehicle 3" in a_user, \
-        "format assignments must ride in the ideation user msg"
-    assert "TAKEN TERRITORY" in a_user, "the taken block must be enumerated in the user msg"
-    assert "YOURS" in a_user, "the positive territory license must ride with the taken block"
-    assert "vehicle 2" in b_user, "each pitch's format must ride into the retype stage"
-    assert used_formats == [f"fmt{i}" for i in range(8)], f"format usage must log: {used_formats}"
+    sysp, userp = seen["batch-captions"]
+    assert "real banger number 3" in sysp, "the full wall grounds the slate"
+    assert "USED ground" in sysp, "the wall must be framed as taken territory"
+    assert "THE BRIEF" in sysp, "the understanding brief leads the system prompt"
+    assert "energy drinks" in sysp, "the north-star BAR rides in the system"
+    assert "TONIGHT'S SPARKS" in userp and "decode 2" in userp, \
+        "each slot must be sparked by a rotated banger + its why-it-lands"
+    assert "burned ground" in userp, "the recent/kill avoid block must ride in the user msg"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
-         patched(ns_mod, load=lambda: [], block=lambda: "", points_block=lambda: ""), \
-         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k], log_use=lambda ids: None), \
+         patched(ns_mod, load=lambda: [], block=lambda: ""), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
+                 _pick_anchors=lambda rs, k, produce=False: list(rs)[:k],
                  recent_generated=lambda *a, **k: [], _killed_texts=lambda: [],
-                 persona=lambda: "P", voice_core=lambda: "CONCRETE",
+                 persona=lambda: "P", voice_core=lambda: "THE BRIEF",
                  refine=lambda cands: cands, _coherence_gate=lambda cands: cands,
                  log_generated=lambda texts: None, complete_json=fake_llm):
         out2 = engine.generate_independent(k=5)
-    assert len(out2) == 5 and all(not c["anchor_refs"] for c in out2)
+    assert len(out2) == 5 and all(c["anchor_refs"] for c in out2)
 
 
 @test
@@ -594,8 +580,9 @@ def instruction_layers_quote_no_winners():
     import inspect
     from app.caption import engine
     # GENERATION-visible surfaces only. (_reskin_check's judge prompt legitimately NAMES formats —
-    # it must know a shared format is NOT a re-skin, or it would false-drop validated species.)
-    surfaces = (engine._VOICE_CORE_DEFAULT + engine._IDEATE_TAIL + engine._RETYPE_TAIL
+    # it must know a shared format is NOT a re-skin, or it would false-drop validated species.
+    # The BRIEF describes vehicle MECHANISMS without quoting winner texts — that's the line.)
+    surfaces = (engine._VOICE_CORE_DEFAULT + engine._SPARKED_TAIL
                 + inspect.getsource(engine._pick_takes))
     low = surfaces.lower()
     banned = ["raccoon", "vending machine", "led sign", "rothschild", "energy drinks",
