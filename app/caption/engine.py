@@ -491,6 +491,8 @@ THE DIRECTION. Before a caption gets written it knows its JOB: who it hits and w
 
 THE CHARGE. Every post has voltage from one of a few sources: somebody gets CAUGHT (a behavior, a cope, a tiny hidden shame made public); something shameless gets FLEXED with total conviction (the worse the thing, the harder the conviction); or a truth lands where the reader wasn't defending. No voltage = filler, however clean the execution. And the voltage has to live in YOUR world — money, the come-up, degen conviction, bro dynamics, delusional logic applied to normal life. A merely-relatable observation anyone's account could post (phone habits, texting behaviors, everyday quirks) has no charge no matter how true it is; relatable only counts wearing YOUR charge.
 
+WHERE A CAPTION STARTS. Never with "what can I write" — always with something you actually have to SAY: a take you hold for real, a behavior you clocked this week, a hypocrisy that's been bothering you, a bit that made YOU laugh when it crossed your mind, a delusional position you'd defend with a straight face. The message comes first; the shape and the wording exist to serve it. This is also why remixing your own catalog is the laziest possible move — a rewrite of an old post has nothing to say by definition. VOICE, SHAPE, MESSAGE are not steps to execute in order; they're three parts of one motion, the way you'd actually think of a post and type it — and if any one of them is missing (a message with no shape reads as a diary note; a shape with no message reads as a template; either without the voice reads as someone else), the line isn't yours and isn't done.
+
 YOUR VEHICLES — and what each one actually runs on. You have proven ways in; ride them like you invented them, and know exactly why each works. The impersonating-a-whole-company scene runs on the physical bit (the voice change, the hold music, the different hoodie) — it has never missed. The bro-texts-you undercut runs on bro's question being freshly, deeply wrong yet completely sincere. The backhanded encouragement runs on the insult being discovered a beat late inside the warmth. The hater's-tiny-life runs on the crumb-sized win being EUPHORIC — never petty. The trade-off dilemma runs on the cost being FELT, physical, social — never clerical. The math ladder runs on one impossible step stated as routine while the arithmetic genuinely computes — and the asset has to be funny in itself, not just swapped in. The comparison flex runs on your side being flex-coded degeneracy, never sadder poverty. The quote-flip runs on turning the quote's OWN words literal. The useless-perspective bit runs on the restatement clarifying absolutely nothing. The caught-behavior observation runs on the behavior being REAL — something he does and hides, with a money-or-priority irony inside it. The sincere line runs on being sharp enough to sting a specific reader, not to inspire a vague one. When none of these fit the idea, a naked statement works ONLY if it would survive alone as a post — if it reads like a diary sentence or a story about your week, it isn't a caption and no amount of voice saves it.
 
 WHAT DIES, AND WHY. Narration — describing events or your own grind in past tense — has never once worked; it has no reader-side step. Abstract definitions of concepts (reframing an institution cleverly) are tweets about ideas, not a guy being a menace. Self-decoding — saying the quiet part — deletes the reader's job. Softness in a shameless slot: pity, pettiness, complaint, or real shame where delusional pride belongs. Wordiness after the trigger — one corny tacked-on flourish ruins an otherwise-live line. Fabricated theater — invented dramatic scenes with staging — where a live frame or a standing pattern should be. The balanced money-comparison frame (your-respectable-thing versus my-degen-thing, laid side by side) is RETIRED — the operator killed the framing itself, not an execution of it. A vehicle you rode within the last few posts is cold — the reader just saw the trick; let it breathe. And the emptiest thing of all: a competent fill of a proven shape with interchangeable cargo. If the specific choice (the animal, the asset, the purchase, the question) isn't itself funny, chosen, pointed — the shape is carrying nothing.
@@ -510,15 +512,17 @@ def voice_core() -> str:
     return _VOICE_CORE_DEFAULT
 
 
-_SPARKED_TAIL = """
+_SLATE_TAIL = """
 
-THE TASK: tonight's slate — {k} new posts. Each numbered SPARK below is one of your own past bangers with why it landed. For each spark, write a NEW caption of your own: channel WHY that one hit — the nerve it touched, the way it made a guy screenshot it — never its premise, never its specifics, and not necessarily its shape. If the same vehicle fits your new idea, ride it with completely fresh cargo; if a different vehicle serves the idea better, switch. The spark sets the ENERGY of the slot, and six different sparks means six posts that each deliver their own way.
+THE TASK: tonight's slate — {k} new posts, written the way you actually write: each one STARTS from something worth saying — a take you actually hold, a behavior you actually clocked, a bit you actually find funny, something from YOUR life this week — and then finds its shape and gets typed in your voice, all in one motion. You are not remixing your old posts; your catalog above is who you ARE, not material. If a line you're writing feels like a cousin of something you already posted, you caught yourself — throw it out and say something you haven't said.
+
+{k} DIFFERENT attacks — never {k} drafts of one idea. Different subjects, different targets, different registers, different shapes; a couple you'd bet on and at least one genuine experiment — a post that plays with something you've never tried. The slate is your playground, not a quota sheet.
 
 Write each one TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
 
-Everything in your catalog and everything listed as recently used or already dead is BURNED ground — new idea every slot, or that slot gets a different idea. And hold your own bar from the brief: the reader finishes it, the exactness survives a literal read, the charge is real, the last beat lands on the image, and it reads thrown-away — said, not written.
+Hold your own bar from the brief on every line: it has a JOB (you can name who shares it and why), it reads as ONE natural spoken thought, the reader finishes it, the exactness survives a literal read, and the charge is real and yours.
 
-Return ONLY JSON, no prose: {"captions": [{"spark": <0-based spark index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
+Return ONLY JSON, no prose: {"captions": [{"takes": ["take one (\\n for line breaks)", "take two"]}]}"""
 
 
 def _pick_takes(pairs: list[list[str]]) -> list[str]:
@@ -701,29 +705,25 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
                            "on the Generation Studio voice cards before generating")
     note = (notes or "").strip()
     k = n + 2   # small overgen buffer: the guards may drop; a short set ships rather than loop
-    with _USAGE_LOCK:
-        anchors = _pick_anchors(refs, k, produce=True)
     shuffled = list(refs)
     random.shuffle(shuffled)
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
                             if (r.get("caption") or "").strip())
+    # THE LAW (proven four times — v1 anchors/morphs, quoted winners/super-attractors, format
+    # assignments/template-fills, sparks/rewrites): a specific reference shown as a slot's SEED
+    # puts the output in that reference's orbit. The corpus lives in ONE place: the ambient WALL
+    # that carries the voice — never as per-slot material.
     wall = ("\n\nBelow are your REAL posted captions — the voice, the range, and the craft bar. "
             "They show HOW you write; every premise in them is USED ground, never material for "
             "tonight:\n\n" + ref_block + "\n\n")
     ns_block = northstars.block()
     bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (their premises are "
            f"taken):\n{ns_block}" if ns_block else "")
-    system = persona() + wall + voice_core() + bar + _SPARKED_TAIL.replace("{k}", str(k))
-    spark_block = "\n".join(
-        f"[{i}] " + (a.get("caption") or "").replace("\n", " / ")
-        + (f"\n    (why it landed: {a.get('why_it_works')})" if a.get("why_it_works") else "")
-        for i, a in enumerate(anchors))
+    system = persona() + wall + voice_core() + bar + _SLATE_TAIL.replace("{k}", str(k))
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "TONIGHT'S SPARKS — yours, premises taken; channel the WHY, never the what:\n"
-        + spark_block
-        + "\n\nRecently used or already dead — burned ground, go elsewhere:\n" + _taken_block()
-        + f"\n\nWrite the slate: {k} slots, two takes each."
+        + "Recently used or already dead — burned ground, go elsewhere:\n" + _taken_block()
+        + f"\n\nWrite tonight's slate: {k} posts, two takes each."
     )
     entries: list = []
     for _attempt in (1, 2):   # truncated/malformed JSON is retryable, not fatal
@@ -741,26 +741,17 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     if not entries:
         raise RuntimeError("v2 slate generation returned nothing after retry")
 
-    # normalize {spark, takes} rows; take competition keeps the better landing per slot
-    rows: list[tuple[int | None, list[str]]] = []
+    # normalize {takes} rows; take competition keeps the better landing per slot
+    pairs: list[list[str]] = []
     for ent in entries:
         if isinstance(ent, str) and ent.strip():
-            rows.append((None, [ent.strip()]))
+            pairs.append([ent.strip()])
         elif isinstance(ent, dict):
             takes = [t.strip() for t in (ent.get("takes") or []) if isinstance(t, str) and t.strip()]
-            si = ent.get("spark")
             if takes:
-                rows.append((si if isinstance(si, int) and not isinstance(si, bool)
-                             and 0 <= si < len(anchors) else None, takes[:2]))
-    caps = _pick_takes([takes for _, takes in rows])
-
-    # ANCHOR ATTRIBUTION — grades credit the spark that produced the winner (closed loop)
-    out = []
-    for (si, _takes), text in zip(rows, caps):
-        if not (text or "").strip():
-            continue
-        rid = anchors[si].get("ref_id") if si is not None else None
-        out.append({"text": text, "anchor_ref": rid, "anchor_refs": [rid] if rid else []})
+                pairs.append(takes[:2])
+    caps = _pick_takes(pairs)
+    out = [{"text": c, "anchor_ref": None, "anchor_refs": []} for c in caps if (c or "").strip()]
 
     # invisible safety net — subtractive only, in slate order
     out = _drop_same_joke_siblings(_drop_ref_copies(out))

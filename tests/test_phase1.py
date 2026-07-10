@@ -462,8 +462,7 @@ def v2_revitalized_flow_and_surfaces():
         seen[kw.get("tag")] = (system, user)
         if kw.get("tag") == "take-pick":
             return json.dumps({"picks": [1] * 20})
-        return json.dumps({"captions": [{"spark": i,
-                                         "takes": [f"epsilon{i} zeta{i} eta{i} theta{i} first take",
+        return json.dumps({"captions": [{"takes": [f"epsilon{i} zeta{i} eta{i} theta{i} first take",
                                                    f"iota{i} kappa{i} lam{i} mu{i} second take"]}
                                         for i in range(7)]})
 
@@ -477,7 +476,6 @@ def v2_revitalized_flow_and_surfaces():
                  block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)"), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
-                 _pick_anchors=lambda rs, k, produce=False: list(rs)[:k],
                  recent_generated=lambda *a, **k: [],
                  _killed_texts=lambda: [],
                  persona=lambda: "P",
@@ -490,29 +488,28 @@ def v2_revitalized_flow_and_surfaces():
     assert calls == ["batch-captions", "take-pick"], calls
     assert len(out) == 5, [c["text"] for c in out]
     assert all("second take" in c["text"] for c in out), f"take-pick winners must win: {out}"
-    assert all(c["anchor_refs"] and c["anchor_ref"] for c in out), \
-        f"anchor attribution must be LIVE again (closed grade loop): {out}"
-    assert out[0]["anchor_ref"] == "r0" and out[4]["anchor_ref"] == "r4", out
+    assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), \
+        f"NO per-slot reference seeds — the corpus lives only in the wall: {out}"
     assert all(c.get("caption_id") for c in out)
     sysp, userp = seen["batch-captions"]
     assert "real banger number 3" in sysp, "the full wall grounds the slate"
     assert "USED ground" in sysp, "the wall must be framed as taken territory"
     assert "THE BRIEF" in sysp, "the understanding brief leads the system prompt"
     assert "energy drinks" in sysp, "the north-star BAR rides in the system"
-    assert "TONIGHT'S SPARKS" in userp and "decode 2" in userp, \
-        "each slot must be sparked by a rotated banger + its why-it-lands"
+    assert "STARTS from something worth saying" in sysp, "message-first process in the tail"
+    assert "SPARK" not in userp and "decode 2" not in userp, \
+        "no reference may appear as per-slot seed material (the orbit law)"
     assert "burned ground" in userp, "the recent/kill avoid block must ride in the user msg"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: [], block=lambda: ""), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
-                 _pick_anchors=lambda rs, k, produce=False: list(rs)[:k],
                  recent_generated=lambda *a, **k: [], _killed_texts=lambda: [],
                  persona=lambda: "P", voice_core=lambda: "THE BRIEF",
                  refine=lambda cands: cands, _coherence_gate=lambda cands: cands,
                  log_generated=lambda texts: None, complete_json=fake_llm):
         out2 = engine.generate_independent(k=5)
-    assert len(out2) == 5 and all(c["anchor_refs"] for c in out2)
+    assert len(out2) == 5 and all(not c["anchor_refs"] for c in out2)
 
 
 @test
@@ -582,7 +579,7 @@ def instruction_layers_quote_no_winners():
     # GENERATION-visible surfaces only. (_reskin_check's judge prompt legitimately NAMES formats —
     # it must know a shared format is NOT a re-skin, or it would false-drop validated species.
     # The BRIEF describes vehicle MECHANISMS without quoting winner texts — that's the line.)
-    surfaces = (engine._VOICE_CORE_DEFAULT + engine._SPARKED_TAIL
+    surfaces = (engine._VOICE_CORE_DEFAULT + engine._SLATE_TAIL
                 + inspect.getsource(engine._pick_takes))
     low = surfaces.lower()
     banned = ["raccoon", "vending machine", "led sign", "rothschild", "energy drinks",
