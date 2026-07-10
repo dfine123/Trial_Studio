@@ -461,8 +461,8 @@ def v2_revitalized_flow_and_surfaces():
         calls.append(kw.get("tag"))
         seen[kw.get("tag")] = (system, user)
         if kw.get("tag") == "ideate":
-            return json.dumps({"ideas": [{"kind": "bit" if i % 3 == 0 else "truth",
-                                          "move": f"play {i}",
+            return json.dumps({"ideas": [{"format": i,
+                                          "kind": "bit" if i % 3 == 0 else "truth",
                                           "line": f"alpha{i} beta{i} gamma{i} delta{i} rough line"}
                                          for i in range(8)]})
         if kw.get("tag") == "take-pick":
@@ -475,11 +475,18 @@ def v2_revitalized_flow_and_surfaces():
     refs = [{"ref_id": "r1", "caption": "raccoons don't got a resume and they eating", "why_it_works": "w"}]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
            "point": "people buy productivity aids to keep doing nothing"}]
+    fixture_formats = [{"id": f"fmt{i}", "name": f"vehicle {i}", "skeleton": f"shape {i} with [slot]",
+                        "what_varies": "the slot", "mechanism": "lands when fresh", "verdict": "solid"}
+                       for i in range(8)]
+    used_formats = []
+    import app.caption.formats as fmt_mod
     import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: list(ns),
                  block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)",
                  points_block=lambda: "- people buy productivity aids to keep doing nothing"), \
+         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k],
+                 log_use=lambda ids: used_formats.extend(ids)), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
                  recent_generated=lambda *a, **k: [],
@@ -497,17 +504,22 @@ def v2_revitalized_flow_and_surfaces():
     assert all(c["anchor_refs"] == [] and c["anchor_ref"] is None for c in out), out
     assert all(c.get("caption_id") for c in out)
     a_sys, a_user = seen["ideate"]
-    b_sys, _ = seen["batch-captions"]
+    b_sys, b_user = seen["batch-captions"]
     assert "raccoons" in a_sys and "raccoons" in b_sys, "the full wall grounds BOTH stages"
     assert "USED ground" in a_sys, "the wall must be framed as taken territory"
     assert "productivity aids" in a_sys and "energy drinks" not in a_sys, \
         "ideation sees north-star POINTS, never full star texts (super-attractor)"
     assert "energy drinks" in b_sys, "execution sees the full-text BAR"
+    assert "TONIGHT'S FORMATS" in a_user and "vehicle 3" in a_user, \
+        "format assignments must ride in the ideation user msg"
     assert "TAKEN TERRITORY" in a_user, "the taken block must be enumerated in the user msg"
     assert "YOURS" in a_user, "the positive territory license must ride with the taken block"
+    assert "vehicle 2" in b_user, "each pitch's format must ride into the retype stage"
+    assert used_formats == [f"fmt{i}" for i in range(8)], f"format usage must log: {used_formats}"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: [], block=lambda: "", points_block=lambda: ""), \
+         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k], log_use=lambda ids: None), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
                  recent_generated=lambda *a, **k: [], _killed_texts=lambda: [],
                  persona=lambda: "P", voice_core=lambda: "CONCRETE",
@@ -515,6 +527,35 @@ def v2_revitalized_flow_and_surfaces():
                  log_generated=lambda texts: None, complete_json=fake_llm):
         out2 = engine.generate_independent(k=5)
     assert len(out2) == 5 and all(not c["anchor_refs"] for c in out2)
+
+
+@test
+def format_book_rotation_and_wildcard():
+    import tempfile as _tf
+    from app.caption import formats as fmt
+    book = ([{"id": "win", "name": "winner", "skeleton": "s [x]", "verdict": "proven-winner"},
+             {"id": "dead1", "name": "d1", "skeleton": "s [x]", "verdict": "dead"},
+             {"id": "mid", "name": "m", "skeleton": "s [x]", "verdict": "mixed"}]
+            + [{"id": f"s{i}", "name": f"solid {i}", "skeleton": "s [x]", "verdict": "solid"}
+               for i in range(6)])
+    with _tf.TemporaryDirectory() as td:
+        with patched(fmt, _BOOK_PATH=os.path.join(td, "formats.json"),
+                     _usage_path=lambda: os.path.join(td, "format_usage.json")):
+            fmt.save_book(book)
+            picked = fmt.pick_formats(6)
+            assert len(picked) == 6
+            ids = [p["id"] for p in picked]
+            assert "freeform" in ids, "a set of >=5 carries the wildcard slot"
+            assert "dead1" not in ids, "a dead format is de-weighted behind fresh solids"
+            assert len(set(ids)) == 6, "formats within a set are distinct"
+            # de-weight is DELAY, never elimination: once every other format has out-cycled the
+            # dead one's +3 virtual-usage penalty, it comes back into rotation
+            fmt.log_use([b["id"] for b in book if b["id"] != "dead1"] * 4)
+            ids2 = {p["id"] for p in fmt.pick_formats(6)}
+            assert "dead1" in ids2, "dead formats must eventually cycle back (never eliminated)"
+            # empty book falls back to wildcards rather than failing
+            fmt.save_book([])
+            assert all(p["id"] == "freeform" for p in fmt.pick_formats(3))
 
 
 @test

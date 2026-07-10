@@ -2119,6 +2119,27 @@ def api_voice_core_set(req: VoiceCoreUpdate):
     return {"ok": True, "chars": len(t)}
 
 
+class FormatBookUpdate(BaseModel):
+    formats: list[dict]
+
+
+@app.get("/api/formats")
+def api_formats_get():
+    """The FORMAT BOOK (validated caption vehicles + rotation state) — operator-inspectable."""
+    from app.caption import formats
+    return {"formats": formats.load_book(), "usage": formats._load_usage()}
+
+
+@app.post("/api/formats")
+def api_formats_set(req: FormatBookUpdate):
+    """The OPERATOR edits the format book directly — verdicts, mechanisms, retired formats."""
+    from app.caption import formats
+    rows = [r for r in (req.formats or []) if isinstance(r, dict) and r.get("id") and r.get("skeleton")]
+    if len(rows) < 5:
+        raise HTTPException(status_code=400, detail="format book suspiciously small — refusing")
+    return {"ok": True, "count": formats.save_book(rows)}
+
+
 class SlateProbe(BaseModel):
     k: int = 5
 

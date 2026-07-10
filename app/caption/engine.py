@@ -493,25 +493,21 @@ _IDEATE_TAIL = """
 
 THE TASK: pitch {k} NEW captions for tonight — rough. Write each one the way you'd thumb it into your notes app: not a description of a joke, THE joke, unpolished. You'll retype the keepers sharper after.
 
-Each pitch is one of your two kinds — mix both across the set:
-- a TRUTH: a pattern you keep seeing (it KEEPS happening — a standing fact, a type of guy, a repeated behavior; never a one-off incident story), seen with YOUR charge on it.
-- a BIT: constructed comedy a guy would screenshot and send his buddy.
+EACH PITCH RIDES ITS ASSIGNED FORMAT (the numbered list in the message below). The format is your proven VEHICLE — it's what makes a line read as a post instead of a sentence. Reuse the vehicle proudly and exactly: its shape, its rhythm, the way it hits. What must be NEW is everything riding inside it — the premise, the specifics, the observation. A sentence that just narrates or describes something, with no vehicle, is not a caption; if a pitch doesn't land inside its format, pitch a different idea into that format, never a naked narration.
 
 Born concrete: every pitch is built on something the reader can SEE — a specific scene, character, behavior, number, or prop from YOUR life. A payoff that merely defines or reframes a concept is dead on arrival; scrap it at the pitch stage.
 
-FRESH GROUND ONLY. Every premise in your catalog above is used. Everything under TAKEN TERRITORY is used. Re-skinning a used bit with new nouns is not a new caption — it's the same caption in a costume, and it's the one thing tonight cannot be. New idea, or it doesn't get pitched.
-
-VARY THE MOVE. Label each pitch's move in your own words (2-4 words — whatever YOU'D call the play it runs). Spread the set across at least four different moves, at most two pitches per move, and vary who each one is aimed at.
+FRESH CARGO ONLY. Every premise in your catalog above is used; everything under TAKEN TERRITORY is used. The format is licensed — the cargo is not: putting a used premise back in its format with new nouns is the one thing tonight cannot be. New idea in the proven vehicle, every time.
 
 SPAN YOUR RANGE: a few pitches you're dead sure of — a fresh idea executed with total confidence — and a few real swings — an idea further out than you'd normally risk. A swing is still concrete and still yours; it's the premise that's further out, never the voice.
 
-Return ONLY JSON, no prose: {"ideas": [{"kind": "truth" | "bit", "move": "your own words", "line": "the rough caption (\\n for line breaks)"}]}"""
+Return ONLY JSON, no prose: {"ideas": [{"format": <0-based index of the assigned format>, "kind": "truth" | "bit", "line": "the rough caption (\\n for line breaks)"}]}"""
 
 _RETYPE_TAIL = """
 
-THE TASK: below are your own rough pitches from tonight — the ideas are locked. Retype each one TWO different finished ways you might actually post it. Two genuinely different takes — different wording, maybe different framing — so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
+THE TASK: below are your own rough pitches from tonight — each one's idea AND its format are locked. Retype each one TWO different finished ways you might actually post it — both takes stay IN the pitch's format (the vehicle is the point); what varies between takes is wording and landing. Two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
 
-Typed like you: said, not written — thrown away, never performed. Under-explained — the reader finishes it. The last beat lands ON the concrete image; nothing after the decode trigger. PRECISION on a literal read: grant the premise, but the numbers compute, the comparisons map one-to-one, and the referents hold steady. Tight — cut any clause the joke doesn't need. A frame ("when…", a POV, a quote-and-reply) drops the reader INTO the moment; a narrated past-tense story reads as fan-fiction and dies.
+Typed like you: said, not written — thrown away, never performed. Under-explained — the reader finishes it. The last beat lands ON the concrete image; nothing after the decode trigger. PRECISION on a literal read: grant the premise, but the numbers compute, the comparisons map one-to-one, and the referents hold steady. Tight — cut any clause the joke doesn't need. A frame drops the reader INTO the moment; a narrated past-tense story reads as fan-fiction and dies.
 
 Return ONLY JSON, no prose: {"captions": [{"idea": <0-based pitch index>, "takes": ["take one (\\n for line breaks)", "take two"]}]}"""
 
@@ -691,6 +687,7 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
       survivors in ideation order (the model's own implicit ranking).
     The operator's GRADES are the only quality signal; they feed the corpus, the kill list, and
     the operator-editable voice core (var/voice_core.md). Rollback: GENERATION_ENGINE=v1."""
+    from app.caption import formats as fmt
     from app.caption import northstars
     refs = load_refs()
     if not refs:
@@ -708,17 +705,24 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
             "They show HOW you write; every premise in them is USED ground, never material for "
             "tonight:\n\n" + ref_block + "\n\n")
 
-    # Stage A — ideate rough lines on fresh ground
+    # FORMAT ASSIGNMENTS — the operator's law: the format is the proven VEHICLE (licensed,
+    # rotated, grade-weighted); the premise is the cargo (must be fresh). k distinct vehicles
+    # per set = structural variety, zero shape-prose, zero caps.
+    picked = fmt.pick_formats(k)
+
+    # Stage A — ideate rough lines: fresh cargo in assigned vehicles
     points_bar = northstars.points_block()
     a_bar = (f"\n\nTHE BAR — the level every post has to hit (each of these premises is taken):\n"
              f"{points_bar}" if points_bar else "")
     a_sys = persona() + wall + core + a_bar + _IDEATE_TAIL.replace("{k}", str(k))
     a_user = (
         (f"Lean (soft): {note}\n\n" if note else "")
-        + "Your territory is YOURS — money, degen positions, bro rituals, spectacle, the come-up "
-        "are your subjects tonight like every night. What's taken is these SPECIFIC bits, not "
-        "the ground they stand on:\n\nTAKEN TERRITORY:\n" + _taken_block()
-        + f"\n\nPitch {k} rough captions."
+        + "TONIGHT'S FORMATS — one pitch riding each (the vehicle is licensed; the cargo must be "
+        "new):\n" + fmt.assignments_block(picked)
+        + "\n\nYour territory is YOURS — money, degen positions, bro rituals, spectacle, the "
+        "come-up are your subjects tonight like every night. What's taken is these SPECIFIC "
+        "bits, not the ground they stand on:\n\nTAKEN TERRITORY:\n" + _taken_block()
+        + f"\n\nPitch {k} rough captions — one per format, in order."
     )
     ideas: list[dict] = []
     for _attempt in (1, 2):   # truncated/malformed JSON is retryable, not fatal
@@ -742,8 +746,14 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
         + (f"\n\nTHE BAR — the standard to sit next to without embarrassing yourself:\n"
            f"{northstars.block()}" if northstars.block() else "") \
         + _RETYPE_TAIL
+    def _fmt_name(d: dict) -> str:
+        fi = d.get("format")
+        if isinstance(fi, int) and not isinstance(fi, bool) and 0 <= fi < len(picked):
+            return picked[fi].get("name") or picked[fi].get("id") or "?"
+        return "?"
+
     b_user = "YOUR ROUGH PITCHES:\n" + "\n".join(
-        f"[{i}] ({d.get('kind') or 'truth'} / {d.get('move') or '?'}) "
+        f"[{i}] (format: {_fmt_name(d)} / {d.get('kind') or 'truth'}) "
         + (d.get("line") or "").replace("\n", " / ")
         for i, d in enumerate(ideas))
     b_out = complete_json(b_sys, b_user, effort="high", max_tokens=12000,
@@ -776,6 +786,12 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
     log_generated([c.get("text", "") for c in out])
+    try:   # rotation state: the vehicles this set actually rode
+        fmt.log_use([picked[d.get("format")].get("id") for d in ideas
+                     if isinstance(d.get("format"), int) and not isinstance(d.get("format"), bool)
+                     and 0 <= d.get("format") < len(picked)])
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
