@@ -2119,6 +2119,32 @@ def api_voice_core_set(req: VoiceCoreUpdate):
     return {"ok": True, "chars": len(t)}
 
 
+class CharterUpdate(BaseModel):
+    engine_id: str
+    text: str
+
+
+@app.get("/api/charters")
+def api_charters_get():
+    """The five v3 engine charters (operator-editable understanding docs, one per engine)."""
+    from app.caption import charters as ch
+    return {"engines": [{"id": e["id"], "name": e["name"], "charter": ch.charter(e["id"])}
+                        for e in ch.ENGINES]}
+
+
+@app.post("/api/charters")
+def api_charters_set(req: CharterUpdate):
+    """The OPERATOR edits an engine's charter directly — it IS that engine's understanding."""
+    from app.caption import charters as ch
+    try:
+        n = ch.save_charter(req.engine_id, req.text)
+    except KeyError as ex:
+        raise HTTPException(status_code=404, detail=str(ex)) from ex
+    except ValueError as ex:
+        raise HTTPException(status_code=400, detail=str(ex)) from ex
+    return {"ok": True, "chars": n}
+
+
 class FormatBookUpdate(BaseModel):
     formats: list[dict]
 

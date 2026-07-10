@@ -234,13 +234,14 @@ def match_audio(caption: str, audio_descs: list[str]) -> int:
 
 
 def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str, list[dict]]:
-    """Caption OPTIONS for a reel (audio-agnostic): one set of 6 spanning safe → bigger swings.
-    The chooser only picks the DEFAULT render — every option ships to the operator on the reel
-    card, and their pick (recaption) is the real selection. Returns (chosen_text, candidates)
-    with the chosen one flagged — shared by generate_reel and the audio-first matching path."""
+    """Caption OPTIONS for a reel (audio-agnostic). v3: one variation seed → five separate
+    interaction engines (screenshot/send/exotic/mirror/menace) → their outputs ARE the options —
+    five different jobs the post could do. The chooser only picks the DEFAULT render — every
+    option ships to the operator on the reel card, and their pick (recaption) is the real
+    selection. Returns (chosen_text, candidates) with the chosen one flagged."""
     from app.caption.chooser import choose_best
     from app.caption.engine import generate_independent
-    cands = generate_independent(k=6, notes=(niche or None), audio_energy=energy)
+    cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy)
     if not cands:
         raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
     texts = [c["text"] for c in cands]

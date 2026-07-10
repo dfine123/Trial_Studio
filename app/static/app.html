@@ -300,7 +300,7 @@
       <span class="statchip click" id="statDrive" title="Google Drive sync" style="display:none"></span>
     </header>
     <section class="view on" id="view-studio">
-      <div class="head"><h2>Generation Studio</h2><p class="vsub">Configure on the left, generate, triage on the right. Every reel comes with 6 caption options — safe to out-there — pick a better one and it re-renders. Validate the keepers straight to Drive.</p></div>
+      <div class="head"><h2>Generation Studio</h2><p class="vsub">Configure on the left, generate, triage on the right. Every reel comes with 5 caption options — five separate engines, one seed — pick a better one and it re-renders. Validate the keepers straight to Drive.</p></div>
       <div class="wb">
         <aside class="wb-rail">
           <div class="panel">
@@ -703,7 +703,7 @@ function phCard(i, n, state) {
       <div class="gscene gs-match"><div class="fr f1"></div><div class="fr f2"></div><div class="fr f3"></div></div>
       <div class="gscene gs-beat"><div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="cutline"></div></div>
       <div class="gscene gs-render"><div class="rframe"><i class="fill"></i><i class="scan"></i></div></div>
-      <div class="ph-phase">Writing 6 caption options</div>
+      <div class="ph-phase">Five engines writing options</div>
       <div class="ph-flavor"></div>
       <div class="prog det"><i></i></div></div>
       <div class="rbody"><span class="u-label">Reel ${i} of ${n}</span></div>`;
@@ -714,10 +714,10 @@ function phCard(i, n, state) {
     <div class="rbody"><span class="u-label">Reel ${i} · queued</span></div>`;
 }
 function startProgress(card) {
-  const phases = ['Writing 6 caption options', 'Matching clips to the caption', 'Cutting to the beat', 'Rendering in 1080p'];
+  const phases = ['Five engines writing options', 'Matching clips to the caption', 'Cutting to the beat', 'Rendering in 1080p'];
   const scenes = ['gs-write', 'gs-match', 'gs-beat', 'gs-render'];
   const FLAVOR = [
-    ['channeling the voice…', 'safe ones and big swings', 'no corporate, no poetry'],
+    ['one seed, five engines…', 'motivate, send, exotic, mirror, menace', 'no corporate, no poetry'],
     ['reading the library…', 'footage that plays off the line', 'no twins, no repeats'],
     ['finding the drop…', 'every cut lands on a beat'],
     ['1080×1920, caption burned in', 'compressing the sauce…'],

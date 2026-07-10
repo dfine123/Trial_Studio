@@ -708,6 +708,98 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
         return cands
 
 
+_V3_TAIL = """
+
+THE TASK: write the caption you're posting tonight — as yourself, start to finish. It STARTS from something worth saying, finds its own shape, and gets typed the way you'd actually type it, all in one motion.
+
+The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. The finished caption owes the seed NOTHING; most nights nobody could guess the seed from the caption. Start drifting from it, land wherever the best caption is.
+
+Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
+
+Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
+
+
+def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
+    """V3 — SEED → FIVE ENGINES → SELECTOR (the operator's architecture, 2026-07-10).
+
+    One VARIATION SEED (mechanical random, never literal — pure entropy) fans out to five
+    fully-separate generation engines IN PARALLEL. Each engine is a complete author with its
+    own self-contained system prompt (persona + wall + ITS charter + the bar) targeting ONE
+    reader interaction — screenshot (motivate) / send (shareable) / exotic (pure principle) /
+    mirror (recognition) / menace (character) — and writes what it believes is THE final
+    caption. No engine knows the others exist. Their five outputs ARE the option set: five
+    different reasons to post, by construction.
+
+    Then the invisible net: take competition per engine (one shared call), full-history
+    morph/repeat guard, sibling dedup, identity re-skin screen, subtractive refine. The
+    chooser downstream only picks the default render; the operator's pick is the real
+    selection, and every candidate records its engine + seed so grades and picks accumulate
+    per interaction lane. Rollback: GENERATION_ENGINE=v2|v1."""
+    from app.caption import charters as ch
+    from app.caption import northstars
+    from app.caption import seeds
+    refs = load_refs()
+    if not refs:
+        raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
+                           "on the Generation Studio voice cards before generating")
+    note = (notes or "").strip()
+    seed = seeds.draw()
+    shuffled = list(refs)
+    random.shuffle(shuffled)
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
+                            if (r.get("caption") or "").strip())
+    wall = ("\n\nBelow are your REAL posted captions — the voice, the range, and the craft bar. "
+            "They show HOW you write; every premise in them is USED ground, never material for "
+            "tonight:\n\n" + ref_block + "\n\n")
+    ns_block = northstars.block()
+    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (their premises are "
+           f"taken):\n{ns_block}\n" if ns_block else "")
+    taken = _taken_block()
+    user = (
+        (f"Lean (soft): {note}\n\n" if note else "")
+        + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
+        + "Recently used or already dead — burned ground, go elsewhere:\n" + taken
+        + "\n\nWrite tonight's caption: two takes."
+    )
+
+    def run_engine(eng: dict) -> tuple[str, list[str]]:
+        system = persona() + wall + ch.charter(eng["id"]) + bar + _V3_TAIL
+        try:
+            out_text = complete_json(system, user, effort="high", max_tokens=4000,
+                                     cache_system=True, tag=f"eng-{eng['id']}")
+            s, e = out_text.find("{"), out_text.rfind("}")
+            takes = []
+            if s != -1 and e != -1:
+                takes = [t.strip() for t in json.loads(out_text[s:e + 1]).get("takes", [])
+                         if isinstance(t, str) and t.strip()]
+            return eng["id"], takes[:2]
+        except Exception as ex:  # noqa: BLE001 — one engine failing must not sink the set
+            print(f"[v3] engine {eng['id']} failed: {ex}", flush=True)
+            return eng["id"], []
+
+    with ThreadPoolExecutor(max_workers=len(ch.ENGINES)) as pool:
+        results = list(pool.map(run_engine, ch.ENGINES))
+    rows = [(eid, takes) for eid, takes in results if takes]
+    if not rows:
+        raise RuntimeError("v3: every engine failed — check the LLM ledger")
+    caps = _pick_takes([takes for _, takes in rows])
+    out = []
+    for (eid, _takes), text in zip(rows, caps):
+        if (text or "").strip():
+            out.append({"text": text, "anchor_ref": None, "anchor_refs": [],
+                        "engine": eid, "seed": seed})
+
+    # invisible safety net — subtractive only
+    out = _drop_same_joke_siblings(_drop_ref_copies(out))
+    out = _reskin_check(out)
+    out = _coherence_gate(refine(out))
+    out = out[:n] if n < len(out) else out
+    for c in out:
+        c["caption_id"] = _cid(c.get("text") or "")
+    log_generated([c.get("text", "") for c in out])
+    return out
+
+
 def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     """UNDERSTANDING-LED + ANCHOR-SPARKED (2026-07-10, the operator's own instruction: "the
     entirety of the feedback… should allow you to understand what we are actually going for…
@@ -822,10 +914,13 @@ def generate(
     clip_context: str | None = None,
 ) -> list[dict]:
     """Grade-weighted rotation-anchored generation (v1). Each candidate carries its `anchor_ref` so
-    future grades attribute back exactly. Routed to _generate_v2 unless settings.generation_engine
-    is pinned to "v1" (rollback knob)."""
+    future grades attribute back exactly. Routed to _generate_v3 (seed → five engines) unless
+    settings.generation_engine is pinned to "v2" or "v1" (rollback knobs)."""
     from app.config import settings
-    if (getattr(settings, "generation_engine", "v2") or "v2") == "v2":
+    mode = (getattr(settings, "generation_engine", "v3") or "v3")
+    if mode == "v3":
+        return _generate_v3(n, notes)
+    if mode == "v2":
         return _generate_v2(n, notes)
     refs = load_refs()
     random.shuffle(refs)
@@ -908,7 +1003,10 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     record which captions it chose between (production grading + the closed loop).
     """
     from app.config import settings
-    if (getattr(settings, "generation_engine", "v2") or "v2") == "v2":
+    mode = (getattr(settings, "generation_engine", "v3") or "v3")
+    if mode == "v3":
+        return _generate_v3(max(1, k), notes)
+    if mode == "v2":
         return _generate_v2(max(1, k), notes)
     refs = load_refs()
     anchors = _pick_anchors(refs, max(1, k), produce=True)   # production slate: quality-weighted rotation

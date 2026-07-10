@@ -658,6 +658,102 @@ def chooser_uses_configured_judge_model():
     assert pick == "b"
 
 
+# ─── V3: seed → five engines → selector ───
+
+@test
+def v3_seed_fans_to_five_separate_engines():
+    from app.caption import engine
+    from app.config import settings
+    import app.caption.northstars as ns_mod
+    calls, systems = [], {}
+
+    def fake_llm(system, user, **kw):
+        tag = kw.get("tag")
+        calls.append(tag)
+        systems[tag] = (system, user)
+        if tag == "take-pick":
+            return json.dumps({"picks": [1] * 10})
+        eid = tag.replace("eng-", "")
+        return json.dumps({"takes": [f"one{eid} two{eid} three{eid} four{eid} first take",
+                                     f"five{eid} six{eid} seven{eid} eight{eid} second take"]})
+
+    refs = [{"ref_id": "r1", "caption": "a real posted banger about topics", "why_it_works": "w"}]
+    with patched(settings, generation_engine="v3"), \
+         patched(ns_mod, load=lambda: [], block=lambda: ""), \
+         patched(engine,
+                 load_refs=lambda *a, **k: list(refs),
+                 recent_generated=lambda *a, **k: [],
+                 _killed_texts=lambda: [],
+                 persona=lambda: "P",
+                 refine=lambda cands: cands,
+                 _coherence_gate=lambda cands: cands,
+                 log_generated=lambda texts: None,
+                 complete_json=fake_llm):
+        out = engine.generate_independent(k=5)
+    eng_calls = sorted(c for c in calls if c.startswith("eng-"))
+    assert eng_calls == ["eng-exotic", "eng-menace", "eng-mirror", "eng-screenshot", "eng-send"], eng_calls
+    assert calls.count("take-pick") == 1, "one shared take competition"
+    assert len(out) == 5, [c["text"] for c in out]
+    assert all("second take" in c["text"] for c in out), "take-pick winners must win"
+    assert {c["engine"] for c in out} == {"screenshot", "send", "exotic", "mirror", "menace"}, \
+        "every caption must carry its engine attribution"
+    seeds_used = {c["seed"] for c in out}
+    assert len(seeds_used) == 1 and all(s for s in seeds_used), \
+        "one shared variation seed per set, recorded on every candidate"
+    # separateness: each engine gets its OWN system; none acknowledges engines/slates/options
+    sys_texts = [systems[f"eng-{e}"][0] for e in ("screenshot", "send", "exotic", "mirror", "menace")]
+    assert len({s for s in sys_texts}) == 5, "five DISTINCT system prompts"
+    for s in sys_texts:
+        low = s.lower()
+        assert "engine" not in low and "slate" not in low and "option" not in low, \
+            "no engine may know the others exist"
+        assert "a real posted banger" in s, "the wall grounds every engine"
+    _, u = systems["eng-send"]
+    assert "VARIATION SEED" in u and "never obey it" in u, "seed rides with drift semantics"
+    assert "burned ground" in u
+
+
+@test
+def v3_seed_bank_draws():
+    from app.caption import seeds
+    assert len(seeds.BANK) >= 300, f"bank too small: {len(seeds.BANK)}"
+    assert len(set(seeds.BANK)) == len(seeds.BANK), "bank has duplicates"
+    draws = {seeds.draw() for _ in range(300)}
+    assert len(draws) > 100, "draws must actually vary"
+
+
+@test
+def v3_charters_are_pure_and_separate():
+    """Charters must not quote winners (orbit law), not reference other engines, and each
+    must be a genuinely distinct document."""
+    from app.caption import charters as ch
+    assert [e["id"] for e in ch.ENGINES] == ["screenshot", "send", "exotic", "mirror", "menace"]
+    banned = ["raccoon", "vending machine", "led sign", "rothschild", "energy drinks",
+              "401k match", "no homo", "alarm clock", "stealth mode", "nut twice",
+              "she believed in me", "edging", "jumbotron", "headphones in"]
+    texts = []
+    for e in ch.ENGINES:
+        t = e["charter"]
+        texts.append(t)
+        low = t.lower()
+        hits = [b for b in banned if b in low]
+        assert not hits, f"{e['id']}: quoted winners leaked: {hits}"
+        assert "engine" not in low and "slate" not in low and "slot " not in low, \
+            f"{e['id']}: charters must not acknowledge the architecture"
+        assert len(t) > 800, f"{e['id']}: charter suspiciously thin"
+    # distinctness: no two charters share a 12-word run
+    def grams(t):
+        ws = t.lower().split()
+        return {" ".join(ws[i:i + 12]) for i in range(len(ws) - 11)}
+    for i in range(len(texts)):
+        for j in range(i + 1, len(texts)):
+            shared = grams(texts[i]) & grams(texts[j])
+            assert not shared, f"charters {i}/{j} share phrasing: {list(shared)[:2]}"
+    # exotic gets no format palette
+    assert "shapes that have historically" not in ch.EXOTIC.lower()
+    assert "no formats" in ch.EXOTIC.lower() or "no templates" in ch.EXOTIC.lower()
+
+
 # ─── Recent-vehicles line: descriptive lane memory across slates ───
 
 @test
