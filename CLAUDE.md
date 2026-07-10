@@ -97,6 +97,21 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **ROUND-7 NATURALNESS SHIFT (2026-07-10, commit f40c97c).** First sparked-engine round: mean 3.22,
+  15/18 killed. Kill classes: SCAFFOLDED CONSTRUCTIONS (two balanced clauses — "reads awkwardly",
+  "trying to be clever"; the yours-vs-mine money-comparison frame is RETIRED by operator order),
+  NO DIRECTION ("doesnt have a point"), and an mfs-phone-observation SPECIES FLOOD (~20/60 options;
+  cold-start same-opener anchor clustering → fixed with a max-2-same-opener anchor cap, gambling-cap
+  precedent). Operator added 4 wild references (north stars now 13) naming the standard: "these
+  read in a NATURAL way… doesn't feel forced. They also have a CLEAR DIRECTION" (e.g. "me and bro
+  will never fight over girls because i like brunettes and he likes men" — "insanely good because
+  its shareable and funny, and that's the point"). THE BRIEF gained: ONE NATURAL THOUGHT (read
+  aloud, one flowing spoken thought, no visible architecture — trying-to-be-clever already failed),
+  THE DIRECTION (name the caption's JOB — who shares it and why — before writing), charge-in-HIS-
+  world (generic phone/texting relatability = no charge), vehicle cooldown. Round survivors were
+  exactly the natural lines (sincere 7 + coffee-shop 6) — the axis is real. Watch: absurd-math
+  ladder surfacing every slate (output-level vehicle fatigue isn't tracked; grades de-weight via
+  anchor attribution now).
 - **⭐⭐⭐⭐⭐⭐ UNDERSTANDING-LED + ANCHOR-SPARKED (2026-07-10, commit a2762bc) — THE current engine.**
   Format-forward's assigned-vehicle output was "whack" format-fills (bees/gumball absurd-math with
   interchangeable cargo; the same dine-and-dash joke twice in one batch). The operator's core
