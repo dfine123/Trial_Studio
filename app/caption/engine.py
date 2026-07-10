@@ -61,11 +61,13 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
         refs += [(r.get("caption") or "") for r in northstars.load() if (r.get("caption") or "").strip()]
     except Exception:  # noqa: BLE001
         pass
-    # RECENT OUTPUT + OPERATOR KILLS are comparison sets too (2026-07-10 revitalization: a literal
-    # 2-day-old repeat and a killed-3/10 re-run both shipped because the guard only saw the corpus).
-    # Window 400 (was 200): the goat ladder re-shipped verbatim-adjacent after rolling out at ~200.
+    # ALL PAST OUTPUT + OPERATOR KILLS are comparison sets too (2026-07-10 revitalization: a
+    # literal 2-day-old repeat and a killed-3/10 re-run shipped because the guard only saw the
+    # corpus). The guard reads the FULL genlog — windows are for prompt token budgets, but a
+    # mechanical word-set check costs milliseconds and the engine generates hundreds of captions
+    # a day (every reel logs its options): a same-DAY near-verbatim repeat escaped a 400 window.
     try:
-        refs += [t for t in recent_generated(400) if (t or "").strip()]
+        refs += [t for t in recent_generated(100000) if (t or "").strip()]
         refs += [t for t in _killed_texts() if (t or "").strip()]
     except Exception:  # noqa: BLE001
         pass
@@ -663,8 +665,8 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
         pool += [(r.get("caption") or "") for r in northstars.load()]
     except Exception:  # noqa: BLE001
         pass
-    pool += recent_generated(200)
-    pool += _killed_texts()
+    pool += recent_generated(100000)   # full history — neighbor scoring is mechanical, only
+    pool += _killed_texts()            # the top-3 ever reach the LLM
     pool = [p for p in pool if p.strip()]
     pairs = []   # (cand_idx, neighbor_texts)
     for i, c in enumerate(cands):
