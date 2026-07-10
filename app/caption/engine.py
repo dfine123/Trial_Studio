@@ -712,7 +712,7 @@ _V3_TAIL = """
 
 THE TASK: write the caption you're posting tonight — as yourself, start to finish. It STARTS from something worth saying, finds its own shape, and gets typed the way you'd actually type it, all in one motion.
 
-The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. The finished caption owes the seed NOTHING; most nights nobody could guess the seed from the caption. Start drifting from it, land wherever the best caption is.
+The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
 
 Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
 
@@ -762,17 +762,39 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         + "\n\nWrite tonight's caption: two takes."
     )
 
+    # seed-literalism check (the operator's hardest rule: "i cant emphasize enough how little
+    # the end caption has to do with the actual outputs") — a caption containing the seed's
+    # content words OBEYED the seed instead of drifting; that engine retries once.
+    _seed_words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
+                   if len(w) > 3 and w not in ("with", "your", "from", "that", "this", "the")]
+
+    def _is_literal(t: str) -> bool:
+        low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
+        return any(w in low for w in _seed_words)
+
     def run_engine(eng: dict) -> tuple[str, list[str]]:
         system = persona() + wall + ch.charter(eng["id"]) + bar + _V3_TAIL
-        try:
-            out_text = complete_json(system, user, effort="high", max_tokens=4000,
+
+        def one(extra: str = "") -> list[str]:
+            out_text = complete_json(system, user + extra, effort="high", max_tokens=4000,
                                      cache_system=True, tag=f"eng-{eng['id']}")
             s, e = out_text.find("{"), out_text.rfind("}")
-            takes = []
-            if s != -1 and e != -1:
-                takes = [t.strip() for t in json.loads(out_text[s:e + 1]).get("takes", [])
-                         if isinstance(t, str) and t.strip()]
-            return eng["id"], takes[:2]
+            if s == -1 or e == -1:
+                return []
+            return [t.strip() for t in json.loads(out_text[s:e + 1]).get("takes", [])
+                    if isinstance(t, str) and t.strip()][:2]
+
+        try:
+            takes = one()
+            if takes and any(_is_literal(t) for t in takes):
+                print(f"[v3] engine {eng['id']} obeyed the seed — redrifting", flush=True)
+                retry = one("\n\nYour previous attempt used the seed literally — that's obeying "
+                            "it, not drifting from it. The caption must owe the seed NOTHING: "
+                            "none of its words, and not its world as your subject. Write about "
+                            "something else entirely.")
+                if retry and not any(_is_literal(t) for t in retry):
+                    takes = retry   # keep the original only if the retry still obeyed (fail-open)
+            return eng["id"], takes
         except Exception as ex:  # noqa: BLE001 — one engine failing must not sink the set
             print(f"[v3] engine {eng['id']} failed: {ex}", flush=True)
             return eng["id"], []
