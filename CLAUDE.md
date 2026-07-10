@@ -97,6 +97,20 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐ DIALED ALIGNMENT (2026-07-10, commit 7b7b692) — operator's direct calibration; CURRENT slate
+  design.** Half proven formats / half free: a trio from the 53-format book dealt per batch via
+  grade-weighted least-used rotation (VARIATES batch-by-batch — "shouldn't be the same 3 every
+  time"), skeleton+mechanism only, swap-if-doesn't-click; format recurrence is never the problem,
+  stale substance is ("we aren't in the business of taking formats and swapping words, but having
+  those formats is important when translating into principles that generate EVERGREEN bangers").
+  ⭐ THE DIARY-ENTRY LAW (his jersey diagnosis): every caption does one of THREE JOBS — FUNNY
+  (send it) / MOTIVATES with an edge (screenshot it) / RECOGNITION (tag your bro) — a first-person
+  line doing none is a diary entry, worthless top-down. Budgeting-app lesson: clever consumer-tech
+  ironies are NOT the subjects; the four confirmed lanes (money/come-up, degen conviction,
+  bros/haters, girls-through-money) through the accumulated-guidance lens. Park-your-lanes line
+  REMOVED (it caused the format-diversity regression). we-are-not-the-same retired in the live
+  book (operator order). Verified: consecutive slates dealt disjoint trios. ⚠ Slates can ship <n
+  when guards drop without backfill (4/6 observed once) — watch.
 - **PRE-GRADING TREND AUDIT (2026-07-10, commits aeaa934+1287611).** Self-audit of a 30-caption
   sample before the operator graded; found+fixed: (1) FIXED SLATE PORTFOLIO (same 6 lanes every
   slate; hater-tiny-win 4×/5 slates with jacket-money TWINS) → `_recent_vehicles()` descriptive
