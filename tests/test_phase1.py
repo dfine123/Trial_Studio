@@ -647,6 +647,29 @@ def chooser_uses_configured_judge_model():
     assert pick == "b"
 
 
+# ─── Recent-vehicles line: descriptive lane memory across slates ───
+
+@test
+def recent_vehicles_detects_leaned_on_lanes():
+    from app.caption import engine
+    recent = [
+        "Buy a goat for $100\nrent it out\nthat's $18,250 a year",
+        "Catch one pigeon for free\nit lays 2 eggs a day\nthat's 18 million a day",
+        "$60 right now or 7 billion dollars but you sneeze",
+        "would you rather $40 right now or 6 billion but your search history",
+        "the guy who called your business a scam just caught every green light",
+        "the dude who called your business a scam just found $6 in his old jacket",
+        "proud of you bro, shift lead at 30",
+        "a completely unrelated sincere line about showing up",
+    ]
+    with patched(engine, recent_generated=lambda *a, **k: list(recent)):
+        line = engine._recent_vehicles()
+    assert "money ladder" in line and "would-you-rather" in line and "tiny win" in line, line
+    assert "backhanded" not in line, f"single hits must not flag (needs >=2): {line}"
+    with patched(engine, recent_generated=lambda *a, **k: []):
+        assert engine._recent_vehicles() == ""
+
+
 # ─── Recaption: operator picks a different caption option ───
 
 @test

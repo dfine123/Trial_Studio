@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -61,9 +62,10 @@ def _drop_ref_copies(cands: list[dict]) -> list[dict]:
     except Exception:  # noqa: BLE001
         pass
     # RECENT OUTPUT + OPERATOR KILLS are comparison sets too (2026-07-10 revitalization: a literal
-    # 2-day-old repeat and a killed-3/10 re-run both shipped because the guard only saw the corpus)
+    # 2-day-old repeat and a killed-3/10 re-run both shipped because the guard only saw the corpus).
+    # Window 400 (was 200): the goat ladder re-shipped verbatim-adjacent after rolling out at ~200.
     try:
-        refs += [t for t in recent_generated(200) if (t or "").strip()]
+        refs += [t for t in recent_generated(400) if (t or "").strip()]
         refs += [t for t in _killed_texts() if (t or "").strip()]
     except Exception:  # noqa: BLE001
         pass
@@ -497,7 +499,7 @@ YOUR VEHICLES — and what each one actually runs on. You have proven ways in; r
 
 WHAT DIES, AND WHY. Narration — describing events or your own grind in past tense — has never once worked; it has no reader-side step. Abstract definitions of concepts (reframing an institution cleverly) are tweets about ideas, not a guy being a menace. Self-decoding — saying the quiet part — deletes the reader's job. Softness in a shameless slot: pity, pettiness, complaint, or real shame where delusional pride belongs. Wordiness after the trigger — one corny tacked-on flourish ruins an otherwise-live line. Fabricated theater — invented dramatic scenes with staging — where a live frame or a standing pattern should be. The balanced money-comparison frame (your-respectable-thing versus my-degen-thing, laid side by side) is RETIRED — the operator killed the framing itself, not an execution of it. A vehicle you rode within the last few posts is cold — the reader just saw the trick; let it breathe. And the emptiest thing of all: a competent fill of a proven shape with interchangeable cargo. If the specific choice (the animal, the asset, the purchase, the question) isn't itself funny, chosen, pointed — the shape is carrying nothing.
 
-THE SLATE. Six per video, and each one delivers A DIFFERENT WAY — different vehicle, different target (mfs, bro, her, yourself, a hater, an institution), different register (roast, flex, bit, sincere), a couple you're dead sure of and a couple real swings. Name each slot's JOB first — who shares it and why — then write it as one natural thought. You're not filling six slots; you're posting six different reasons to follow you."""
+THE SLATE. Six per video, and each one delivers A DIFFERENT WAY — different vehicle, different target (mfs, bro, her, yourself, a hater, an institution), different register (roast, flex, bit, sincere), a couple you're dead sure of and a couple real swings. Name each slot's JOB first — who shares it and why — then write it as one natural thought. And vary ACROSS nights, not just within one: your followers see your posts in a row, so the lanes you rode last time aren't tonight's default — you have a whole range, and a guy who posts the same six plays every night is a format, not a person. You're not filling six slots; you're posting six different reasons to follow you."""
 
 
 def voice_core() -> str:
@@ -596,6 +598,32 @@ def _taken_block(recent_window: int = 150, kill_window: int = 40) -> str:
     return "\n".join("- " + s for s in dict.fromkeys(s for s in items if s)) or "(none yet)"
 
 
+_VEHICLE_TELLS = (
+    ("the money ladder (buy X, scale it, that's $Y)", re.compile(r"(?:buy|catch|adopt|rent)\b.{0,60}(?:that'?s|=)\s*\$?\d", re.IGNORECASE | re.DOTALL)),
+    ("the would-you-rather trade-off", re.compile(r"(?:would you rather\s*)?\$\d+\s+right now or", re.IGNORECASE)),
+    ("the hater catching a tiny win", re.compile(r"called your (?:business|idea)|hater", re.IGNORECASE)),
+    ("the backhanded encouragement", re.compile(r"proud of you bro|keep (?:grinding|pushing|going)|don'?t give up bro|chin up|keep your head up", re.IGNORECASE)),
+    ("the fake-company client scene", re.compile(r"(?:client|customer)\b.{0,80}so i\b", re.IGNORECASE | re.DOTALL)),
+    ("the caught-behavior observation", re.compile(r"^\s*(?:mfs|🥷|broke dudes|bro will)", re.IGNORECASE)),
+)
+
+
+def _recent_vehicles(window: int = 36) -> str:
+    """DESCRIPTIVE line for the user msg: which vehicles the last few slates actually rode
+    (detected mechanically over recent output — information the model reasons over, never a
+    roster or a drop). Built-in miss found 2026-07-10: the slate portfolio had FIXED into the
+    same six lanes every call (the ladder + the hater-tiny-win appeared in 5/5 slates; two
+    jacket-money twins shipped across sibling slates) because premise stubs burn premises,
+    not lanes — the model deterministically re-picked its strongest lanes each call."""
+    recent = recent_generated(window)
+    hits = []
+    for name, rx in _VEHICLE_TELLS:
+        cnt = sum(1 for t in recent if rx.search(t or ""))
+        if cnt >= 2:
+            hits.append(name)
+    return ", ".join(hits)
+
+
 def _drop_same_joke_siblings(cands: list[dict]) -> list[dict]:
     """Intra-set identity dedup: two options in ONE set that are the same joke (morph-tier match
     against each other) — the later one drops. This is the copy-guard class (removes duplicates of
@@ -642,7 +670,7 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
     for i, c in enumerate(cands):
         t = c.get("text") or ""
         scored = sorted(((_containment(t, p), p) for p in pool), reverse=True)
-        near = [p for s, p in scored[:2] if s >= 0.35]
+        near = [p for s, p in scored[:3] if s >= 0.30]
         if near:
             pairs.append((i, near))
     if not pairs:
@@ -652,9 +680,12 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
         + "\n" + "\n".join("OLD: " + p.replace("\n", " / ") for p in near)
         for j, (i, near) in enumerate(pairs))
     sys_p = ("You compare captions for IDENTITY only — never quality. For each pair: is NEW the "
-             "same joke as an OLD one wearing different nouns (same mechanism + same premise, "
-             "slots swapped)? A caption that shares only a FORMAT (a would-you-rather, a POV, a "
-             "quote-reply) but runs a genuinely different idea is NOT a re-skin. "
+             "same joke as an OLD one? Same joke includes swapped-specifics twins — the same "
+             "mechanism riding the same premise with different nouns or numbers (an animal-asset "
+             "money ladder after an animal-asset money ladder; finding money in a jacket after "
+             "finding money in a jacket; the same scheme with a new prop). A caption that shares "
+             "only a bare FORMAT (a would-you-rather, a POV, a quote-reply) but runs a genuinely "
+             "different idea is NOT a re-skin. "
              'Return ONLY JSON: {"reskin": [true/false per pair, in order]}')
     try:
         out = complete_json(sys_p, listing, effort="low", max_tokens=400, tag="reskin-check",
@@ -720,9 +751,13 @@ def _generate_v2(n: int, notes: str | None = None) -> list[dict]:
     bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (their premises are "
            f"taken):\n{ns_block}" if ns_block else "")
     system = persona() + wall + voice_core() + bar + _SLATE_TAIL.replace("{k}", str(k))
+    ridden = _recent_vehicles()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
         + "Recently used or already dead — burned ground, go elsewhere:\n" + _taken_block()
+        + (f"\n\nAnd you've been leaning hard on these lately — a follower sees your posts in a "
+           f"row, so park them tonight unless an idea genuinely can't live anywhere else: {ridden}"
+           if ridden else "")
         + f"\n\nWrite tonight's slate: {k} posts, two takes each."
     )
     entries: list = []
