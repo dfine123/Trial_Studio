@@ -97,8 +97,36 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐⭐⭐⭐⭐ FORMAT-FORWARD (2026-07-10, commit ba67d3e) — THE current engine; the operator's
-  format law made structural.** Post-revitalization output was fresh but FORMAT-LESS — "weird,
+- **⭐⭐⭐⭐⭐⭐ UNDERSTANDING-LED + ANCHOR-SPARKED (2026-07-10, commit a2762bc) — THE current engine.**
+  Format-forward's assigned-vehicle output was "whack" format-fills (bees/gumball absurd-math with
+  interchangeable cargo; the same dine-and-dash joke twice in one batch). The operator's core
+  correction (load-bearing, quote it): "the entirety of the feedback, the references and all other
+  guidance aren't things to be only used mechanically as steps or parts of our prompting — all of
+  it together should allow you to UNDERSTAND what we are actually going for, and that understanding
+  should lead everything else… each one delivering in their own way." Plus: "find the best state of
+  the system based on how many bangers it outputted and figure out what led it to be good." THE
+  ANSWER (measured): ROUND 2 = best banger RATE ever (35% ≥8) — each option ANCHOR-SPARKED by a
+  distinct real banger + its why-it-lands via grade-weighted rotation; ROUND 6 = best mean/most 9s
+  — freshly-distilled UNDERSTANDING leading the prompts. THE ENGINE = both: **THE BRIEF**
+  (var/voice_core.md, 5.4k chars — the full comprehension doc: what the account IS, the
+  screenshot-and-send test, who's talking, why a post lands (reader does the last step), THE
+  CHARGE/voltage (who feels this?), what each vehicle RUNS ON (the format sweep's mechanism intel
+  as craft knowledge, NOT assignments), what dies and WHY incl. format-fill-without-intent) leads
+  the system prompt; each of k slots SPARKED by a rotated banger (+why) — channel the WHY, never
+  the premise; the slate self-diversifies by spark diversity; 2 takes/slot + take-pick; invisible
+  guards unchanged (morph/recent/kills/siblings/reskin/refine). **ANCHOR ATTRIBUTION REVIVED**
+  (anchor_refs live again → grades flow into ref rotation — the closed loop severed all v2 era).
+  Format ASSIGNMENTS removed (formats.py/book/API kept as data + brief-source, unused by
+  generation). ⚠️ Cold-start note: fresh same-species promotion clusters (usage-0) can make early
+  slates species-heavy (observed: 4/6 mfs-observations right after round-6 promotions front-loaded)
+  — self-corrects in ~2 batches (documented gotcha), species floor still guarantees frame+sincere.
+  **THE LOOP NOW: grades → corpus + ref-rotation credit + kill list, AND after each round the
+  BRIEF gets re-synthesized with the new understanding (by the agent, at learn time — never
+  mechanically).** Verified structurally: anchors distinct per slate, ancestors ≤.50, output shown
+  to operator without quality claims.
+- **⭐⭐⭐⭐⭐ FORMAT-FORWARD (2026-07-10, commit ba67d3e) — superseded within a day: assigned
+  vehicles produced format-fills-without-intent; its real yield = the format-mechanism intel
+  (now living inside THE BRIEF) + the book/stats data.** Post-revitalization output was fresh but FORMAT-LESS — "weird,
   corny narrations… the subject is good, but as a caption what is that even supposed to mean"
   (operator). A 6-agent sweep classified ALL 280 graded + the corpus by format: **narration is a
   DEAD CLASS (0/16 ever ≥7, 81% killed); every winning band rides recognized vehicles; kills are
