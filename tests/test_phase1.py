@@ -754,6 +754,42 @@ def v3_charters_are_pure_and_separate():
     assert "no formats" in ch.EXOTIC.lower() or "no templates" in ch.EXOTIC.lower()
 
 
+# ─── V3: the reader-defendant (you-lecture) detector ───
+
+@test
+def v3_lecture_detector_matches_winner_law():
+    from app.caption import engine as eng_mod
+    import inspect
+    src = inspect.getsource(eng_mod._generate_v3)
+    assert "_is_lecture" in src and "restaging" in src
+    # replicate the closure's logic through a live call is heavy; test the regex semantics
+    # by extracting the same rules: dialogue/games/first-person-skin are never flagged.
+    import re as _re
+
+    def is_lecture(t):
+        raw = (t or "").strip()
+        low = " " + _re.sub(r"[^a-z0-9\s']", " ", raw.lower()) + " "
+        if '"' in raw or "would you rather" in low or "we are not the same" in low:
+            return False
+        if _re.search(r"\b(i|i'm|i've|me|my|mine)\b", low):
+            return False
+        starts_you = bool(_re.match(r"^(you|you'll|you're|you've|your)\b", raw, _re.IGNORECASE))
+        you_count = len(_re.findall(r"\byou('ll|'re|'ve)?\b", low))
+        return starts_you or you_count >= 2
+
+    # the failing v3 register — must flag
+    assert is_lecture("you'll gas bro up about his idea for a whole hour then go home and sleep on your own")
+    assert is_lecture("you post day one of everything and day thirty of nothing")
+    assert is_lecture("you're more scared of looking stupid trying than of ending up where you are")
+    # winner-legal 'you' — must NOT flag
+    assert not is_lecture("would you rather $30 right now or 8 billion dollars but you gotta select every square")
+    assert not is_lecture('Dudes be like "she believed in me when nobody else did"\n\nbc nobody else was that dumb')
+    assert not is_lecture("your money's locked in a 401k till you're 65, mine's on a blackjack table by 2am.")
+    assert not is_lecture("mfs keep the headphones in with nothing playing just so no one talks to them")
+    assert not is_lecture("never take money advice from a man whose favorite day is friday")
+    assert not is_lecture("Nothing fazes me anymore, i've laid a million of my own sons to rest in a gym sock")
+
+
 # ─── Recent-vehicles line: descriptive lane memory across slates ───
 
 @test

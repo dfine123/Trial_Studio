@@ -714,7 +714,7 @@ THE TASK: write the caption you're posting tonight — as yourself, start to fin
 
 The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
 
-Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words.
+Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Both takes hold the bar: one exhale (or deliberate line-break beats where the timing lives), ending ON the concrete punch — a number, an object, a quoted word — with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself.
 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
 
@@ -772,6 +772,21 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
         return any(w in low for w in _seed_words)
 
+    def _is_lecture(t: str) -> bool:
+        """Reader-as-defendant register — the one stance the 59-winner pool contains ZERO of
+        (winners' 'you' is a game, a foil, a flattered dreamer, or an institution's victim;
+        the failing register is 'you'll do X' prosecution). Conservative: dialogue, games,
+        and lines with first-person skin are never flagged."""
+        raw = (t or "").strip()
+        low = " " + re.sub(r"[^a-z0-9\s']", " ", raw.lower()) + " "
+        if '"' in raw or "would you rather" in low or "we are not the same" in low:
+            return False
+        if re.search(r"\b(i|i'm|i've|me|my|mine)\b", low):
+            return False
+        starts_you = bool(re.match(r"^(you|you'll|you're|you've|your)\b", raw, re.IGNORECASE))
+        you_count = len(re.findall(r"\byou('ll|'re|'ve)?\b", low))
+        return starts_you or you_count >= 2
+
     def run_engine(eng: dict) -> tuple[str, list[str]]:
         system = persona() + wall + ch.charter(eng["id"]) + bar + _V3_TAIL
 
@@ -794,6 +809,14 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
                             "something else entirely.")
                 if retry and not any(_is_literal(t) for t in retry):
                     takes = retry   # keep the original only if the retry still obeyed (fail-open)
+            if takes and any(_is_lecture(t) for t in takes):
+                print(f"[v3] engine {eng['id']} prosecuted the reader — restaging", flush=True)
+                retry = one("\n\nYour previous attempt aimed the line AT the reader — 'you'll do "
+                            "X' prosecution. The reader is never the defendant; he's eavesdropping. "
+                            "Say it about mfs, the guy who, bro, a live scene, or yourself with "
+                            "full chest — and let him catch himself watching.")
+                if retry and not any(_is_lecture(t) for t in retry):
+                    takes = retry   # fail-open: keep the original if the retry still lectures
             return eng["id"], takes
         except Exception as ex:  # noqa: BLE001 — one engine failing must not sink the set
             print(f"[v3] engine {eng['id']} failed: {ex}", flush=True)
