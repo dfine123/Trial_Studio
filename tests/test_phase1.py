@@ -470,10 +470,17 @@ def v2_revitalized_flow_and_surfaces():
              "why_it_works": f"decode {i}"} for i in range(9)]
     ns = [{"ns_id": "n1", "caption": "mfs will buy energy drinks just to do nothing all day",
            "point": "people buy productivity aids to keep doing nothing"}]
+    fixture_formats = [{"id": f"fmt{i}", "name": f"proven vehicle {i}", "skeleton": f"shape {i} with [slot]",
+                        "what_varies": "the slot", "mechanism": "lands when fresh", "verdict": "solid"}
+                       for i in range(3)]
+    used_formats = []
+    import app.caption.formats as fmt_mod
     import app.caption.northstars as ns_mod
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: list(ns),
                  block=lambda: "- mfs will buy energy drinks (the point: productivity aids to do nothing)"), \
+         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k],
+                 log_use=lambda ids: used_formats.extend(ids)), \
          patched(engine,
                  load_refs=lambda *a, **k: list(refs),
                  recent_generated=lambda *a, **k: [],
@@ -497,12 +504,16 @@ def v2_revitalized_flow_and_surfaces():
     assert "THE BRIEF" in sysp, "the understanding brief leads the system prompt"
     assert "energy drinks" in sysp, "the north-star BAR rides in the system"
     assert "STARTS from something worth saying" in sysp, "message-first process in the tail"
-    assert "SPARK" not in userp and "decode 2" not in userp, \
-        "no reference may appear as per-slot seed material (the orbit law)"
+    assert "PROVEN FORMATS" in userp and "proven vehicle 2" in userp, \
+        "the rotated format trio rides in the user msg (half the slate)"
+    assert "real banger" not in userp, \
+        "no reference text may appear as per-slot seed material (the orbit law)"
     assert "burned ground" in userp, "the recent/kill avoid block must ride in the user msg"
+    assert used_formats == ["fmt0", "fmt1", "fmt2"], f"format rotation must advance: {used_formats}"
     # the reel path routes through the same v2 core
     with patched(settings, generation_engine="v2"), \
          patched(ns_mod, load=lambda: [], block=lambda: ""), \
+         patched(fmt_mod, pick_formats=lambda k: fixture_formats[:k], log_use=lambda ids: None), \
          patched(engine, load_refs=lambda *a, **k: list(refs),
                  recent_generated=lambda *a, **k: [], _killed_texts=lambda: [],
                  persona=lambda: "P", voice_core=lambda: "THE BRIEF",
