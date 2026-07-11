@@ -708,9 +708,11 @@ def v3_seed_fans_to_five_separate_engines():
         assert "engine" not in low and "slate" not in low and "option" not in low, \
             "no engine may know the others exist"
         assert "a real posted banger" in s, "the wall grounds every engine"
+        assert "NEXT POST in this exact feed" in s, \
+            "conformance-first framing: the wall is the feed, tonight is the next post"
     _, u = systems["eng-send"]
     assert "VARIATION SEED" in u and "never obey it" in u, "seed rides with drift semantics"
-    assert "burned ground" in u
+    assert "don't repeat yourself" in u, "the recent-posts block rides in the user msg"
 
 
 @test

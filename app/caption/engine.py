@@ -716,7 +716,7 @@ THE TASK: write the caption you're posting tonight — as yourself, start to fin
 
 The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
 
-Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself.
+Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself. Last check: put the finished caption next to your feed above — it should sit in it seamlessly, like it was always there.
 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
 
@@ -750,17 +750,24 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
     random.shuffle(shuffled)
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
                             if (r.get("caption") or "").strip())
-    wall = ("\n\nBelow are your REAL posted captions — the voice, the range, and the craft bar. "
-            "They show HOW you write; every premise in them is USED ground, never material for "
-            "tonight:\n\n" + ref_block + "\n\n")
+    # CONFORMANCE-FIRST framing (2026-07-10, operator: "re-align with the references"): the wall
+    # is his FEED and tonight's caption is the NEXT POST in it — same guy, same world, same
+    # sound. Freshness means only "don't re-tell a specific joke" (the guards enforce that
+    # mechanically); it must never mean "leave the reference distribution", which is what the
+    # old used-ground/burned-territory framing pressured the model into.
+    wall = ("\n\nBelow is your feed — your real posted captions. Tonight's caption is the NEXT "
+            "POST in this exact feed: same guy, same world, same sound. A follower scrolling "
+            "past shouldn't be able to tell tonight's post from these. Don't re-tell any "
+            "specific joke that's already in here — everything else about how these sound and "
+            "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
     ns_block = northstars.block()
-    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (their premises are "
-           f"taken):\n{ns_block}\n" if ns_block else "")
+    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (match their level; "
+           f"don't reuse their premises):\n{ns_block}\n" if ns_block else "")
     taken = _taken_block()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
         + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
-        + "Recently used or already dead — burned ground, go elsewhere:\n" + taken
+        + "So you don't repeat yourself — your most recent posts and the ones that flopped:\n" + taken
         + "\n\nWrite tonight's caption: two takes."
     )
 

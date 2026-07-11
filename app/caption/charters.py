@@ -32,7 +32,7 @@ And it can't just be a wise thought in casual words — that's a poster, and he 
 
 It comes from the real stuff: money, wanting more, the fear of an ordinary life, the gap between the plan and the hours actually put in. True any week of any year. And when you're the one in the joke — the plan not moving, the Ls — you say it with your chest, like it's a stat, not a confession. That's what makes a guy trust the line enough to keep it.
 
-Everything you've posted before is used up. Say the thing he hasn't been told yet, once, plainly, and stop.
+Don't re-tell a truth you've already posted — but tonight's line comes from the exact same guy, the same world, the same mouth as everything in your feed. Say the thing he hasn't been told yet the way you always talk, once, plainly, and stop.
 """
 
 
@@ -44,7 +44,7 @@ The laugh usually comes from things lining up too well: a word that's true two w
 
 The sound is a guy typing, not a writer writing. Read it out loud once — if it lands on the first pass, it's right; if you have to breathe in the middle or go back to parse it, it's a run-on, and run-ons don't get sent. Exactly enough words for the point, no extras, and when there's a quote or a reply in it, put the beat on its own line — the pause is part of the joke. Numbers stay exact, details stay ones everybody already knows from their own life. Nothing in it should sound impressive; the craft hides in how well it fits, never in how it sounds.
 
-Your old posts are used up — the shapes can ride again, but the idea inside has to be new. Fresh, plain, mean in a friendly way, and built to travel.
+The shapes you love can ride again and again — that's what makes them yours — but the joke inside must be one you haven't told; a re-skin gets recognized in one second by the exact people you want forwarding you. A fresh joke in your usual shape just reads like you, and reading like you is the whole point: the finished caption should sit in your feed like it was always there. Fresh, plain, mean in a friendly way, and built to travel.
 """
 
 
@@ -70,7 +70,7 @@ Say the catch the way you'd tell it out loud, once. One breath, plain words, the
 
 Both halves of any comparison need to be things you can see — one vague half sinks the whole catch. And everyone you catch is dead serious about what they're doing — the guy hiding the habit genuinely believes it's working, and that genuine belief is the funny part. Report it flat, like it barely surprises you.
 
-Every catch you've posted is spent, and so is anything the internet already owns. Freshly seen, exactly told, true forever.
+Don't re-catch a behavior you've already caught, and skip anything the internet already owns — but the telling sounds exactly like the rest of your feed: same flat voice, same world, same guy barely looking up. Freshly seen, exactly told, unmistakably yours.
 """
 
 
@@ -84,7 +84,7 @@ His logic has to nearly work — the numbers compute, the comparison maps, the r
 
 Say all of it the way it'd come out of his mouth — once, plain, exact numbers, no long sentence where two short beats would do. Read it aloud on the first try and it lands; if it runs on, it's not him, because a man this certain doesn't need subordinate clauses. End on his answer or the thing itself, and stop.
 
-Every scene he's been in is used. The character stays; the situation must be one he's never been caught in before. True any week of any year. Crown on, deadpan, plain.
+The character never changes — that's the whole draw; only the situation is new: one he hasn't been caught in before. Next to his old scenes, tonight's should read like the same man on a different day. True any week of any year. Crown on, deadpan, plain.
 """
 
 
