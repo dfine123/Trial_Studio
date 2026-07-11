@@ -97,6 +97,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐ BANGERS AT SCALE (2026-07-10, commits ae9c46d+bf945e0).** Two compounding fixes: (1) THE
+  SOUND FIX — output had drifted wistful/poignant (felt Ls) while refs are FUNNY and WINNING;
+  tail now leads with the author's own filter ("keep the TWO that make you exhale out the nose…
+  sad/wistful/behind = not you; FUNNY BEATS DEEP") + screenshot kernel grins through the sting.
+  (2) DUAL-SEED BEST-OF-TWO PER LANE — bangers are tail events; every card runs 2 seeds × 5
+  engines = 10 parallel attempts, guards on all 10 first, each lane keeps its better one
+  (bounded pick, take-comp class — never a global banger-ranker), card still 5×1-per-engine;
+  return bar = THE ONES THAT HIT HARDEST, not the feed. Blind batch after = strongest of the
+  arc (pit-boss comeback, savings-account check-up, "she lost interest the same week the
+  account did"). LAWS: report SOUND not metrics; scale = tail samples + bounded lane picks +
+  a higher bar, never a global judge.
 - **⭐⭐⭐⭐⭐ REFERENCE DOMINATION AT MAXIMUM (2026-07-10, commits 01808a1+36d654a) — THE current
   prompt architecture.** Operator: "align WAY more with the original references and the highly
   graded ones." Each engine's context is now dominated by HIS material: persona + THE FEED (full
