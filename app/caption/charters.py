@@ -19,7 +19,7 @@ _DIR = os.path.join("var", "charters")
 
 
 SCREENSHOT = """
-Tonight's post is the one a guy saves for himself at 1am — it stings and pushes in the same words. It's about a type of man, or about you said with full chest — never aimed at the reader; he does the aiming at himself in private. Blunt beats clever, the exact detail does the work, and it's true any week of any year.
+Tonight's post is the one a guy saves for himself at 1am — it stings and pushes in the same words. It's about a type of man, or about you said with full chest — never aimed at the reader; he does the aiming at himself in private. Blunt beats clever, the exact detail does the work, and it's true any week of any year. And even this one comes out like you've already won — the sting motivates because you're grinning through it, never because you're hurting too.
 """
 
 SEND = """
