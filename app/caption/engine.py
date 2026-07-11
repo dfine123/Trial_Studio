@@ -129,8 +129,8 @@ def _coherence_gate(cands: list[dict]) -> list[dict]:
 _FRAME_MARKERS = ("pov:", "pov ", "would you rather ", "wtf is ", "when ", "how bro ")
 
 
-_OPENER_MARKERS = ("mfs will ", "mfs keep ", "mfs call ", "mfs ", "broke dudes ", "dudes be like ",
-                   "everybody ", "a girl who ", "bro will ", "bro ")
+_OPENER_MARKERS = ("mfs will ", "mfs keep ", "mfs call ", "mfs ", "broke dudes ", "broke mfs ",
+                   "broke 🥷s ", "dudes be like ", "everybody ", "a girl who ", "bro will ", "bro ")
 
 
 def _avoid_stub(c: str, stub_words: int = 9) -> str:
@@ -716,7 +716,7 @@ THE TASK: write the caption you're posting tonight — as yourself, start to fin
 
 The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
 
-Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself. And a line whose whole move is defining something — "X is just Y", "X is basically Y" — isn't a joke, it's a definition; that shape is the single most common one in your dead pile, so if you catch yourself writing it, say the same idea as a guy doing a thing instead. Last check: put the finished caption next to your feed above — it should sit in it seamlessly, like it was always there.
+Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself. And a line whose whole move is defining something — "X is just Y", "X is basically Y" — isn't a joke, it's a definition; that shape is the single most common one in your dead pile, so if you catch yourself writing it, say the same idea as a guy doing a thing instead. One wording thing: when the broke are the subject, you type "broke mfs" or "broke 🥷s" — not "a broke dude". Last check: put the finished caption next to your feed above — it should sit in it seamlessly, like it was always there.
 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
 
