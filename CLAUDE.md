@@ -97,6 +97,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐ NATURAL-YET-SUFFICIENT (2026-07-10, commit e2965bf) — the operator's named biggest gap.**
+  Winners pass the READ-ALOUD-ONCE test (median 18 words, one breath or explicit beats; more room
+  = a NEW BEAT, never a longer sentence); our output was 23-word breathless prose. Also: HE
+  CORRECTED MY ANALYSIS REGISTER ("trying to be a bit too clever about whats actually working")
+  → the law: **prompts must be written in the target register — the model mirrors the prompt's
+  voice; clever charters teach clever captions.** All five charters rewritten PLAIN (read-aloud
+  test leads; top-21 truths in plain talk: about someone / unsayable said calmly / dumb surface
+  airtight underneath / everyone dead serious / reader catches it himself / known details / own
+  your Ls proudly) + run-on retry (28+w breathless → retype-aloud; fail-open) + take-pick =
+  first-pass landing wins + 50 people/tension seeds. VERIFIED: median 23→17, mean 18.2 (winners
+  18/18.5 exact), elbow words 0, lecture 0/15.
 - **⭐⭐ THE 8+ EXTRACTION → CHARTERS (2026-07-10, commit 2792d82).** V3's first round was 11/13
   "you'll do X" reader-lecture. A 3-lens extraction over ALL 59 graded-8+ captions produced the
   laws now WOVEN into the five charters at principle level: OVERHEARD GROUP CHAT (29/59 winners =
