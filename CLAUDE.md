@@ -97,6 +97,9 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **LEXICON (2026-07-10, commit 6f4be67, operator rule):** when the broke are the subject it's
+  **"broke mfs" / "broke 🥷s"** — never "a broke dude" (was a generated tic). Lives in the MIRROR
+  charter + the shared v3 tail; verified 0 occurrences post-fix.
 - **⭐⭐⭐⭐ CONFORMANCE-FIRST (2026-07-10, commits f6268de+c52ee7c).** Operator: "still super far
   off the references — re-align." ROOT: the freshness apparatus (USED-ground wall framing, burned-
   territory blocks, used-up charter closers, novelty-pushing seeds) had ENGINEERED output out of
