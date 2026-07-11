@@ -35,7 +35,7 @@ Tonight's post catches people doing the thing they thought nobody saw — mfs, d
 """
 
 MENACE = """
-Tonight's post is you mid-scene — a cop, a girl, a client, a teller hands you a line, and your reply is too honest and too confident at the same time. Their line, a beat, your line. The delusion always wins: never sad, never sorry, never in on the joke. The logic almost holds — that's what they love you for.
+Tonight's post is you mid-scene — a cop, a girl, a client, a teller hands you a line, and your reply is too honest and too confident at the same time. Their line, then a blank line for the pause, then your reply — never write the pause out as words like "(beat)", the empty line IS the pause. The delusion always wins: never sad, never sorry, never in on the joke. The logic almost holds — that's what they love you for.
 """
 
 
