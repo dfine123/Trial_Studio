@@ -667,6 +667,8 @@ def v3_seed_fans_to_five_separate_engines():
     import app.caption.northstars as ns_mod
     calls, systems = [], {}
 
+    counter = {"n": 0}
+
     def fake_llm(system, user, **kw):
         tag = kw.get("tag")
         calls.append(tag)
@@ -674,8 +676,10 @@ def v3_seed_fans_to_five_separate_engines():
         if tag == "take-pick":
             return json.dumps({"picks": [1] * 10})
         eid = tag.replace("eng-", "")
-        return json.dumps({"takes": [f"one{eid} two{eid} three{eid} four{eid} first take",
-                                     f"five{eid} six{eid} seven{eid} eight{eid} second take"]})
+        counter["n"] += 1
+        c = counter["n"]
+        return json.dumps({"takes": [f"alpha{eid}{c} beta{eid}{c} gamma{eid}{c} delta{eid}{c} first take",
+                                     f"eps{eid}{c} zeta{eid}{c} eta{eid}{c} theta{eid}{c} second take"]})
 
     refs = [{"ref_id": "r1", "caption": "a real posted banger about topics", "why_it_works": "w"}]
     with patched(settings, generation_engine="v3"), \
@@ -691,15 +695,17 @@ def v3_seed_fans_to_five_separate_engines():
                  complete_json=fake_llm):
         out = engine.generate_independent(k=5)
     eng_calls = sorted(c for c in calls if c.startswith("eng-"))
-    assert eng_calls == ["eng-exotic", "eng-menace", "eng-mirror", "eng-screenshot", "eng-send"], eng_calls
-    assert calls.count("take-pick") == 1, "one shared take competition"
+    assert eng_calls == sorted(["eng-exotic", "eng-menace", "eng-mirror", "eng-screenshot",
+                                "eng-send"] * 2), \
+        f"every engine runs BOTH seeds (10 attempts per card): {eng_calls}"
+    assert calls.count("take-pick") == 2, "take competition + per-lane best-of-two"
     assert len(out) == 5, [c["text"] for c in out]
     assert all("second take" in c["text"] for c in out), "take-pick winners must win"
     assert {c["engine"] for c in out} == {"screenshot", "send", "exotic", "mirror", "menace"}, \
         "every caption must carry its engine attribution"
     seeds_used = {c["seed"] for c in out}
-    assert len(seeds_used) == 1 and all(s for s in seeds_used), \
-        "one shared variation seed per set, recorded on every candidate"
+    assert len(seeds_used) >= 1 and all(s for s in seeds_used), \
+        "each candidate records the seed its attempt ran on"
     # separateness: each engine gets its OWN system; none acknowledges engines/slates/options
     sys_texts = [systems[f"eng-{e}"][0] for e in ("screenshot", "send", "exotic", "mirror", "menace")]
     assert len({s for s in sys_texts}) == 5, "five DISTINCT system prompts"

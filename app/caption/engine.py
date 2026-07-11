@@ -716,7 +716,7 @@ THE TASK: write tonight's post.
 
 The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in the caption, its world is never the subject, and the finished caption owes it nothing.
 
-Draft a handful in your head and keep only the TWO that make you exhale out the nose when you re-read them — the ones you'd actually post. If a draft is merely true, merely well-said, or feels sad, wistful, or behind — that's not you; you're winning the entire time, and even your Ls come out grinning. Funny beats deep, every single night.
+Draft a handful in your head and keep only the TWO that make you exhale out the nose when you re-read them — the ones you'd actually post. If a draft is merely true, merely well-said, or feels sad, wistful, or behind — that's not you; you're winning the entire time, and even your Ls come out grinning. Funny beats deep, every single night. And the bar is not "good enough for the feed" — it's THE ONES THAT HIT HARDEST: if neither draft would sit among those, throw the idea away and write a different one before you answer.
 
 Two genuinely different takes, so the better landing wins; the last five words usually decide. Say each out loud once: it lands on the first pass, exactly enough words, ends on the thing itself. Never talk AT the reader; no "X is just Y" definitions; broke people are "broke mfs" or "broke 🥷s".
 
@@ -775,7 +775,14 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
                            "on the Generation Studio voice cards before generating")
     note = (notes or "").strip()
-    seed = seeds.draw()
+    # TWO seeds per card (2026-07-10, operator: "we need banger captions... at scale"): bangers
+    # are tail events — one attempt per lane samples the tail too thin. Every engine runs BOTH
+    # seeds (10 candidates, same parallel wall-clock) and each lane keeps its better one, so the
+    # card still shows 5 options, one per engine, each the winner of two different attempts.
+    seed_a = seeds.draw()
+    seed_b = seeds.draw()
+    while seed_b == seed_a:
+        seed_b = seeds.draw()
     shuffled = list(refs)
     random.shuffle(shuffled)
     ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
@@ -792,22 +799,23 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
             "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
     hitters = _hitters_block()
     taken = _taken_block()
-    user = (
-        (f"Lean (soft): {note}\n\n" if note else "")
-        + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
-        + "So you don't repeat yourself — your most recent posts and the ones that flopped:\n" + taken
-        + "\n\nWrite tonight's caption: two takes."
-    )
+
+    def _user_for(seed: str) -> str:
+        return (
+            (f"Lean (soft): {note}\n\n" if note else "")
+            + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
+            + "So you don't repeat yourself — your most recent posts and the ones that flopped:\n" + taken
+            + "\n\nWrite tonight's caption: two takes."
+        )
 
     # seed-literalism check (the operator's hardest rule: "i cant emphasize enough how little
     # the end caption has to do with the actual outputs") — a caption containing the seed's
     # content words OBEYED the seed instead of drifting; that engine retries once.
-    _seed_words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
-                   if len(w) > 3 and w not in ("with", "your", "from", "that", "this", "the")]
-
-    def _is_literal(t: str) -> bool:
+    def _is_literal(t: str, seed: str) -> bool:
+        words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
+                 if len(w) > 3 and w not in ("with", "your", "from", "that", "this", "the")]
         low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
-        return any(w in low for w in _seed_words)
+        return any(w in low for w in words)
 
     def _is_runon(t: str) -> bool:
         """The operator's biggest-gap test (2026-07-10): winners read aloud ONCE and land —
@@ -834,8 +842,10 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         you_count = len(re.findall(r"\byou('ll|'re|'ve)?\b", low))
         return starts_you or you_count >= 2
 
-    def run_engine(eng: dict) -> tuple[str, list[str]]:
+    def run_engine(task: tuple[dict, str]) -> tuple[str, str, list[str]]:
+        eng, seed = task
         system = persona() + wall + hitters + ch.charter(eng["id"]) + _V3_TAIL
+        user = _user_for(seed)
 
         def one(extra: str = "") -> list[str]:
             out_text = complete_json(system, user + extra, effort="high", max_tokens=4000,
@@ -848,13 +858,13 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
 
         try:
             takes = one()
-            if takes and any(_is_literal(t) for t in takes):
+            if takes and any(_is_literal(t, seed) for t in takes):
                 print(f"[v3] engine {eng['id']} obeyed the seed — redrifting", flush=True)
                 retry = one("\n\nYour previous attempt used the seed literally — that's obeying "
                             "it, not drifting from it. The caption must owe the seed NOTHING: "
                             "none of its words, and not its world as your subject. Write about "
                             "something else entirely.")
-                if retry and not any(_is_literal(t) for t in retry):
+                if retry and not any(_is_literal(t, seed) for t in retry):
                     takes = retry   # keep the original only if the retry still obeyed (fail-open)
             if takes and any(_is_lecture(t) for t in takes):
                 print(f"[v3] engine {eng['id']} prosecuted the reader — restaging", flush=True)
@@ -872,27 +882,48 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
                             "second sentence, a line break) — never a longer sentence.")
                 if retry and not any(_is_runon(t) for t in retry):
                     takes = retry   # fail-open: keep the original if the retry still runs on
-            return eng["id"], takes
-        except Exception as ex:  # noqa: BLE001 — one engine failing must not sink the set
+            return eng["id"], seed, takes
+        except Exception as ex:  # noqa: BLE001 — one attempt failing must not sink the set
             print(f"[v3] engine {eng['id']} failed: {ex}", flush=True)
-            return eng["id"], []
+            return eng["id"], seed, []
 
-    with ThreadPoolExecutor(max_workers=len(ch.ENGINES)) as pool:
-        results = list(pool.map(run_engine, ch.ENGINES))
-    rows = [(eid, takes) for eid, takes in results if takes]
+    tasks = [(eng, s) for eng in ch.ENGINES for s in (seed_a, seed_b)]
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        results = list(pool.map(run_engine, tasks))
+    rows = [(eid, s, takes) for eid, s, takes in results if takes]
     if not rows:
         raise RuntimeError("v3: every engine failed — check the LLM ledger")
-    caps = _pick_takes([takes for _, takes in rows])
-    out = []
-    for (eid, _takes), text in zip(rows, caps):
+    caps = _pick_takes([takes for _, _, takes in rows])
+    cands = []
+    for (eid, s, _takes), text in zip(rows, caps):
         if (text or "").strip():
-            out.append({"text": text, "anchor_ref": None, "anchor_refs": [],
-                        "engine": eid, "seed": seed})
+            cands.append({"text": text, "anchor_ref": None, "anchor_refs": [],
+                          "engine": eid, "seed": s})
 
-    # invisible safety net — subtractive only
-    out = _drop_same_joke_siblings(_drop_ref_copies(out))
-    out = _reskin_check(out)
-    out = _coherence_gate(refine(out))
+    # invisible safety net FIRST (so a morph can never win its lane) — subtractive only
+    cands = _drop_same_joke_siblings(_drop_ref_copies(cands))
+    cands = _reskin_check(cands)
+    cands = _coherence_gate(refine(cands))
+
+    # PER-LANE BEST-OF-TWO: each engine ran both seeds; its lane keeps the one its author would
+    # post (same bounded pick class as take competition — one pick within one lane; never a
+    # global cross-lane "banger" ranking, which is the measured-inverted judge). A lane with one
+    # survivor keeps it; a lane that lost both is absent.
+    by_eng: dict[str, list[dict]] = {}
+    for c in cands:
+        by_eng.setdefault(c["engine"], []).append(c)
+    lane_pairs = [(eid, lst) for eid, lst in by_eng.items() if len(lst) >= 2]
+    picked_texts = _pick_takes([[c["text"] for c in lst[:2]] for _, lst in lane_pairs])
+    lane_winner = {eid: text for (eid, _lst), text in zip(lane_pairs, picked_texts)}
+    out = []
+    for eng in ch.ENGINES:
+        lst = by_eng.get(eng["id"]) or []
+        if not lst:
+            continue
+        if eng["id"] in lane_winner:
+            out.append(next(c for c in lst if c["text"] == lane_winner[eng["id"]]))
+        else:
+            out.append(lst[0])
     out = out[:n] if n < len(out) else out
     for c in out:
         c["caption_id"] = _cid(c.get("text") or "")
