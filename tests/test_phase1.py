@@ -503,7 +503,7 @@ def v2_revitalized_flow_and_surfaces():
     assert "USED ground" in sysp, "the wall must be framed as taken territory"
     assert "THE BRIEF" in sysp, "the understanding brief leads the system prompt"
     assert "energy drinks" in sysp, "the north-star BAR rides in the system"
-    assert "STARTS from something worth saying" in sysp, "message-first process in the tail"
+    assert "STARTS from something worth saying" in sysp, "message-first process in the v2 tail"
     assert "PROVEN FORMATS" in userp and "proven vehicle 2" in userp, \
         "the rotated format trio rides in the user msg (half the slate)"
     assert "real banger" not in userp, \
@@ -710,6 +710,7 @@ def v3_seed_fans_to_five_separate_engines():
         assert "a real posted banger" in s, "the wall grounds every engine"
         assert "NEXT POST in this exact feed" in s, \
             "conformance-first framing: the wall is the feed, tonight is the next post"
+        assert "HIT HARDEST" in s, "the hitters block sits in every engine's system"
     _, u = systems["eng-send"]
     assert "VARIATION SEED" in u and "never obey it" in u, "seed rides with drift semantics"
     assert "don't repeat yourself" in u, "the recent-posts block rides in the user msg"
@@ -742,7 +743,7 @@ def v3_charters_are_pure_and_separate():
         assert not hits, f"{e['id']}: quoted winners leaked: {hits}"
         assert "engine" not in low and "slate" not in low and "slot " not in low, \
             f"{e['id']}: charters must not acknowledge the architecture"
-        assert len(t) > 800, f"{e['id']}: charter suspiciously thin"
+        assert len(t) > 150, f"{e['id']}: charter suspiciously thin"   # kernels are short by design
     # distinctness: no two charters share a 12-word run
     def grams(t):
         ws = t.lower().split()

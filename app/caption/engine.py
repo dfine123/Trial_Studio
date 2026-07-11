@@ -712,13 +712,41 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 
 _V3_TAIL = """
 
-THE TASK: write the caption you're posting tonight — as yourself, start to finish. It STARTS from something worth saying, finds its own shape, and gets typed the way you'd actually type it, all in one motion.
+THE TASK: write tonight's post.
 
-The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
+The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in the caption, its world is never the subject, and the finished caption owes it nothing.
 
-Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself. And a line whose whole move is defining something — "X is just Y", "X is basically Y" — isn't a joke, it's a definition; that shape is the single most common one in your dead pile, so if you catch yourself writing it, say the same idea as a guy doing a thing instead. One wording thing: when the broke are the subject, you type "broke mfs" or "broke 🥷s" — not "a broke dude". Last check: put the finished caption next to your feed above — it should sit in it seamlessly, like it was always there.
+Write it TWO different finished ways — genuinely different takes, so the better landing wins; the last five words usually decide. Say each out loud once: it lands on the first pass, exactly enough words, ends on the thing itself. Never talk AT the reader; no "X is just Y" definitions; broke people are "broke mfs" or "broke 🥷s".
+
+The finished caption sits in the feed above like it was always there — and it lives at the level of THE ONES THAT HIT HARDEST, without re-telling any of them.
 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
+
+
+def _hitters_block() -> str:
+    """THE ONES THAT HIT HARDEST — the operator's original hand-picked references (north stars)
+    + every corpus ref that earned its slot through his grades (promotions, endorsements, his
+    own authored lines). Rendered at the END of the context (max salience) as the explicit
+    level to write at. This is the 2026-07-10 full re-alignment: reference domination taken to
+    its end — his best material teaches; instructions shrink to kernels."""
+    rows: list[str] = []
+    try:
+        validated = ("promoted_gen", "note_endorsed", "operator_authored", "lab_promoted")
+        rows += [(r.get("caption") or "").strip() for r in load_refs()
+                 if r.get("source") in validated][-60:]
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from app.caption import northstars
+        rows += [(r.get("caption") or "").strip() for r in northstars.load()]
+    except Exception:  # noqa: BLE001
+        pass
+    rows = [r for r in dict.fromkeys(rows) if r]
+    if not rows:
+        return ""
+    return ("\n\nTHE ONES THAT HIT HARDEST — his highest-rated posts and hand-picked references. "
+            "Tonight's caption lives at THIS level and sounds exactly like these (never re-telling "
+            "any of them):\n\n" + "\n\n".join(rows) + "\n")
 
 
 def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
@@ -760,9 +788,7 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
             "past shouldn't be able to tell tonight's post from these. Don't re-tell any "
             "specific joke that's already in here — everything else about how these sound and "
             "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
-    ns_block = northstars.block()
-    bar = (f"\n\nTHE BAR — captions the operator holds up as the standard (match their level; "
-           f"don't reuse their premises):\n{ns_block}\n" if ns_block else "")
+    hitters = _hitters_block()
     taken = _taken_block()
     user = (
         (f"Lean (soft): {note}\n\n" if note else "")
@@ -807,7 +833,7 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         return starts_you or you_count >= 2
 
     def run_engine(eng: dict) -> tuple[str, list[str]]:
-        system = persona() + wall + ch.charter(eng["id"]) + bar + _V3_TAIL
+        system = persona() + wall + hitters + ch.charter(eng["id"]) + _V3_TAIL
 
         def one(extra: str = "") -> list[str]:
             out_text = complete_json(system, user + extra, effort="high", max_tokens=4000,
