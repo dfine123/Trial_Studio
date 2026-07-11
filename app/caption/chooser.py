@@ -24,7 +24,7 @@ _PICK_TAIL = """
 
 PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge it like a reader, not a writer:
 
-A line that's ALIVE beats a line that's WISE. A scene with a reply, a quote getting flipped, a behavior caught exactly, a flex held with a straight face — those get sent. A well-worded observation about life, however true, is a poster: it collects a nod and gets scrolled. If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. Never pick a line BECAUSE it sounds smart — sounding smart is a warning sign here, not a credential.
+A line that's ALIVE beats a line that's WISE. A scene with a reply, a quote getting flipped, a behavior caught exactly, a flex held with a straight face — those get sent. A well-worded observation about life is a poster: it collects a nod and gets scrolled. If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. Never pick a line BECAUSE it sounds smart — sounding smart is a warning sign, not a credential. (A sincere jab still counts as alive when it stings someone specific and turns at the end — wise-sounding is only disqualifying when nothing actually happens in the line.)
 
 A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). Any format can win — dialogue, list, one-liner, would-you-rather, sincere jab — judge the landing, never the length or the shape.
 
