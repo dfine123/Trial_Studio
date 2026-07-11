@@ -97,6 +97,16 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐⭐⭐ REFERENCE DOMINATION AT MAXIMUM (2026-07-10, commits 01808a1+36d654a) — THE current
+  prompt architecture.** Operator: "align WAY more with the original references and the highly
+  graded ones." Each engine's context is now dominated by HIS material: persona + THE FEED (full
+  corpus, next-post framing) + **THE ONES THAT HIT HARDEST** (north stars + grade-validated refs,
+  capped 60, END-of-context salience: "tonight lives at THIS level") + KERNEL charters (one
+  interaction, 2-4 plain sentences) + compressed tail (measured laws only). Verified blind
+  side-by-side: GENs sit in the feed (median 18w vs refs 18.5, native 🥷 lexicon, beat lines).
+  Fixed live: menace typed "(beat)" literally → "the empty line IS the pause". LAW: when
+  alignment drifts, CUT instructions and ELEVATE references — instruction mass competes with
+  reference mass; never fix drift by adding prompt text.
 - **LEXICON (2026-07-10, commit 6f4be67, operator rule):** when the broke are the subject it's
   **"broke mfs" / "broke 🥷s"** — never "a broke dude" (was a generated tic). Lives in the MIRROR
   charter + the shared v3 tail; verified 0 occurrences post-fix.
