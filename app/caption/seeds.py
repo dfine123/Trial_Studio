@@ -115,6 +115,23 @@ BANK = [
     "a secret santa", "a new year's kiss", "a resolution list", "a countdown clock",
     "a leap year", "daylight savings", "a sundial", "an hourglass", "a grandfather clock",
     "a cuckoo clock", "a stopwatch", "an alarm clock", "a snooze button", "jet lag",
+    # ── people & tensions (the winners' world is people, not products — 2026-07-10) ──
+    "a bro's new girlfriend", "the quiet guy in the group chat", "a hater from high school",
+    "her dad", "a cousin with a scheme", "the friend who never has cash", "a wingman",
+    "the guy who peaked in high school", "a former teacher seeing you now", "the family skeptic",
+    "a rich uncle", "a broke landlord", "the neighbor with the boat", "a trust fund kid",
+    "the friend with a podcast", "a girl's best friend", "the ex who doubted you",
+    "the boys' annual trip", "a bro going through it", "the one married friend",
+    "the friend who's always 'about to launch'", "a gym bro", "the coworker who snitches",
+    "an old boss", "the guy still asking for the homework", "a girlfriend's mother",
+    "the friend who found a guru", "a bro's terrible investment", "the group chat economist",
+    "the guy who knows a guy", "a barber's opinions", "an uber driver's life story",
+    "the youngest guy at the table", "the oldest intern", "a nephew asking questions",
+    "the friend who moved away", "a bro's wedding", "the one who made it out",
+    "a doubter at thanksgiving", "the friend who counts your drinks", "a valet's judgment",
+    "the girl from the DMs", "a waiter watching the bill land", "the plug's business hours",
+    "a pastor's side hustle", "the loudest guy at the casino", "a bouncer's memory",
+    "the accountant's sigh", "a loan officer's face", "the dealership guy's handshake",
 ]
 BANK = list(dict.fromkeys(BANK))   # dedupe, order-preserving
 

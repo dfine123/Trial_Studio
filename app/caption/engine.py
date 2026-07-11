@@ -545,11 +545,13 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
         listing = "\n\n".join(f"PAIR {j}:\n  [0] " + p[0].replace("\n", " / ")
                               + "\n  [1] " + p[1].replace("\n", " / ")
                               for j, (_, p) in enumerate(real))
-        sys_p = (persona() + "\n\nYou typed two takes of each idea below. For each pair pick the "
-                 "take you'd ACTUALLY post — the one that lands read cold; said, not written; the "
-                 "last five words decide. A take whose referents drift mid-line always loses; when "
-                 "takes are close, the one whose specific is NAMED and exact beats the one with a "
-                 "vague stand-in. "
+        sys_p = (persona() + "\n\nYou typed two takes of each idea below. For each pair, read both "
+                 "OUT LOUD once and pick the one you'd ACTUALLY post — the one that lands on the "
+                 "first pass: sounds like a guy talking, doesn't run out of breath, says exactly "
+                 "enough and nothing extra. A take whose referents drift mid-line always loses; a "
+                 "take that needs a second read to parse always loses; when takes are close, the "
+                 "one whose specific is NAMED and exact beats the vague one, and the shorter one "
+                 "beats the longer one. "
                  "Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
         try:
             out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
@@ -714,7 +716,7 @@ THE TASK: write the caption you're posting tonight — as yourself, start to fin
 
 The message below hands you a VARIATION SEED. The seed is not a topic and not an instruction — it exists only to knock your brain off its default path: an association it unlocks, a texture, a specific it makes you reach for, an angle you wouldn't have taken. Let it trigger ONE association, then walk at least two steps away from it and write from THERE. HARD RULE: the seed's words never appear in the caption, and the seed's world is never the caption's subject — if the reader could guess the seed from the caption, you obeyed it instead of drifting from it, and the caption is void. The finished caption owes the seed NOTHING.
 
-Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Both takes hold the bar: one exhale (or deliberate line-break beats where the timing lives), ending ON the concrete punch — a number, an object, a quoted word — with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself.
+Write it TWO different finished ways you might actually post it — two genuinely different takes, so the better landing can win; the difference between a 4 and a 9 is usually the last five words. Before you keep either take, say it out loud once: it lands on the first pass — nobody re-reads it, nobody runs out of breath, and nothing the joke needs is missing. Exactly enough words; if it wants more room, give it a new beat (a second sentence, a line break), never a longer sentence. End on the thing itself with nothing after it; the lesson never named; the reader never the defendant — he's watching you and your world, and he does the last step himself.
 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
 
@@ -772,6 +774,16 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
         low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
         return any(w in low for w in _seed_words)
 
+    def _is_runon(t: str) -> bool:
+        """The operator's biggest-gap test (2026-07-10): winners read aloud ONCE and land —
+        median 18 words, one breath, or explicit beats. A long unbroken prose sentence is the
+        run-on disease ('ive read it 4 times' — his round-7 note). Conservative: line-broken
+        captions never flag; the bar is a single breathless 28+ word sentence."""
+        raw = (t or "").strip()
+        if "\n" in raw:
+            return False
+        return len(raw.split()) > 28
+
     def _is_lecture(t: str) -> bool:
         """Reader-as-defendant register — the one stance the 59-winner pool contains ZERO of
         (winners' 'you' is a game, a foil, a flattered dreamer, or an institution's victim;
@@ -817,6 +829,14 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
                             "full chest — and let him catch himself watching.")
                 if retry and not any(_is_lecture(t) for t in retry):
                     takes = retry   # fail-open: keep the original if the retry still lectures
+            if takes and any(_is_runon(t) for t in takes):
+                print(f"[v3] engine {eng['id']} ran on — retyping aloud", flush=True)
+                retry = one("\n\nYour previous attempt runs on — nobody can say it out loud in "
+                            "one pass. Retype it the way you'd actually say it: exactly enough "
+                            "words, and if the point needs more room, give it a new beat (a "
+                            "second sentence, a line break) — never a longer sentence.")
+                if retry and not any(_is_runon(t) for t in retry):
+                    takes = retry   # fail-open: keep the original if the retry still runs on
             return eng["id"], takes
         except Exception as ex:  # noqa: BLE001 — one engine failing must not sink the set
             print(f"[v3] engine {eng['id']} failed: {ex}", flush=True)
