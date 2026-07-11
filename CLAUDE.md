@@ -97,6 +97,17 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐⭐ CONFORMANCE-FIRST (2026-07-10, commits f6268de+c52ee7c).** Operator: "still super far
+  off the references — re-align." ROOT: the freshness apparatus (USED-ground wall framing, burned-
+  territory blocks, used-up charter closers, novelty-pushing seeds) had ENGINEERED output out of
+  the reference distribution — but the voice IS a distribution (conformance over novelty is his
+  standing taste; guards handle copies mechanically, prompts never needed anti-reference
+  pressure). REFRAMED: wall = HIS FEED, tonight = THE NEXT POST (indistinguishable to a
+  follower); charters → anti-repeat + reads-like-you; seamless-feed last check. **Blind
+  side-by-side (gen shuffled among real refs) is now the standard verification** — it caught
+  X-is-just-Y returning (kill-shape naming lived in the old voice_core v3 never sees → now in
+  the shared tail). Residual: refs skew ~12 words vs gen 19 — watch. LAW: anti-reference
+  pressure never belongs in prompts; copies are the guards' job, conformance is the prompt's job.
 - **⭐⭐⭐ ROUND 8 + THE CHOOSER MONOCULTURE (2026-07-10, commits 0c16e4b+2c23c33).** Operator's
   disappointed 25-grade round (Check, mean ~2.7) forensics: **the chooser picked the SCREENSHOT
   engine 24/25** — he graded one lane's bare aphorisms while 94 options (every menace scene/send
