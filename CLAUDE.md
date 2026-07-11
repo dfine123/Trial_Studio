@@ -97,6 +97,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐ ROUND 8 + THE CHOOSER MONOCULTURE (2026-07-10, commits 0c16e4b+2c23c33).** Operator's
+  disappointed 25-grade round (Check, mean ~2.7) forensics: **the chooser picked the SCREENSHOT
+  engine 24/25** — he graded one lane's bare aphorisms while 94 options (every menace scene/send
+  roast/mirror catch) sat ungraded; the operator grades the DEFAULT, so chooser lane-bias decides
+  what the system looks like to him. Plus he'd been generating on Check's stale persona/corpus.
+  His notes = THE PACKAGING LAW: premises good ×9, but "doesnt hit in any way a proven format or
+  progression does" / "over-trimming... needs better delivery/packaging" — a good subject stated
+  bare isn't a caption. FIXES: chooser = ALIVE BEATS WISE (+ sincere-jab balance clause);
+  packaging law in the screenshot charter; **Check voice → Base** (staleness class closed);
+  learn captured his rewrites (corpus 162). Post-fix picks spread 2/1 across engines. ⚠️ living
+  chooser-eval matched only 4 stale cases (not comparable to 0.273) — next graded round
+  arbitrates; rerun the frozen-set replay before further chooser edits. STANDING: monoculture in
+  a graded round → check the chooser's engine distribution FIRST.
 - **⭐⭐⭐ NATURAL-YET-SUFFICIENT (2026-07-10, commit e2965bf) — the operator's named biggest gap.**
   Winners pass the READ-ALOUD-ONCE test (median 18 words, one breath or explicit beats; more room
   = a NEW BEAT, never a longer sentence); our output was 23-word breathless prose. Also: HE
