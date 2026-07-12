@@ -36,14 +36,17 @@ def _handle(token: str, msg: dict) -> None:
     text = msg.get("text") or msg.get("caption") or ""
     url = find_reel_url(text)
     if not url:
+        print(f"[tg] message with no reel link: {text[:80]!r}", flush=True)
         _send(token, chat_id,
               "send me an instagram reel link and i'll recreate it for every reference-active "
               "profile (same audio, recreated caption) and drop the results in each profile's "
               "Drive under references/")
         return
+    print(f"[tg] reel link received: {url}", flush=True)
     _send(token, chat_id, "on it 🫡")
 
     def notify(s: str) -> None:
+        print(f"[tg] {s.splitlines()[0][:120]}", flush=True)
         _send(token, chat_id, s)
 
     def work() -> None:
@@ -53,6 +56,8 @@ def _handle(token: str, msg: dict) -> None:
             if results:
                 _send(token, chat_id, f"done — {ok}/{len(results)} recreations in Drive")
         except Exception as ex:  # noqa: BLE001
+            import traceback
+            print(f"[tg] intake failed: {ex}\n{traceback.format_exc()}", flush=True)
             _send(token, chat_id, f"intake failed: {str(ex)[:300]}")
 
     threading.Thread(target=work, daemon=True).start()
@@ -69,7 +74,11 @@ def _loop(token: str, allowed_id: int) -> None:
                 offset = max(offset, int(u.get("update_id", 0)) + 1)
                 msg = u.get("message") or {}
                 if ((msg.get("from") or {}).get("id")) != allowed_id:
-                    continue   # operator-only, silently
+                    # operator-only: no reply, but log the id so a mis-set
+                    # TELEGRAM_ALLOWED_USER_ID is diagnosable from Railway logs
+                    print(f"[tg] ignored message from user "
+                          f"{(msg.get('from') or {}).get('id')}", flush=True)
+                    continue
                 _handle(token, msg)
         except Exception as ex:  # noqa: BLE001
             print(f"[tg] poll error: {ex}", flush=True)
