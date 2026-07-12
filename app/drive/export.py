@@ -51,6 +51,18 @@ def ensure_profile_folder(pid) -> str:
     return fid
 
 
+def upload_reference(pid, mp4_path: str, stem: str) -> dict:
+    """Upload a REFERENCE RECREATION into '<profile folder>/references' (created lazily). Same
+    OAuth-as-operator flow as validated exports; separate subfolder so recreations never mix
+    with validated originals."""
+    from app.drive import gdrive
+    svc = gdrive._user_service()
+    profile_fid = ensure_profile_folder(pid)
+    ref_fid = gdrive.ensure_folder(svc, "references", profile_fid)
+    up = gdrive.upload_file(svc, mp4_path, ref_fid, name=stem + ".mp4")
+    return {"link": up.get("link"), "file_id": up.get("id"), "folder_id": ref_fid}
+
+
 def upload_validated(pid, mp4_path: str, stem: str, caption: str | None = None) -> dict:
     """Upload a validated reel into the profile's export folder. Just the mp4 — the caption is baked
     into the video and logged in validated.jsonl; sidecar files only cluttered the folder. Returns

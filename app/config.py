@@ -70,6 +70,10 @@ class Settings(BaseSettings):
                                                   # precision — the class is sloppy-mapping (taste), not parse
                                                   # failure; a judge can't split it from absurdism. Kept for
                                                   # future re-tests via /api/debug/gate-check.
+    # ── Telegram reference-intake bot (operator-only; values live in Railway env — repo is public) ──
+    telegram_bot_token: str = ""                  # bot API token (BotFather); empty = bot disabled
+    telegram_allowed_user_id: str = ""            # the ONLY Telegram user the bot listens to
+
     reskin_check: str = "drop"                    # 'drop' | 'log' | 'off' — IDENTITY-only screen for semantic
                                                   # re-skins (same joke wearing new nouns) that word-overlap
                                                   # guards can't see (the raccoons->hyenas class, 2026-07-10

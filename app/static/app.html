@@ -323,6 +323,7 @@
             <label class="u-label rail-label" for="count">How many reels</label>
             <div class="stepper"><button type="button" class="step" data-d="-1" aria-label="fewer">−</button><input id="count" type="number" min="1" max="12" value="1" /><button type="button" class="step" data-d="1" aria-label="more">+</button></div>
             <label class="blanktoggle"><input type="checkbox" id="blankcap" /><span class="bt-track"><span class="bt-thumb"></span></span>Blank captions<span class="bt-sub">— no text overlay</span></label>
+            <label class="blanktoggle"><input type="checkbox" id="refactive" /><span class="bt-track"><span class="bt-thumb"></span></span>Reference active<span class="bt-sub">— telegram recreations</span></label>
             <button class="btn btn-primary btn-block cta" id="gen">Generate reels</button>
             <div class="status" id="gstatus"></div>
           </div>
@@ -900,6 +901,16 @@ async function loadShotStyle() {
   try {
     const s = await (await fetch(`/api/profiles/${active}/settings`)).json();
     document.getElementById('shotstyle').value = String(s.max_shots || 0);
+    const ra = document.getElementById('refactive');
+    if (ra) {
+      ra.checked = !!s.reference_active;
+      ra.onchange = async () => {
+        await fetch(`/api/profiles/${active}/settings`, { method:'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({ reference_active: ra.checked }) });
+        toast(ra.checked ? 'Profile added to telegram recreations' : 'Profile removed from telegram recreations');
+      };
+    }
   } catch (_) {}
 }
 document.getElementById('shotstyle').onchange = async (e) => {

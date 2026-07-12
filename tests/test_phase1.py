@@ -822,6 +822,45 @@ def recent_vehicles_detects_leaned_on_lanes():
         assert engine._recent_vehicles() == ""
 
 
+# ─── Reference intake (Telegram bot pipeline) ───
+
+@test
+def reference_intake_url_and_personalize():
+    from app.reference import intake
+    # URL extraction: reels/p/share forms, trailing junk stripped, non-IG rejected
+    assert intake.find_reel_url("check this https://www.instagram.com/reel/ABC123xyz/?igsh=1 out") \
+        == "https://www.instagram.com/reel/ABC123xyz/?igsh=1"
+    assert intake.find_reel_url("https://instagram.com/p/XYZ_789/").startswith("https://instagram.com/p/")
+    assert intake.find_reel_url("https://youtube.com/watch?v=abc") is None
+    assert intake.find_reel_url("no link here") is None
+    # personalization DEFAULTS to 1:1 copy; a blank persona short-circuits without any LLM call
+    import app.profiles as profiles_mod
+    with patched(profiles_mod, read_persona=lambda pid: ""):
+        assert intake.personalize_caption("exact caption text", "pid-1") == "exact caption text"
+    # fail-open: an LLM error returns the original untouched
+    import app.caption.llm as llm_mod
+    def boom(*a, **k):
+        raise RuntimeError("llm down")
+    with patched(profiles_mod, read_persona=lambda pid: "a persona"), \
+         patched(llm_mod, complete_json=boom):
+        assert intake.personalize_caption("exact caption text", "pid-1") == "exact caption text"
+
+
+@test
+def reference_active_toggle_roundtrip():
+    import tempfile as _tf
+    from app import profiles as profiles_mod
+    with _tf.TemporaryDirectory() as td:
+        fake_uuid = uuid.uuid4() if "uuid" in dir() else __import__("uuid").uuid4()
+        path = os.path.join(td, "profile_settings.json")
+        with patched(profiles_mod, voice_file=lambda name, pid=None: path,
+                     active_id=lambda: fake_uuid):
+            profiles_mod.set_profile_settings({"reference_active": True}, fake_uuid)
+            assert profiles_mod.profile_settings(fake_uuid).get("reference_active") is True
+            profiles_mod.set_profile_settings({"reference_active": False}, fake_uuid)
+            assert profiles_mod.profile_settings(fake_uuid).get("reference_active") is False
+
+
 # ─── Recaption: operator picks a different caption option ───
 
 @test

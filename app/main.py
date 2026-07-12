@@ -153,6 +153,12 @@ async def lifespan(app: FastAPI):
             demo.boot()
         except Exception as exc:  # noqa: BLE001 — boot must not block; /health still comes up
             print(f"[demo] boot seed failed: {exc}", flush=True)
+    try:    # Telegram reference-intake bot (operator-only; no-op unless env creds are set)
+        from app.reference.telegram import start_bot_if_configured
+        if start_bot_if_configured():
+            print("[tg] reference bot started", flush=True)
+    except Exception as exc:  # noqa: BLE001 — the bot must never block boot
+        print(f"[tg] bot start failed: {exc}", flush=True)
     yield
 
 
@@ -2050,7 +2056,8 @@ def api_debug_corpus_add(req: CorpusAdd):
 
 
 class ProfileSettings(BaseModel):
-    max_shots: int | None = None   # 1-2 for single-clip profiles; None/0 = mashup (unbounded)
+    max_shots: int | None = None          # 1-2 for single-clip profiles; None/0 = mashup (unbounded)
+    reference_active: bool | None = None  # include this profile in Telegram reference recreations
 
 
 @app.get("/api/profiles/{pid}/settings")
@@ -2060,11 +2067,33 @@ def api_profile_settings_get(pid: str):
 
 @app.post("/api/profiles/{pid}/settings")
 def api_profile_settings_set(pid: str, req: ProfileSettings):
-    """PROFILE-owned style knobs (max_shots for 1-2 clip profiles). Own-profile file — style
-    follows the creator's footage, independent of the borrowed voice."""
-    ms = req.max_shots
-    patch = {"max_shots": (int(ms) if ms and ms > 0 else 0)} if ms is not None else {}
+    """PROFILE-owned style knobs (max_shots for 1-2 clip profiles; reference_active for the
+    Telegram intake bot). Own-profile file — style follows the creator's footage, independent
+    of the borrowed voice."""
+    patch: dict = {}
+    if req.max_shots is not None:
+        patch["max_shots"] = int(req.max_shots) if req.max_shots > 0 else 0
+    if req.reference_active is not None:
+        patch["reference_active"] = bool(req.reference_active)
     return profiles.set_profile_settings(patch, uuid.UUID(pid))
+
+
+class ReferenceIntake(BaseModel):
+    url: str
+
+
+@app.post("/api/debug/reference-intake")
+def api_debug_reference_intake(req: ReferenceIntake):
+    """Run the Telegram intake pipeline directly (testing/manual). Synchronous; long."""
+    if settings.demo_mode:
+        raise HTTPException(status_code=404)
+    from app.reference.intake import find_reel_url, process_reel_link
+    url = find_reel_url(req.url or "")
+    if not url:
+        raise HTTPException(status_code=400, detail="no instagram reel url found")
+    lines: list[str] = []
+    results = process_reel_link(url, notify=lines.append)
+    return {"results": results, "log": lines}
 
 
 class NorthStarAdd(BaseModel):
