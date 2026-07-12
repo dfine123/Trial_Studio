@@ -576,6 +576,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   operator's first-pasted user id was WRONG — the bot silently ignored him until the
   ignored-sender log (46c6723) revealed the real id from the logs; the allowed-id env var now
   holds the verified value.
+- **COHERENT CLIP SELECTION (2026-07-12, commit a914ad4, operator rule after the first live
+  recreations):** "the clips should be consistent across the same car(s) and generally clip
+  setting if applicable" — a recreation must read as ONE scene. The default pipeline is
+  variety-tuned (visual + subject de-dup), which is backwards for recreations. Coherent mode
+  (recreations ONLY; original reels untouched): the matcher ranks ONE subject/setting FAMILY
+  first (`_MATCH_COHERENT_SYS`, listing gains each clip's setting, tag `clip-match-coherent`,
+  no cache-prefix); `select_segments(coherent=True)` skips both de-dup layers, gives similarity
+  to already-playing clips an 8.0 cost BONUS (strong enough to beat several fit positions —
+  3.0 measurably wasn't), and lets a used family clip RE-ENTER rather than importing an
+  off-family one (reuse 4.0 vs coherence 8.0 decides; only back-to-back excluded);
+  temperature 0.8. Test: adversarial interleaved fit ranks — coherent stays in-family 4/4,
+  default spreads (37/37). Live-verified same reference reel re-run via
+  `/api/debug/reference-intake`: 2/2 coherent recreations in Drive.
 - Deferred by operator order: template-style (before/after caption) reels — "for now just focus
   on building the static caption style perfectly."
 
