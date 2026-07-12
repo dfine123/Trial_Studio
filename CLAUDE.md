@@ -589,6 +589,27 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   temperature 0.8. Test: adversarial interleaved fit ranks — coherent stays in-family 4/4,
   default spreads (37/37). Live-verified same reference reel re-run via
   `/api/debug/reference-intake`: 2/2 coherent recreations in Drive.
+- **DYNAMIC-CAPTION RECREATIONS (2026-07-12, commits b83098c+db8625a+13251a7) — setup→payoff
+  references recreate on the reference's own clock.** Detection is automatic:
+  `extract_caption_timeline` (frames ~every 0.5s → ONE vision call → code groups spans; midpoint
+  boundaries, sub-0.8s flicker merge) — 1 span = the static coherent path, 2+ = dynamic.
+  `generate_dynamic_reel`: reel runs the REFERENCE length (cap 40s); a cut is FORCED at every
+  caption change (`split_slots_at`) and the caption PNG windows overlay via the Template-Studio
+  `compose_template_reel`; clips re-match PER PART; clips never repeat across parts.
+  **Operator round-2 fixes (db8625a): (1) TIMING — two-pass boundary extraction** (dense 0.1s
+  refinement pass inside the coarse bracket, ~±0.05s, fail-open; verified vs ground-truth frames
+  on the kevoskoins reference: refined 4.95s, truth ~4.90s, coarse said 5.0) **+ snap the switch
+  to the nearest audio beat ≤0.2s** (same audio → the reference's own musical hit) + caption
+  windows snap to the actual cut. **(2) CLIP INTENT — role-aware part matcher** (`_MATCH_PART_SYS`,
+  tag `clip-match-part`): a low/setup part wants mundane/unglamorous footage, luxury flexes are a
+  BAD fit there (the contrast IS the joke), closest-in-sense fallback when no true "before" clips
+  exist; ⚠️ ROOT CAUSE was reusing the static prompt whose "generic flashy footage =
+  acceptable fallback" line actively pushed flexes under the setup. Selection temp 1.0 in spans.
+  E2E-verified (kevoskoins, IG shortcode reconstructed from the media id via base64-IG alphabet):
+  setup slots picked the balcony-sunset/outdoor-meal (Check) and calm-routine-drive (Austin)
+  clips out of flex-heavy libraries, payoffs got the supercars/jets — 2/2 in Drive. Debug-path
+  observability: every stage + per-part clip picks print as `[ref]` lines (the edge kills long
+  debug responses; logs are the record).
 - Deferred by operator order: template-style (before/after caption) reels — "for now just focus
   on building the static caption style perfectly."
 
