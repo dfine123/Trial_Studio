@@ -178,6 +178,15 @@ _MATCH_SYS = """You match flashy b-roll CLIPS to a CAPTION for a 9:16 reel. The 
 Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
 
 
+_MATCH_PART_SYS = """You match b-roll CLIPS to ONE PART of a multi-part reel caption — an arc shown in sequence (for example a lowly SETUP, then a triumphant PAYOFF). You get the whole arc plus which part is on screen now. Rank the clips by how well each serves THIS PART'S ROLE in the arc:
+- Read the part's mood literally. A struggle / low / "barely surviving" setup wants mundane, neutral, unglamorous, grinding footage — luxury flexes are a BAD fit under a setup no matter how impressive the footage is; the CONTRAST between the parts is the whole joke, and a setup that already flexes kills the payoff.
+- A payoff / win part wants the most impressive footage — that's where the flexes live.
+- What you rank first for a low part should look like a DIFFERENT LIFE from what you'd rank first for a high part.
+If the library has no clearly-matching clips for this part, rank the CLOSEST-in-sense, least-contradicting clips first: for a low part, neutral or mundane beats flashy every time; footage that FIGHTS the part's meaning goes to the bottom.
+
+Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
+
+
 _MATCH_COHERENT_SYS = """You match b-roll CLIPS to a CAPTION for a 9:16 reel that RECREATES a reference video. The caption is the post; the clips play BEHIND it. The recreation must read as ONE COHERENT SCENE: find the strongest clip FAMILY for this caption — the same specific subject (one particular car, one watch, one location) shot across multiple clips, in a consistent setting — and rank that family's clips FIRST (best fit first within the family), then everything else by fit. Consistency beats variety here: the viewer should feel the whole reel was shot in one place, about one thing. Never mix two different cars (or two clearly different settings) inside the top picks when one family has enough clips.
 
 Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
@@ -185,7 +194,8 @@ Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every inde
 
 def _match_clips_to_caption(caption_text: str, clip_meta: dict,
                             clip_quality: dict[str, float] | None = None,
-                            max_clips: int = 160, coherent: bool = False) -> list[str]:
+                            max_clips: int = 160, coherent: bool = False,
+                            dynamic_part: bool = False) -> list[str]:
     """Rank clip_ids by how well each fits behind the caption (clips react to the caption).
 
     Candidates are ordered by clip QUALITY (best segment usability) before the cap, so a large
@@ -218,6 +228,9 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
         if coherent:
             out = complete_json(_MATCH_COHERENT_SYS, clip_block + "\n" + tail,
                                 effort="low", max_tokens=1200, tag="clip-match-coherent")
+        elif dynamic_part:
+            out = complete_json(_MATCH_PART_SYS, tail, effort="low", max_tokens=1200,
+                                tag="clip-match-part", cache_user_prefix=clip_block)
         else:
             out = complete_json(_MATCH_SYS, tail, effort="low", max_tokens=1200, tag="clip-match",
                                 cache_user_prefix=clip_block)
@@ -427,8 +440,26 @@ def generate_dynamic_reel(
     if not segs:
         raise RuntimeError("no indexed segments available to build a reel")
 
+    # the reference switches text on a musical hit — when a beat sits within a hair of the
+    # extracted boundary, flip exactly ON that beat (same audio, so the hit is the same)
+    beats = [b for b in (bp.beat_map or []) if 0.0 < b < reel_dur]
+    for i in range(1, len(spans)):
+        if beats:
+            nb = min(beats, key=lambda x: abs(x - spans[i]["start"]))
+            if abs(nb - spans[i]["start"]) <= 0.2:
+                spans[i]["start"] = round(nb, 3)
+                spans[i - 1]["end"] = spans[i]["start"]
+
     slots = build_slot_plan(bp.beat_map, bp.duration, max_reel=reel_dur)
     slots = split_slots_at(slots, [sp["start"] for sp in spans[1:]])
+    # the caption flips ON the cut: snap each span boundary to the actual cut point (split
+    # guarantees one within min_piece, usually exact) so text and footage switch together
+    cut_pts = [s.start for s in slots[1:]]
+    for i in range(1, len(spans)):
+        if cut_pts:
+            snap = min(cut_pts, key=lambda p: abs(p - spans[i]["start"]))
+            spans[i]["start"] = snap
+            spans[i - 1]["end"] = snap
 
     clip_quality: dict[str, float] = {}
     for s0 in segs:
@@ -445,15 +476,19 @@ def generate_dynamic_reel(
         sp_slots = [s for s in slots if sp["start"] - 0.01 <= (s.start + s.end) / 2.0 < sp["end"]]
         if not sp_slots:
             continue
-        span_caption = (f"This reel's caption arrives in {len(spans)} parts (one joke arc): "
-                        f"{arc}\n\nPART {k + 1} IS ON SCREEN NOW — match the clips to THIS "
-                        f"part's mood and subject:\n{sp['text']}")
-        ranked = _match_clips_to_caption(span_caption, clip_meta, clip_quality)
+        span_caption = (f"THE FULL ARC ({len(spans)} parts, in order): {arc}\n\n"
+                        f"PART {k + 1} of {len(spans)} IS ON SCREEN NOW:\n{sp['text']}\n\n"
+                        "Rank the clips for THIS part's role in the arc.")
+        ranked = _match_clips_to_caption(span_caption, clip_meta, clip_quality,
+                                         dynamic_part=True)
         fit_rank = {cid: i for i, cid in enumerate(ranked)}
         # the mood SHIFTS with the caption — clips from earlier spans never reappear
         sp_segs = [s for s in segs if s["clip_id"] not in used_ids] or segs
         chosen = select_segments(sp_slots, sp_segs, fit_rank=fit_rank, usage=usage,
-                                 clip_emb=clip_emb, clip_dur=clip_dur, clip_text=clip_text)
+                                 clip_emb=clip_emb, clip_dur=clip_dur, clip_text=clip_text,
+                                 # role-fit DOMINATES here — a sampled flex under a setup
+                                 # caption breaks the arc, so near-argmax selection
+                                 temperature=1.0)
         used_ids.update(c["clip_id"] for c in chosen)
         chosen_all.extend(chosen)
     _log_clip_usage([c["clip_id"] for c in chosen_all])

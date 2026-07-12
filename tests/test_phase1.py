@@ -893,6 +893,31 @@ def caption_timeline_groups_spans():
 
 
 @test
+def caption_boundary_refined_to_the_frame():
+    """The switch must align with the reference precisely: the coarse 0.5s scan brackets each
+    transition, then a dense 0.1s pass pins it — a true boundary at 4.32s lands within ±0.06s
+    (a half-second-late flip was the operator's first dynamic complaint)."""
+    from app.reference import intake
+    def fake(video_path, times):
+        return ["even at 1HP…" if t < 4.32 else "still 200 damage." for t in times]
+    with patched(intake, _transcribe_frames=fake):
+        spans = intake.extract_caption_timeline("x.mp4", 20.0)
+    assert len(spans) == 2, spans
+    assert abs(spans[1]["start"] - 4.32) <= 0.06, spans[1]["start"]
+    assert spans[0]["end"] == spans[1]["start"]
+    # refinement failing (vision hiccup) keeps the coarse boundary — never crashes
+    calls = {"n": 0}
+    def flaky(video_path, times):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("vision down")
+        return ["A part" if t < 4.32 else "B part" for t in times]
+    with patched(intake, _transcribe_frames=flaky):
+        spans = intake.extract_caption_timeline("x.mp4", 20.0)
+    assert len(spans) == 2 and abs(spans[1]["start"] - 4.5) < 0.6, spans
+
+
+@test
 def split_slots_forces_cut_at_caption_change():
     """A caption change must land ON a cut: an inside boundary splits its slot; a boundary too
     close to an existing cut slides that cut onto it; reel start/end never move."""

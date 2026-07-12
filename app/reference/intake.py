@@ -134,6 +134,47 @@ def _norm_cap(s: str) -> str:
     return " ".join((s or "").split()).casefold()
 
 
+def _closest(text: str, a: str, b: str) -> str | None:
+    """Classify a transcription as caption A or B (fuzzy — dense-pass reads vary slightly)."""
+    import difflib
+    t, na, nb = _norm_cap(text), _norm_cap(a), _norm_cap(b)
+    if not t:
+        return None
+    ra = difflib.SequenceMatcher(None, t, na).ratio()
+    rb = difflib.SequenceMatcher(None, t, nb).ratio()
+    best, r = ("a", ra) if ra >= rb else ("b", rb)
+    return best if r >= 0.6 else None
+
+
+def _refine_boundary(video_path: str, t_lo: float, t_hi: float,
+                     text_a: str, text_b: str) -> float | None:
+    """Pin a caption transition to ~±0.05s: sample every 0.1s inside the coarse bracket and find
+    the first frame showing caption B. The switch must align with the REFERENCE exactly — a
+    half-second-late caption flip reads as sloppy. Fail-open (None keeps the coarse boundary)."""
+    try:
+        times, t = [], max(0.0, t_lo)
+        while t <= t_hi + 0.001 and len(times) < 16:
+            times.append(round(t, 3))
+            t += 0.1
+        if len(times) < 2:
+            return None
+        caps = _transcribe_frames(video_path, times)
+        last_a, first_b = None, None
+        for t0, c in zip(times, caps):
+            cls = _closest(c, text_a, text_b)
+            if cls == "a":
+                last_a = t0
+            elif cls == "b":
+                first_b = t0
+                break
+        if first_b is None:
+            return None
+        lo = last_a if last_a is not None else max(0.0, first_b - 0.1)
+        return round((lo + first_b) / 2.0, 3)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def extract_caption_timeline(video_path: str, duration: float) -> list[dict]:
     """The reference's caption TIMELINE: [{text, start, end}] in order. A static reel yields one
     span; a dynamic reel (the caption changes partway — e.g. setup → payoff) yields several.
@@ -183,6 +224,16 @@ def extract_caption_timeline(video_path: str, duration: float) -> list[dict]:
     for sp in merged:
         sp.pop("_first_t", None)
         sp.pop("_last_t", None)
+
+    # PRECISION PASS — the coarse boundary sits between two samples a full step apart; a dense
+    # 0.1s pass inside that bracket pins each transition to the reference's actual switch frame
+    for i in range(1, len(merged)):
+        b = merged[i]["start"]
+        refined = _refine_boundary(video_path, b - step / 2.0 - 0.05, b + step / 2.0 + 0.05,
+                                   merged[i - 1]["text"], merged[i]["text"])
+        if refined is not None and 0.2 < refined < duration - 0.2:
+            merged[i]["start"] = refined
+            merged[i - 1]["end"] = refined
     return merged
 
 
@@ -278,7 +329,8 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
         up = drive_export.upload_reference(pid, out_path, stem)
         return {"ok": True, "caption": final_caption, "link": up.get("link"),
-                "duration": res.get("duration")}
+                "duration": res.get("duration"), "clips": res.get("clips"),
+                "spans": res.get("spans")}
     finally:
         profiles.reset_request_uid(token)
 
