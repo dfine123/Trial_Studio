@@ -337,7 +337,15 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
 
 def process_reel_link(url: str, notify=lambda s: None) -> list[dict]:
     """The full intake: download → audio + caption → recreate for every reference-active profile.
-    notify(text) receives human-readable progress (the Telegram bot forwards it)."""
+    notify(text) receives human-readable progress (the Telegram bot forwards it). Every stage
+    ALSO prints to stdout — the debug endpoint's HTTP response dies at the Railway edge on long
+    runs, so the logs are the only reliable observability for those."""
+    _notify = notify
+
+    def notify(s: str) -> None:
+        print(f"[ref] {s.splitlines()[0][:140]}", flush=True)
+        _notify(s)
+
     targets = reference_active_profiles()
     if not targets:
         notify("no profiles are toggled 'reference active' in the studio — nothing to recreate")
@@ -359,6 +367,8 @@ def process_reel_link(url: str, notify=lambda s: None) -> list[dict]:
         try:
             r = recreate_for_profile(t["id"], spans, audio)
             results.append({"profile": t["name"], **r})
+            for c in (r.get("clips") or []):
+                print(f"[ref]   clip: {(c.get('summary') or '')[:110]}", flush=True)
             notify(f"✅ {t['name']} — done" + (f"\n{r['link']}" if r.get("link") else ""))
         except Exception as ex:  # noqa: BLE001
             results.append({"profile": t["name"], "ok": False, "error": str(ex)[:200]})
