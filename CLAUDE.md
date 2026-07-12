@@ -571,6 +571,11 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   10s backoff, but every probe steals a poll cycle). `sendMessage` 400 "chat not found" = the
   operator hasn't pressed Start yet — bots can't initiate chats; harmless, the bot only ever
   replies.
+- **E2E verified live 2026-07-12**: operator's real IG link → download → caption transcribed →
+  2/2 recreations (Check + Austin) rendered and uploaded to Drive. Gotcha closed en route: the
+  operator's first-pasted user id was WRONG — the bot silently ignored him until the
+  ignored-sender log (46c6723) revealed the real id from the logs; the allowed-id env var now
+  holds the verified value.
 - Deferred by operator order: template-style (before/after caption) reels — "for now just focus
   on building the static caption style perfectly."
 
