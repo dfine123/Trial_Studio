@@ -178,14 +178,23 @@ _MATCH_SYS = """You match flashy b-roll CLIPS to a CAPTION for a 9:16 reel. The 
 Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
 
 
+_MATCH_COHERENT_SYS = """You match b-roll CLIPS to a CAPTION for a 9:16 reel that RECREATES a reference video. The caption is the post; the clips play BEHIND it. The recreation must read as ONE COHERENT SCENE: find the strongest clip FAMILY for this caption — the same specific subject (one particular car, one watch, one location) shot across multiple clips, in a consistent setting — and rank that family's clips FIRST (best fit first within the family), then everything else by fit. Consistency beats variety here: the viewer should feel the whole reel was shot in one place, about one thing. Never mix two different cars (or two clearly different settings) inside the top picks when one family has enough clips.
+
+Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
+
+
 def _match_clips_to_caption(caption_text: str, clip_meta: dict,
                             clip_quality: dict[str, float] | None = None,
-                            max_clips: int = 160) -> list[str]:
+                            max_clips: int = 160, coherent: bool = False) -> list[str]:
     """Rank clip_ids by how well each fits behind the caption (clips react to the caption).
 
     Candidates are ordered by clip QUALITY (best segment usability) before the cap, so a large
     library offers the ranker its most watchable footage — and if the ranking call fails, the
-    fallback order is that same quality order, never arbitrary DB order."""
+    fallback order is that same quality order, never arbitrary DB order.
+
+    `coherent` (reference recreations): rank ONE subject/setting family first so the reel reads
+    as a single scene — the listing gains each clip's setting, and the prompt cache is skipped
+    (different bytes from the standard listing; recreations are rare, a write isn't worth it)."""
     q = clip_quality or {}
     # deterministic order (quality desc, id tiebreak) — the clip LISTING is byte-stable between
     # reels, so it rides the prompt cache as a user-prefix block (~11.7k tokens at ~10% on reuse);
@@ -198,12 +207,20 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
     for i, (_cid, m) in enumerate(items):
         summ = (m.get("summary") or "").strip().replace("\n", " ")[:160]
         vibe = ", ".join((m.get("vibe_tags") or [])[:6])
-        lines.append(f"[{i}] {summ}  | vibe: {vibe}")
+        if coherent:
+            setting = (m.get("setting") or "").strip().replace("\n", " ")[:60]
+            lines.append(f"[{i}] {summ}  | setting: {setting}  | vibe: {vibe}")
+        else:
+            lines.append(f"[{i}] {summ}  | vibe: {vibe}")
     clip_block = "CLIPS:\n" + "\n".join(lines)
     tail = f"\nCAPTION:\n{caption_text}\n\nRank the clips above for THIS caption."
     try:
-        out = complete_json(_MATCH_SYS, tail, effort="low", max_tokens=1200, tag="clip-match",
-                            cache_user_prefix=clip_block)
+        if coherent:
+            out = complete_json(_MATCH_COHERENT_SYS, clip_block + "\n" + tail,
+                                effort="low", max_tokens=1200, tag="clip-match-coherent")
+        else:
+            out = complete_json(_MATCH_SYS, tail, effort="low", max_tokens=1200, tag="clip-match",
+                                cache_user_prefix=clip_block)
         start, end = out.find("{"), out.rfind("}")
         order = json.loads(out[start:end + 1]).get("ranked", []) if start != -1 else []
         ranked = [items[i][0] for i in order if isinstance(i, int) and 0 <= i < len(items)]
@@ -279,6 +296,7 @@ def generate_reel(
     clip_ids: list[str] | None = None,
     work_png: str = "tmp/reel_caption.png",
     batch_clip_used: dict[str, int] | None = None,
+    coherent_clips: bool = False,
 ) -> dict:
     bp = profile.analyze(audio_path)
 
@@ -318,7 +336,8 @@ def generate_reel(
         u = s0.get("usability_score") or 0.0
         if u > clip_quality.get(s0["clip_id"], 0.0):
             clip_quality[s0["clip_id"]] = u
-    ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta, clip_quality)
+    ranked = [] if no_caption else _match_clips_to_caption(caption_text, clip_meta, clip_quality,
+                                                           coherent=coherent_clips)
     fit_rank = {cid: i for i, cid in enumerate(ranked)}   # clip_id -> fit position (0 = best for this caption)
     clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
     # BATCH-SHARED clip ledger: parallel renders load the SAME clip_usage.json snapshot, so
@@ -334,7 +353,10 @@ def generate_reel(
             usage[cid] = usage.get(cid, 0) + 3 * cnt
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
                              fit_rank=fit_rank, usage=usage, clip_emb=clip_emb,
-                             clip_dur=clip_dur, clip_text=clip_text)
+                             clip_dur=clip_dur, clip_text=clip_text,
+                             coherent=coherent_clips,
+                             # tighter sampling in coherent mode — stay in the family
+                             temperature=0.8 if coherent_clips else 2.0)
     _log_clip_usage([c["clip_id"] for c in chosen])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:

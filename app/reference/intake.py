@@ -166,6 +166,9 @@ def recreate_for_profile(pid, caption: str, audio_path: str) -> dict:
             audio_path=audio_path, niche="", out_path=out_path,
             caption_text=final_caption,
             work_png=os.path.join(_WORK, f"cap_{uuid.uuid4().hex[:8]}.png"),
+            # recreations read as ONE scene — same car(s), same setting (operator rule);
+            # the variety machinery is for original reels, not recreations
+            coherent_clips=True,
         )
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
         up = drive_export.upload_reference(pid, out_path, stem)

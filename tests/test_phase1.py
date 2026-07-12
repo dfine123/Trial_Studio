@@ -861,6 +861,40 @@ def reference_active_toggle_roundtrip():
             assert profiles_mod.profile_settings(fake_uuid).get("reference_active") is False
 
 
+@test
+def coherent_selection_stays_in_family():
+    """Reference recreations read as ONE scene: coherent mode keeps picks inside one visual
+    family (same car / same setting) while default mode spreads across families."""
+    import random as _random
+    from app.generate.sequencer import Slot, select_segments
+    # two families: A-clips mutually similar (same car), B-clips mutually similar, A⊥B.
+    # interleaved fit ranks so fit alone doesn't decide the family.
+    vec = {"a1": [1, 0.9, 0], "a2": [0.9, 1, 0], "a3": [1, 1, 0.1],
+           "b1": [0, 0.1, 1], "b2": [0.1, 0, 1], "b3": [0, 0, 1]}
+    text = {"a1": "black porsche 911 night city street", "a2": "black porsche 911 parking garage",
+            "a3": "black porsche 911 interior dash", "b1": "gold rolex watch macro wrist",
+            "b2": "gold rolex watch closeup table", "b3": "gold rolex watch box unboxing"}
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in vec]
+    slots = [Slot(i, i * 2.0, i * 2.0 + 2.0) for i in range(4)]
+    fit = {"a1": 0, "b1": 1, "a2": 2, "b2": 3, "a3": 4, "b3": 5}
+    dur = {c: 8.0 for c in vec}
+    _random.seed(7)
+    coh = select_segments(slots, segs, fit_rank=fit, clip_emb=vec, clip_dur=dur,
+                          clip_text=text, coherent=True, temperature=0.8)
+    fams = {c["clip_id"][0] for c in coh}
+    # a1 leads on fit; the similarity bonus + no subject de-dup must keep the reel in family A
+    assert fams == {"a"}, f"coherent mode left the family: {[c['clip_id'] for c in coh]}"
+    # default mode: subject de-dup forbids a second same-family clip while others remain —
+    # the same inputs MUST spread across families
+    _random.seed(7)
+    dev = select_segments(slots, segs, fit_rank=fit, clip_emb=vec, clip_dur=dur,
+                          clip_text=text, temperature=2.0)
+    fams_d = {c["clip_id"][0] for c in dev}
+    assert fams_d == {"a", "b"}, f"default mode failed to spread: {[c['clip_id'] for c in dev]}"
+
+
 # ─── Recaption: operator picks a different caption option ───
 
 @test

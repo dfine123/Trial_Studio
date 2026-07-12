@@ -143,6 +143,7 @@ def select_segments(
     clip_emb: dict[str, list] | None = None,
     clip_dur: dict[str, float] | None = None,
     clip_text: dict[str, str] | None = None,
+    coherent: bool = False,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -152,7 +153,12 @@ def select_segments(
     instead of the fit ranker (a single greedy call that structurally CAN'T create variety) landing on the
     same hero clips every time. Higher `temperature` = more variety; clearly-bad-fit clips stay rare.
     Shots prefer clips UNUSED in this reel (no repeats, no first/last bookend) with graceful fallbacks
-    for tiny libraries; blank reels (empty fit_rank) sample on pure freshness. Returns the reel sequence."""
+    for tiny libraries; blank reels (empty fit_rank) sample on pure freshness. Returns the reel sequence.
+
+    `coherent` (reference recreations): the reel should read as ONE scene — same subject (the
+    same car), same setting. The variety machinery inverts: visual/subject de-dup is skipped and
+    candidates that LOOK like what's already playing get a cost bonus, so picks stay in-family.
+    Distinct-clip preference and the quality floor still apply."""
     want = {t.lower() for t in (caption_vibe_tags or [])}
     fit_rank = fit_rank or {}
     usage = usage or {}
@@ -161,13 +167,20 @@ def select_segments(
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
 
-    def cost(s: dict, clip_used: dict[str, int]) -> float:
+    def cost(s: dict, clip_used: dict[str, int], used_vecs: list[list]) -> float:
         cid = s["clip_id"]
-        return (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
+        base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + 4.0 * clip_used.get(cid, 0)                      # strong: distinct shots within a reel
                 + 1.5 * usage.get(cid, 0)                          # rotate across reels
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
+        if coherent and used_vecs and clip_emb:
+            # stick with the same look: similarity to what's already playing is a BONUS strong
+            # enough to beat several fit positions — once the first clip sets the scene, staying
+            # in its family outranks a nominally-better-fitting clip from a different one
+            sim = max((_cos(clip_emb.get(cid) or [], v) for v in used_vecs), default=0.0)
+            base -= 8.0 * sim
+        return base
 
     chosen: list[dict] = []
     clip_used: dict[str, int] = {}
@@ -198,20 +211,26 @@ def select_segments(
         prev_clip = chosen[-1]["clip_id"] if chosen else None
         fresh = [s for s in pool if s["clip_id"] not in clip_used]
         cands = fresh
-        if fresh and used_vecs and clip_emb:
-            thr = settings.clip_sim_threshold
-            visually = [s for s in fresh
-                        if max((_cos(clip_emb.get(s["clip_id"]) or [], v) for v in used_vecs), default=0.0) < thr]
-            cands = visually or fresh
-        if cands and used_words and clip_text:
-            # SUBJECT de-dup: two different clips starring the same subject read as "the same
-            # clip twice" to a viewer even when their embeddings are unrelated (different scene)
-            subject_fresh = [s for s in cands
-                             if not any(_same_subject(word_sets.get(s["clip_id"]) or set(), uw)
-                                        for uw in used_words)]
-            cands = subject_fresh or cands
+        if coherent:
+            # ONE scene beats fresh footage: a used family clip may re-enter (the 4.0 reuse
+            # penalty vs the 8.0 similarity bonus decides) rather than forcing an off-family
+            # clip in just because it's unused. Only back-to-back repeats stay excluded.
+            cands = [s for s in pool if s["clip_id"] != prev_clip] or pool
+        else:
+            if fresh and used_vecs and clip_emb:
+                thr = settings.clip_sim_threshold
+                visually = [s for s in fresh
+                            if max((_cos(clip_emb.get(s["clip_id"]) or [], v) for v in used_vecs), default=0.0) < thr]
+                cands = visually or fresh
+            if cands and used_words and clip_text:
+                # SUBJECT de-dup: two different clips starring the same subject read as "the same
+                # clip twice" to a viewer even when their embeddings are unrelated (different scene)
+                subject_fresh = [s for s in cands
+                                 if not any(_same_subject(word_sets.get(s["clip_id"]) or set(), uw)
+                                            for uw in used_words)]
+                cands = subject_fresh or cands
         cands = cands or [s for s in pool if s["clip_id"] != prev_clip] or pool
-        costs = [cost(s, clip_used) for s in cands]
+        costs = [cost(s, clip_used, used_vecs) for s in cands]
         lo = min(costs)
         weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
         seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced
