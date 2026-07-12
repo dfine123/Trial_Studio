@@ -565,10 +565,12 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   **vars live on the PROD service only** (⚠️ the CLI links to Trial-Studio-Demo by default from
   this dir — pass `--service Trial_Studio` for prod ops; the first var-set silently landed on demo).
 - Per-profile scoping rides `profiles.set_request_uid(pid)` (the demo-mode ContextVar), so each
-  recreation generates from THAT profile's clips. Verification probe: an external
-  `getUpdates?timeout=0` call returns **409 conflict when the server's poller is live** (it owns
-  the long-poll). `sendMessage` 400 "chat not found" = the operator hasn't pressed Start yet —
-  bots can't initiate chats; harmless, the bot only ever replies.
+  recreation generates from THAT profile's clips. Verify the poller via
+  `railway logs --service Trial_Studio` → `[tg] reference bot polling` — ⚠️ NEVER probe
+  `getUpdates` externally: a second consumer 409-conflicts the LIVE poller (the loop self-heals,
+  10s backoff, but every probe steals a poll cycle). `sendMessage` 400 "chat not found" = the
+  operator hasn't pressed Start yet — bots can't initiate chats; harmless, the bot only ever
+  replies.
 - Deferred by operator order: template-style (before/after caption) reels — "for now just focus
   on building the static caption style perfectly."
 
