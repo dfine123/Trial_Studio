@@ -546,6 +546,32 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   were sent as video/mp4 regardless of extension; FIXED via mimetypes.guess_type (.mov =
   video/quicktime) in `app/indexing/twelvelabs.py`.
 
+## Telegram reference-recreation bot (2026-07-12, commit fa5227d)
+
+- **@treelz_copy_bot** ("Treelz CopyCat") — operator sends an Instagram reel link in Telegram →
+  the bot downloads it (yt-dlp), extracts its AUDIO (ffmpeg), transcribes the burned-in caption
+  (Claude vision on 2 frames), then FOR EACH profile toggled **"Reference active"** in the studio's
+  left rail: near-1:1 caption recreation (`personalize_caption` — sonnet, "return EXACTLY as given
+  unless a clear personalization opportunity"; personalization is few-and-far-between BY DESIGN,
+  fail-open to verbatim) → full reel pipeline with the reference's own audio
+  (`generate_reel(audio_path=…, caption_text=…)`) → upload to that profile's Drive under
+  `treelz exports/<profile>/references/`. Progress streams back per-profile in the chat.
+- Code: `app/reference/intake.py` (download/extract/transcribe/recreate orchestration) +
+  `app/reference/telegram.py` (getUpdates long-poll daemon; replies ONLY to
+  `TELEGRAM_ALLOWED_USER_ID`, all other senders silently ignored) + `drive/export.upload_reference`
+  + `ProfileSettings.reference_active` + `POST /api/debug/reference-intake {url}` (synchronous
+  test path, 404 in demo). Bot starts from the lifespan hook only when BOTH
+  `TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALLOWED_USER_ID` env vars are set (never in demo_mode) —
+  **vars live on the PROD service only** (⚠️ the CLI links to Trial-Studio-Demo by default from
+  this dir — pass `--service Trial_Studio` for prod ops; the first var-set silently landed on demo).
+- Per-profile scoping rides `profiles.set_request_uid(pid)` (the demo-mode ContextVar), so each
+  recreation generates from THAT profile's clips. Verification probe: an external
+  `getUpdates?timeout=0` call returns **409 conflict when the server's poller is live** (it owns
+  the long-poll). `sendMessage` 400 "chat not found" = the operator hasn't pressed Start yet —
+  bots can't initiate chats; harmless, the bot only ever replies.
+- Deferred by operator order: template-style (before/after caption) reels — "for now just focus
+  on building the static caption style perfectly."
+
 ## Google Drive (both directions)
 
 - **Ingest (read)**: service account `treelz-ingest@treelz.iam.gserviceaccount.com` (key in Railway
