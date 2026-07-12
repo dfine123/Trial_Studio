@@ -24,10 +24,10 @@ from sqlalchemy import select
 from app.audio import profile
 from app.caption.llm import complete_json
 from app.db import SessionLocal
-from app.generate.sequencer import build_slot_plan, select_segments
+from app.generate.sequencer import build_slot_plan, select_segments, split_slots_at
 from app.models import Clip, Segment
 from app.render.caption_image import render_caption_png
-from app.render.compositor import compose_reel
+from app.render.compositor import compose_reel, compose_template_reel
 
 
 _CLIP_USAGE_PATH = "var/clip_usage.json"
@@ -392,3 +392,94 @@ def generate_reel(
             "caption_id": chosen_cand.get("caption_id") if chosen_cand else None,
             "caption_anchor_refs": ([chosen_cand["anchor_ref"]] if chosen_cand and chosen_cand.get("anchor_ref") else []),
             "clips": clips_used}
+
+
+_DYN_DUR_MAX = 40.0   # dynamic recreations run the REFERENCE's length, capped for sanity
+
+
+def generate_dynamic_reel(
+    audio_path: str,
+    spans: list[dict],
+    out_path: str,
+    *,
+    work_dir: str = "tmp/reference",
+) -> dict:
+    """A DYNAMIC-caption recreation: the caption changes partway through (setup → payoff), so the
+    reel follows the REFERENCE's own timeline instead of the caption-scaled 5-9s formula.
+
+      spans: [{text, start, end}] — the reference's caption timeline (personalized text already).
+
+    Per span: clips re-match to THAT part's text (the arc is shown for context, so setup parts
+    pull struggle/mundane footage and payoff parts pull the flexes), beat cuts fill the span, and
+    a cut is FORCED at every caption change (the reference format always switches text on a scene
+    change). Clips never repeat across spans — the mood shift needs fresh footage. The caption
+    PNGs overlay by time window (compose_template_reel)."""
+    bp = profile.analyze(audio_path)
+    reel_dur = round(min(bp.duration, float(spans[-1]["end"]), _DYN_DUR_MAX), 3)
+    spans = [dict(sp) for sp in spans if float(sp["start"]) < reel_dur - 0.2]
+    if not spans:
+        raise RuntimeError("no caption spans inside the reel duration")
+    for sp in spans:
+        sp["start"], sp["end"] = float(sp["start"]), min(float(sp["end"]), reel_dur)
+    spans[-1]["end"] = reel_dur
+
+    segs, clip_dur, clip_meta, clip_emb = _load_segments()
+    if not segs:
+        raise RuntimeError("no indexed segments available to build a reel")
+
+    slots = build_slot_plan(bp.beat_map, bp.duration, max_reel=reel_dur)
+    slots = split_slots_at(slots, [sp["start"] for sp in spans[1:]])
+
+    clip_quality: dict[str, float] = {}
+    for s0 in segs:
+        u = s0.get("usability_score") or 0.0
+        if u > clip_quality.get(s0["clip_id"], 0.0):
+            clip_quality[s0["clip_id"]] = u
+    clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
+    usage = _load_clip_usage()
+    arc = "  →  ".join(sp["text"].replace("\n", " ") for sp in spans)
+
+    chosen_all: list[dict] = []
+    used_ids: set[str] = set()
+    for k, sp in enumerate(spans):
+        sp_slots = [s for s in slots if sp["start"] - 0.01 <= (s.start + s.end) / 2.0 < sp["end"]]
+        if not sp_slots:
+            continue
+        span_caption = (f"This reel's caption arrives in {len(spans)} parts (one joke arc): "
+                        f"{arc}\n\nPART {k + 1} IS ON SCREEN NOW — match the clips to THIS "
+                        f"part's mood and subject:\n{sp['text']}")
+        ranked = _match_clips_to_caption(span_caption, clip_meta, clip_quality)
+        fit_rank = {cid: i for i, cid in enumerate(ranked)}
+        # the mood SHIFTS with the caption — clips from earlier spans never reappear
+        sp_segs = [s for s in segs if s["clip_id"] not in used_ids] or segs
+        chosen = select_segments(sp_slots, sp_segs, fit_rank=fit_rank, usage=usage,
+                                 clip_emb=clip_emb, clip_dur=clip_dur, clip_text=clip_text)
+        used_ids.update(c["clip_id"] for c in chosen)
+        chosen_all.extend(chosen)
+    _log_clip_usage([c["clip_id"] for c in chosen_all])
+
+    sources = _resolve_sources(chosen_all, clip_dur)
+    video_chunks = [
+        {"src_path": sources[c["clip_id"]], "src_start": c["src_start"], "duration": c["slot_dur"]}
+        for c in chosen_all
+    ]
+
+    os.makedirs(work_dir, exist_ok=True)
+    caption_windows = []
+    for k, sp in enumerate(spans):
+        png = os.path.join(work_dir, f"dyncap_{uuid.uuid4().hex[:8]}_{k}.png")
+        render_caption_png(sp["text"], png)
+        caption_windows.append({"caption_png": png, "t_in": sp["start"], "t_out": sp["end"]})
+
+    compose_template_reel(video_chunks, caption_windows, audio_path, out_path, reel_dur)
+
+    clips_used, seen = [], set()
+    for c in chosen_all:
+        cid = c["clip_id"]
+        if cid not in seen:
+            seen.add(cid)
+            clips_used.append({"clip_id": cid, "summary": (clip_meta.get(cid) or {}).get("summary")})
+    return {"output": out_path, "caption": "  /  ".join(sp["text"] for sp in spans),
+            "duration": round(reel_dur, 2), "shots": len(video_chunks),
+            "spans": [{"text": sp["text"], "start": sp["start"], "end": sp["end"]} for sp in spans],
+            "sequence": chosen_all, "clips": clips_used}

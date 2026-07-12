@@ -862,6 +862,76 @@ def reference_active_toggle_roundtrip():
 
 
 @test
+def caption_timeline_groups_spans():
+    """Dynamic references: per-frame transcripts group into spans — midpoint boundaries,
+    flicker merged, empty frames skipped, static reels yield exactly one span."""
+    from app.reference import intake
+    # 20s ref sampled every 0.5s: setup for ~4.5s, payoff after (one flicker + one empty frame)
+    def fake_frames(video_path, times):
+        out = []
+        for t in times:
+            if t < 4.4:
+                out.append("even when your at 1HP…")
+            elif t < 4.9:
+                out.append("")                      # transition frame: no text read
+            elif abs(t - 10.25) < 0.01:
+                out.append("you can still do 200 damage,")   # transcription flicker (comma)
+            else:
+                out.append("you can still do 200 damage.")
+        return out
+    with patched(intake, _transcribe_frames=fake_frames):
+        spans = intake.extract_caption_timeline("x.mp4", 20.0)
+    assert len(spans) == 2, spans
+    assert spans[0]["text"] == "even when your at 1HP…"
+    assert spans[1]["text"] == "you can still do 200 damage."
+    assert spans[0]["start"] == 0.0 and abs(spans[1]["start"] - 4.75) < 0.6, spans
+    assert spans[0]["end"] == spans[1]["start"] and spans[1]["end"] == 20.0, spans
+    # static: one caption throughout -> one span covering the reel
+    with patched(intake, _transcribe_frames=lambda v, ts: ["same line"] * len(ts)):
+        spans = intake.extract_caption_timeline("x.mp4", 8.0)
+    assert len(spans) == 1 and spans[0]["start"] == 0.0 and spans[0]["end"] == 8.0, spans
+
+
+@test
+def split_slots_forces_cut_at_caption_change():
+    """A caption change must land ON a cut: an inside boundary splits its slot; a boundary too
+    close to an existing cut slides that cut onto it; reel start/end never move."""
+    from app.generate.sequencer import Slot, split_slots_at
+    slots = [Slot(0, 0.0, 3.0), Slot(1, 3.0, 6.0), Slot(2, 6.0, 9.0)]
+    # mid-slot boundary -> clean split
+    out = split_slots_at(slots, [4.5])
+    pts = [s.start for s in out] + [out[-1].end]
+    assert 4.5 in pts and pts[0] == 0.0 and pts[-1] == 9.0, pts
+    assert all(round(out[i].end, 3) == round(out[i + 1].start, 3) for i in range(len(out) - 1))
+    # boundary a hair from an existing cut -> the cut SLIDES onto it (no micro-shot)
+    out2 = split_slots_at(slots, [3.2])
+    pts2 = [s.start for s in out2] + [out2[-1].end]
+    assert 3.2 in pts2 and 3.0 not in pts2, pts2
+    assert len(out2) == len(slots), out2
+    # durations always cover the reel exactly
+    assert abs(sum(s.duration for s in out2) - 9.0) < 1e-6
+
+
+@test
+def personalize_parts_fail_open():
+    from app.reference import intake
+    import app.profiles as profiles_mod
+    import app.caption.llm as llm_mod
+    parts = ["even when your at 1HP…", "you can still do 200 damage."]
+    with patched(profiles_mod, read_persona=lambda pid: ""):
+        assert intake.personalize_caption_parts(parts, "p") == parts
+    def boom(*a, **k):
+        raise RuntimeError("llm down")
+    with patched(profiles_mod, read_persona=lambda pid: "a persona"), \
+         patched(llm_mod, complete_json=boom):
+        assert intake.personalize_caption_parts(parts, "p") == parts
+    # a wrong part-count reply ships the originals
+    with patched(profiles_mod, read_persona=lambda pid: "a persona"), \
+         patched(llm_mod, complete_json=lambda *a, **k: '{"parts": ["only one"]}'):
+        assert intake.personalize_caption_parts(parts, "p") == parts
+
+
+@test
 def coherent_selection_stays_in_family():
     """Reference recreations read as ONE scene: coherent mode keeps picks inside one visual
     family (same car / same setting) while default mode spreads across families."""

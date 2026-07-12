@@ -101,6 +101,37 @@ def build_slot_plan(
     return [Slot(i, round(s, 3), round(e, 3)) for i, (s, e) in enumerate(capped)]
 
 
+def split_slots_at(slots: list[Slot], boundaries: list[float],
+                   min_piece: float = 0.4) -> list[Slot]:
+    """Force a cut at each boundary time (a caption change must land ON a cut — the reference
+    format always changes text on a scene change). A boundary inside a slot splits it when both
+    pieces are >= min_piece; otherwise the NEAREST existing cut slides onto the boundary so the
+    caption switch still coincides with a cut without creating a micro-shot."""
+    if not slots:
+        return slots
+    pts = [s.start for s in slots] + [slots[-1].end]
+    lo, hi = pts[0], pts[-1]
+    for b in sorted(boundaries):
+        if b <= lo + min_piece or b >= hi - min_piece:
+            continue
+        if any(abs(b - p) < 0.05 for p in pts):
+            continue
+        # inner cut points only — the reel's ends never move
+        inner = pts[1:-1]
+        i = next((j for j in range(len(pts) - 1) if pts[j] < b < pts[j + 1]), None)
+        if i is None:
+            continue
+        if (b - pts[i]) >= min_piece and (pts[i + 1] - b) >= min_piece:
+            pts.insert(i + 1, b)
+        elif inner:
+            nearest = min(range(1, len(pts) - 1), key=lambda j: abs(pts[j] - b))
+            moved = sorted(pts[:nearest] + [b] + pts[nearest + 1:])
+            # never collapse a neighboring shot below min_piece by sliding
+            if all(moved[j + 1] - moved[j] >= min_piece for j in range(len(moved) - 1)):
+                pts = moved
+    return [Slot(i, round(pts[i], 3), round(pts[i + 1], 3)) for i in range(len(pts) - 1)]
+
+
 def _cos(a: list, b: list) -> float:
     """Cosine similarity (pure python — small candidate sets, no numpy needed here)."""
     try:
