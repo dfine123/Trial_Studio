@@ -68,9 +68,11 @@ def choose_best(candidates: list[str]) -> str:
     # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
     # max_tokens: adaptive thinking spends from the SAME budget (the documented lab truncation
     # bug) — at 500 the sonnet judge's JSON truncated and the silent except shipped cands[0];
-    # that was the real cause of the post-07-06 index-0 monoculture. 3000 leaves thinking room.
+    # that was the real cause of the post-07-06 index-0 monoculture. 8000 = the lab-precedent
+    # ceiling: it is an output CAP, not a spend target (only generated tokens bill), and the
+    # only thing a tight cap can do to a thinking judge is amputate its reasoning mid-pick.
     try:
-        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=3000,
+        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=8000,
                             cache_system=True, tag="chooser",   # stable system → cross-reel cache hits
                             model=getattr(settings, "chooser_model", None) or None)
         s, e = out.find("{"), out.rfind("}")
