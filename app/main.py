@@ -1696,7 +1696,11 @@ def api_reels_learn(backend: str | None = None):
         except Exception:  # noqa: BLE001 — codex refresh must never sink a learn run
             codex_ok = False
         return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov,
-                "codex_rebuilt": codex_ok, **grown}
+                "codex_rebuilt": codex_ok,
+                # 2026-07-15 realignment: THE SENSE (var/craft.md, /api/craft) is re-synthesized
+                # BY THE AGENT after each graded round — from the round's notes + the corpus —
+                # never mechanically (the brief-resynthesis precedent). This flag is the reminder.
+                "sense_resynthesis_due": True, **grown}
 
 
 @app.post("/api/reels/refresh-taste")

@@ -271,11 +271,16 @@ def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str,
     selection. Returns (chosen_text, candidates) with the chosen one flagged."""
     from app.caption.chooser import choose_best
     from app.caption.engine import generate_independent
+    from app.corpus import reels as reel_store
     cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy)
     if not cands:
         raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
     texts = [c["text"] for c in cands]
-    chosen = choose_best(texts) or texts[0]
+    try:    # tonight's feed so far — the chooser never runs the same play twice in a row
+        recent = reel_store.recent_captions(10)
+    except Exception:  # noqa: BLE001
+        recent = []
+    chosen = choose_best(texts, recent_defaults=recent) or texts[0]
     for c in cands:
         c["chosen"] = (c["text"] == chosen)
     return chosen, cands

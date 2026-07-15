@@ -61,6 +61,12 @@ def pending(pid=None) -> list[dict]:
     return [r for r in reversed(_load(pid)) if not r.get("grade")]
 
 
+def recent_captions(n: int = 10, pid=None) -> list[str]:
+    """The profile's most recent reel captions, oldest→newest — 'tonight's feed so far' for the
+    chooser's never-the-same-play-twice judgment (2026-07-15 realignment)."""
+    return [(r.get("caption") or "").strip() for r in _load(pid)[-n:] if (r.get("caption") or "").strip()]
+
+
 def record_grade(reel_id: str, rating, notes, pid=None) -> dict | None:
     """Set the /10 rating + notes on a reel record (by reel_id). Returns the record, or None if absent."""
     with _LOCK:

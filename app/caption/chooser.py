@@ -23,11 +23,13 @@ WHO YOU ARE:
 
 _PICK_TAIL = """
 
-PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge it like a reader, not a writer:
+PICK THE BEST CAPTION — that is the whole job. Judge like a reader, not a writer.
 
-A line that's ALIVE beats a line that's WISE. A scene with a reply, a quote getting flipped, a behavior caught exactly, a flex held with a straight face — those get sent. A well-worded observation about life is a poster: it collects a nod and gets scrolled. If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. Never pick a line BECAUSE it sounds smart — sounding smart is a warning sign, not a credential. (A sincere jab still counts as alive when it stings someone specific and turns at the end — wise-sounding is only disqualifying when nothing actually happens in the line.)
+The message shows real posts from your feed, tonight's posts so far, and the options. The best option is the one that could sit in that feed without a seam AND lands the hardest read cold — the one a guy would actually screenshot or send. If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled.
 
-A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). Any format can win — dialogue, list, one-liner, would-you-rather, sincere jab — judge the landing, never the length or the shape.
+A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). Judge the landing, never the length or the shape.
+
+Tonight's feed matters: you never run the same play twice in a night. If the hardest hitter is the same play as a post already up tonight, take the next-hardest hitter that isn't.
 
 The ONE veto: skip a draft that's clearly not you — it reads soft, self-pitying, or sympathy-seeking, or plainly clashes with who you are above — even if its turn is clever. Among everything that IS you, the best caption wins, period.
 
@@ -40,8 +42,31 @@ def _system() -> str:
     return _PICK_HEAD + persona() + _PICK_TAIL
 
 
-def choose_best(candidates: list[str]) -> str:
-    """Return the single best caption to post. Falls back to the first on any error.
+def _feed_sample(n: int = 12) -> list[str]:
+    """A shuffled sample of the ACTIVE VOICE's references — the chooser's benchmark. The pick
+    criterion is the operator's own standard verification (blind side-by-side): the winning
+    option is the one that could sit among these without a seam. References enter SELECTION
+    here — never generation slots (the orbit law)."""
+    try:
+        from app.caption.engine import load_refs
+        refs = [(r.get("caption") or "").strip() for r in load_refs()]
+        refs = [r for r in refs if r]
+        random.shuffle(refs)
+        return refs[:n]
+    except Exception:  # noqa: BLE001 — the benchmark must never break selection
+        return []
+
+
+def choose_best(candidates: list[str], recent_defaults: list[str] | None = None) -> str:
+    """Return the single best caption to post. Falls back to a random-lane option on any error.
+
+    2026-07-15 realignment (operator: reference-relevance is 'output determined'): the pick is
+    now judged against (a) a live sample of the voice's REFERENCES — sit-in-the-feed-without-a-
+    seam is the first criterion — and (b) tonight's recent DEFAULTS, so the feed never runs the
+    same play twice in a row. Both ride in the USER message; the system stays byte-stable for
+    prompt caching. The shape-enumerating alive-beats-wise clause was removed: the 07-15
+    forensics measured the working chooser following its shape list into a dialogue-skit
+    monoculture (~75% of defaults vs 10% corpus base rate).
 
     ⚠️ The judge MODEL is settings.chooser_model (sonnet-4-6), NOT the generation model. Measured
     on the frozen 22-case correction eval (2026-07-06): opus-as-judge re-picked the operator-
@@ -64,6 +89,15 @@ def choose_best(candidates: list[str]) -> str:
     order = list(range(len(cands)))
     random.shuffle(order)
     listing = "\n\n".join(f"[{i}] {cands[j]}" for i, j in enumerate(order))
+    blocks = []
+    feed = _feed_sample()
+    if feed:
+        blocks.append("YOUR FEED (real posts, for the seam test):\n\n" + "\n\n".join(feed))
+    recent = [r.strip() for r in (recent_defaults or []) if r and r.strip()]
+    if recent:
+        blocks.append("TONIGHT'S POSTS SO FAR (never the same play twice):\n\n" + "\n\n".join(recent[-10:]))
+    blocks.append(f"THE OPTIONS:\n\n{listing}")
+    user_msg = "\n\n———\n\n".join(blocks) + "\n\nPick the ONE you'd actually post:"
     # NOTE: the distilled-taste block was REMOVED here — it narrowed selection toward "tight one-twist" and
     # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
     # max_tokens: adaptive thinking spends from the SAME budget (the documented lab truncation
@@ -72,7 +106,7 @@ def choose_best(candidates: list[str]) -> str:
     # ceiling: it is an output CAP, not a spend target (only generated tokens bill), and the
     # only thing a tight cap can do to a thinking judge is amputate its reasoning mid-pick.
     try:
-        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=8000,
+        out = complete_json(_system(), user_msg, effort="high", max_tokens=8000,
                             cache_system=True, tag="chooser",   # stable system → cross-reel cache hits
                             model=getattr(settings, "chooser_model", None) or None)
         s, e = out.find("{"), out.rfind("}")
