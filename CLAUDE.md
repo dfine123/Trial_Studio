@@ -97,6 +97,39 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE SENSE v2: FLOOR + ENGINE ROOMS (2026-07-15, commits afb2cde→a0a83ee) —
+  THE current understanding layer, from the 39-agent full-corpus principles review.** The
+  review tested the 10 universal laws the stack applied to every caption against all 59
+  winners + 13 stars, one by one, adversarially rechecked: **2 universal** (literal-read
+  58/59; read-aloud-once — but "~18 words" is a MEDIAN not a target, beats buy to 41w),
+  **4 majority-with-licenses** (end on the last PERFORMED beat never a decode; no authorial
+  explaining but punches may state their reversal; voltage + 6th current "delusional
+  confidence" with the hidden-motive license for pointing types — "FLAT relatable is dead",
+  not "generic relatable"; never-END-wistful with surrender-deadpan + wistful-setup licenses),
+  **3 type-local** (one-pivot → the true universal is AT MOST ONE COMIC OPERATION; said-not-
+  written vs the written-format-parody + symmetry-engine families; nameable-job strict only
+  for audience-directed types — self-contained gags win 8-10 jobless), and **1 WRONG:
+  never-same-play-twice. PLAYS ARE FRANCHISES** — 18 same-night duplicate winners incl four
+  10s; a rerun is judged against the play's best prior instance; range lives at the
+  reference-book level. SHIPPED: SENSE v2 (corrected floor + 15 per-type sections with each
+  family's motor/laws/kill-modes/ceiling/burn-rate + portfolio base-hits-vs-swings;
+  purity-clean, /api/craft); **hitters block now renders every validated ref + star WITH its
+  why-it-lands decode** (the per-instance mechanism carrier was unplugged from the whole v4
+  path); tail loses the false never-same-construction claim; take-pick loses shorter-always-
+  wins and gains the runway + written-genre licenses; chooser rerun-veto → FRANCHISE JUDGMENT
+  (weak rerun dead, beating rerun welcome). ⚠️ CHOOSER GATE LESSONS (two iterations): the
+  stated-punch/judge-the-register licenses REGRESSED the eval (6/27→4/27 correct — they
+  readmit chooser-bait; "said beats written" is load-bearing); final shipped chooser = the
+  eval-best criterion verbatim + franchise veto only (gate: 0.333/0.222/0.185, mean 0.247 >
+  0.21 baseline; picked_loser swings 3-10 within identical code — accuracy is the steady
+  gate metric). Type licenses live at take-pick only. LIVE BATCH READ (zero grades yet):
+  per-type law execution visibly correct (scoreboards all carry denominated crumbs, POVs
+  compute their technicalities) BUT author-level play concentration returned — 4/20
+  candidates hater-scoreboard + 4/20 POV-parenthetical, two POV defaults adjacent (franchise-
+  legal per the data; whether it's WANTED is a taste dial only grades settle), one rotate-
+  the-crumb violation (two fantasy-team crumbs — 9-word premise stubs truncate before the
+  crumb, so near-twins pass the taken-block). NEXT ARBITER: the operator's graded round.
+
 - **⭐⭐⭐⭐⭐⭐⭐⭐⭐ V4: THE ONE-AUTHOR SLATE (2026-07-15, commits after a9e29b5) — THE current
   engine.** Even post-SENSE, the operator rejected the batches ("still just super repetitive…
   so many references seem dead"): FIVE JOB-LOCKED ENGINES = A FIVE-CONSTRUCTION MENU. Each
