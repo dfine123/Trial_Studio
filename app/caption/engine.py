@@ -750,6 +750,99 @@ def craft() -> str:
     return "\n\n" + _CRAFT_DEFAULT + "\n"
 
 
+_SLATE5_TAIL = """
+
+THE TASK: tonight's {k} posts — one night on your feed.
+
+The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in any post, its world is never the subject, and the posts owe it nothing.
+
+{k} posts, {k} DIFFERENT plays. Scroll your feed above: a real night never runs the same construction twice, and across a week the whole range shows up. Reach across your entire catalog — never the two plays nearest to hand — and make each post a different reason to follow you.
+
+Write each post TWO takes (the better landing wins later; the last five words usually decide). Say each aloud once: it lands on the first pass, exactly enough words, ends on the thing itself.
+
+The bar is THE ONES THAT HIT HARDEST: a post that wouldn't sit among those gets replaced before you answer — and nothing re-tells a joke already in the feed.
+
+Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
+
+
+def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
+    """V4 — THE ONE-AUTHOR SLATE (2026-07-15, after the operator rejected three straight
+    lane-era batches as 'super repetitive... so many references that seem to just be dead').
+
+    ROOT CAUSE OF THE REPETITION (measured across three nights): five job-locked engines = a
+    five-construction menu. Each kernel converges to its own native shape (mirror≈'a dude
+    will…', menace≈two-line scene, screenshot≈second-person jab…), so every card offered the
+    same handful of constructions regardless of which lane the chooser favored — and whole
+    corpus species (would-you-rather, POV, fake-math listicles, when-frames, hater bits) were
+    structurally unreachable because no lane's job produces them. The lane monocultures
+    (wise→dialogue→catch) were different lanes winning inside the same cage.
+
+    V4: ONE author — persona + full wall + hitters + THE SENSE — writes the whole card in one
+    call: n posts, n DIFFERENT plays, two takes each. In a single context the model sees its
+    own slate and self-enforces formal variety (the mechanism parallel lanes cannot have), and
+    the full catalog's range is reachable again. Understanding-led single-context is the one
+    measured engine up-move in this repo's history (v2 brief era: 6.86 vs 4.84 same-day).
+    Also ~10 opus calls → 1 per card (≈$0.97 → ≈$0.35/reel) and ~3× faster captions.
+    Take competition, guards, chooser, options-on-card all unchanged. Rollback:
+    GENERATION_ENGINE=v3|v2|v1."""
+    from app.caption import seeds
+    refs = load_refs()
+    if not refs:
+        raise RuntimeError("this profile's voice has no references — pick a voice (e.g. Base) "
+                           "on the Generation Studio voice cards before generating")
+    note = (notes or "").strip()
+    k = max(1, n)
+    seed = seeds.draw()
+    shuffled = list(refs)
+    random.shuffle(shuffled)
+    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
+                            if (r.get("caption") or "").strip())
+    wall = ("\n\nBelow is your feed — your real posted captions. Tonight's posts are the NEXT "
+            "POSTS in this exact feed: same guy, same world, same sound. A follower scrolling "
+            "past shouldn't be able to tell tonight's posts from these. Don't re-tell any "
+            "specific joke that's already in here — everything else about how these sound and "
+            "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
+    system = (persona() + wall + _hitters_block() + craft()
+              + _SLATE5_TAIL.replace("{k}", str(k)))
+    user = ((f"Lean (soft): {note}\n\n" if note else "")
+            + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
+            + "So you don't repeat yourself — your most recent posts and the ones that flopped:\n"
+            + _taken_block()
+            + f"\n\nWrite tonight's {k} posts: two takes each.")
+
+    def _is_literal(t: str) -> bool:
+        words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
+                 if len(w) > 3 and w not in ("with", "your", "from", "that", "this", "the")]
+        low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
+        return any(w in low for w in words)
+
+    out_text = complete_json(system, user, effort="high", max_tokens=8000,
+                             cache_system=True, tag="slate-v4")
+    s, e = out_text.find("{"), out_text.rfind("}")
+    if s == -1 or e == -1:
+        raise RuntimeError("v4: slate call returned no JSON — check the LLM ledger")
+    posts = json.loads(out_text[s:e + 1]).get("posts", [])
+    pairs: list[list[str]] = []
+    for p in posts[:k]:
+        takes = [t.strip() for t in (p if isinstance(p, list) else [p])
+                 if isinstance(t, str) and t.strip() and not _is_literal(t)]
+        if takes:
+            pairs.append(takes[:2])
+    if not pairs:
+        raise RuntimeError("v4: every slate take was empty or seed-literal — check the ledger")
+    caps = _pick_takes(pairs)
+    cands = [{"text": t, "anchor_ref": None, "anchor_refs": [], "engine": "slate", "seed": seed}
+             for t in caps if (t or "").strip()]
+    # invisible safety net — identical to v3, subtractive only
+    cands = _drop_same_joke_siblings(_drop_ref_copies(cands))
+    cands = _reskin_check(cands)
+    cands = _coherence_gate(refine(cands))
+    for c in cands:
+        c["caption_id"] = _cid(c.get("text") or "")
+    log_generated([c.get("text", "") for c in cands])
+    return cands[:k] if len(cands) > k else cands
+
+
 _V3_TAIL = """
 
 THE TASK: write tonight's post.
@@ -1094,7 +1187,9 @@ def generate(
     future grades attribute back exactly. Routed to _generate_v3 (seed → five engines) unless
     settings.generation_engine is pinned to "v2" or "v1" (rollback knobs)."""
     from app.config import settings
-    mode = (getattr(settings, "generation_engine", "v3") or "v3")
+    mode = (getattr(settings, "generation_engine", "v4") or "v4")
+    if mode not in ("v3", "v2", "v1"):
+        return _generate_v4(n, notes)
     if mode == "v3":
         return _generate_v3(n, notes)
     if mode == "v2":
@@ -1180,7 +1275,9 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     record which captions it chose between (production grading + the closed loop).
     """
     from app.config import settings
-    mode = (getattr(settings, "generation_engine", "v3") or "v3")
+    mode = (getattr(settings, "generation_engine", "v4") or "v4")
+    if mode not in ("v3", "v2", "v1"):
+        return _generate_v4(max(1, k), notes)
     if mode == "v3":
         return _generate_v3(max(1, k), notes)
     if mode == "v2":

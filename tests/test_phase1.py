@@ -592,7 +592,7 @@ def instruction_layers_quote_no_winners():
     # The BRIEF describes vehicle MECHANISMS without quoting winner texts — that's the line.)
     from app.caption import charters as ch
     surfaces = (engine._VOICE_CORE_DEFAULT + engine._SLATE_TAIL
-                + engine._CRAFT_DEFAULT + engine._V3_TAIL
+                + engine._CRAFT_DEFAULT + engine._V3_TAIL + engine._SLATE5_TAIL
                 + "".join(e["charter"] for e in ch.ENGINES)
                 + inspect.getsource(engine._pick_takes))
     low = surfaces.lower()
