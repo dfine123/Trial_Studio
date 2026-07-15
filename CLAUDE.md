@@ -97,6 +97,39 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐⭐⭐⭐⭐⭐ THE SENSE REALIGNMENT (2026-07-15, commits 6c42a0a+a9e29b5) — THE current
+  architecture: ONE understanding layer, zero shape lists.** The first post-outage batches
+  regressed hard (operator: "forced... repetitive... unacceptable"): pool hit 28% dialogue-skits
+  / 29% "a dude will X" specimen-catches / 15% authority-figure openers (vs corpus 10%/1%/2%),
+  defaults ~75% one shape (8 professions in one night), while corpus species vanished
+  (when-frames 14→0, is-like analogies 6→0, POV 7→2). ROOT CAUSE (measured): the craft doc's
+  NAMED moves (THE SCENE, THE CATCH) + the tail's "a catch, a flip, a scene, a sting" + menace's
+  profession menu + the chooser's alive-beats-wise shape list = four layers pointing at the same
+  shapes. **THE ORBIT LAW, GENERALIZED: named PLAYS at instruction level become templates, same
+  as quoted texts.** And v3 carried no WHAT — charge/jobs lived in voice_core, which v3 never
+  saw → well-formed shapes with uncharged cargo (leap-year trivia, clock-checking). FIX:
+  **THE SENSE** (operator-approved verbatim; engine._CRAFT_DEFAULT, var/craft.md, /api/craft) —
+  jobs (send/screenshot/tag) · voltage ("if the charge isn't yours, the line isn't yours") ·
+  reader-does-the-last-step · literal read · said-not-written · winning-the-entire-time ·
+  RANGE-AS-IDENTITY ("a guy who runs one play all night is a format, not a person") — zero shape
+  lists; the wall teaches shapes by example. Tail slimmed; menace kernel de-templated (scene can
+  start anywhere). **CHOOSER (canon-3-gated, one iteration needed):** shape list OUT; picks
+  judged hardest-hitter-FIRST with TWO VETOES — (1) not-him incl. the SEAM TEST vs a live
+  12-ref feed sample (references now touch all four layers: teach/aspire/police/JUDGE), (2)
+  tonight's-rerun vs the profile's last 10 defaults (reels.recent_captions). ⚠️ ITERATION
+  LESSON: seam-as-CO-PRIMARY regressed the eval (0.148/0.074 vs 0.222 baseline — feed-
+  resemblance bias picks corpus-typical over the operator's swings); demoting seam/rerun to
+  vetoes with options-before-context restored it (0.259/0.259/0.148 ≈ baseline, shipped).
+  Verified live at caption level (renders blocked by empty Mo clip library): pool dialogue
+  28%→24% (≈ the 20% structural floor of 1-menace-in-5-lanes), authority openers 15%→8% with
+  varied staging, catches 24% but CHARGED cargo (money/come-up/girls, trivia gone), and species
+  breadth back — we-are-not-the-same, is-like analogy, X-is-just-Y, quote-story, sincere-jab,
+  mfs-plural observation, one-liner all present in 25 captions. **Learn loop now returns
+  sense_resynthesis_due: THE SENSE is re-synthesized BY THE AGENT after each graded round from
+  the round's notes (never mechanically).** STANDING (operator, ~5th repetition): understanding
+  leads, never mechanism sprawl — he rejected dealt-hand/rotation/coverage-telemetry proposals
+  en route to this design; reference-relevance is enforced at SELECTION (his "output determined"
+  framing), never via generation slot-seeding.
 - **⭐⭐⭐⭐⭐⭐⭐ THE CHOOSER OUTAGE + THE CRAFT LAYER (2026-07-15, commits 20dc75f+7b48934) — the
   chooser had been functionally OFF since 2026-07-06; every default the operator saw for 8 days
   was an unselected first-draft of the screenshot lane.** Found by a full-corpus forensic sweep
