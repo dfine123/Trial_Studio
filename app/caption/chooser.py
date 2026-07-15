@@ -25,11 +25,11 @@ _PICK_TAIL = """
 
 PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge like a reader, not a writer.
 
-A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled. Judge the landing, never the length or the shape — and never pick a line BECAUSE it resembles an old post; the hardest hitter wins, period.
+A payoff that SNAPS (a sharp, exact, surprising turn) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). A punch that states its reversal outright still snaps — stated is only a flaw when the author is explaining his own joke's meaning. If one option sounds like something a guy said and another sounds like something somebody wrote on purpose as a bit, judge the landing, not the register. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled. Never pick a line BECAUSE it resembles an old post; the hardest hitter wins, period.
 
 TWO VETOES, applied before picking:
 1. Not him — it reads soft, self-pitying, sympathy-seeking, or clashes with who you are above, or it could never sit in the feed shown in the message (the seam test). Skip it even if its turn is clever.
-2. Tonight's rerun — it's the same play as a post already up tonight (shown in the message). A feed is a person, not a format; take the next-hardest hitter instead.
+2. The weak rerun — same play as a post already up tonight AND not sharper than that post. A rerun that BEATS the earlier run is legal and welcome; a rerun that doesn't is dead — take the next-hardest hitter instead.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
 
@@ -96,7 +96,7 @@ def choose_best(candidates: list[str], recent_defaults: list[str] | None = None)
                       + "\n\n".join(feed))
     recent = [r.strip() for r in (recent_defaults or []) if r and r.strip()]
     if recent:
-        blocks.append("TONIGHT'S POSTS SO FAR — veto material for the rerun test:\n\n"
+        blocks.append("TONIGHT'S POSTS SO FAR — a rerun must beat its earlier run:\n\n"
                       + "\n\n".join(recent[-10:]))
     user_msg = "\n\n———\n\n".join(blocks) + "\n\nPick the ONE you'd actually post:"
     # NOTE: the distilled-taste block was REMOVED here — it narrowed selection toward "tight one-twist" and
