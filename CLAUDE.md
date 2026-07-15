@@ -97,8 +97,36 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐⭐⭐⭐⭐⭐⭐⭐ THE SENSE REALIGNMENT (2026-07-15, commits 6c42a0a+a9e29b5) — THE current
-  architecture: ONE understanding layer, zero shape lists.** The first post-outage batches
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐ V4: THE ONE-AUTHOR SLATE (2026-07-15, commits after a9e29b5) — THE current
+  engine.** Even post-SENSE, the operator rejected the batches ("still just super repetitive…
+  so many references seem dead"): FIVE JOB-LOCKED ENGINES = A FIVE-CONSTRUCTION MENU. Each
+  kernel converges to its native shape (mirror≈"a dude will…", menace≈two-line scene,
+  screenshot≈jab), so every card offered the same handful of constructions regardless of which
+  lane won — the three successive monocultures (wise→dialogue→catch) were different lanes
+  winning inside the same cage — and whole corpus species (would-you-rather, POV, fake-math
+  listicles, when-frames, Pro-life-tip, Dudes-be-like, animal parables) were STRUCTURALLY
+  UNREACHABLE: no lane's job description produces them. V4 (`engine._generate_v4`,
+  `settings.generation_engine="v4"`, rollbacks v3/v2/v1): ONE author — persona + full wall +
+  hitters + THE SENSE — writes the whole card in ONE call: k+2 drafted plays (cap 8), two takes
+  each, guards prune, best k ship (the overgen closed a thin-card defect where guards left a
+  single unopposed option). Single context = the model sees its own slate and self-enforces
+  formal variety, the mechanism parallel lanes cannot have. VERIFIED live same day: POV,
+  fake-math, Pro-life-tip, Dudes-be-like 😭🙏, for-perspective, when-frames, wyr, animal-parable
+  (cockroaches ≈ the raccoons-10 family), baggage-flip all resurfaced within three batches —
+  ~12 constructions per 18 candidates vs ~5 per batch in the lane era; chosen defaults = 4
+  distinct plays across 4 cards. Cost ~$0.97→~$0.35/reel (10 opus calls→1), captions ~3×
+  faster. **FEED MEMORY (operator: "the spread should just be natural across generations" —
+  never batch-scoped):** the slate author and the chooser both see the profile's recent feed —
+  `reels.recent_captions(n)` merges reel records with a CAPTION-TIME feed log
+  (`profiles.feed_log_path`, written by `generator.generate_caption` via `reels.log_default`)
+  because reel records append post-render, one card too late in a pipelined batch (two adjacent
+  cards had both run-and-chosen Dealer scenes before the fix; none after). Full feed texts
+  capped at 8 in-prompt (the measured length-ratchet came from 150). WATCH: within one card the
+  options can orbit one premise territory (the lights-themed card) — single-context tradeoff;
+  species still differ per option. Grades arbitrate everything above — zero grades on v4 yet.
+- **⭐⭐⭐⭐⭐⭐⭐⭐ THE SENSE REALIGNMENT (2026-07-15, commits 6c42a0a+a9e29b5) — superseded at
+  engine level by V4 same day; THE SENSE itself + shape-blind feed-aware chooser live on as
+  V4's understanding + selection layers.** The first post-outage batches
   regressed hard (operator: "forced... repetitive... unacceptable"): pool hit 28% dialogue-skits
   / 29% "a dude will X" specimen-catches / 15% authority-figure openers (vs corpus 10%/1%/2%),
   defaults ~75% one shape (8 professions in one night), while corpus species vanished
