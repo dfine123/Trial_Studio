@@ -792,6 +792,7 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
                            "on the Generation Studio voice cards before generating")
     note = (notes or "").strip()
     k = max(1, n)
+    kk = min(k + 2, 8)   # draft more, ship the best k — guards prune with backfill headroom
     seed = seeds.draw()
     shuffled = list(refs)
     random.shuffle(shuffled)
@@ -802,13 +803,30 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
             "past shouldn't be able to tell tonight's posts from these. Don't re-tell any "
             "specific joke that's already in here — everything else about how these sound and "
             "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
+    # THE FEED CONTINUES (2026-07-15, operator: "the spread should just be natural across
+    # generations" — never batch-scoped): the author sees its own most recent SHIPPED posts
+    # verbatim, the way a real person remembers what they just put up. Construction variety
+    # then emerges naturally — the premise-stub block below can't carry it (stubs strip the
+    # play; the model literally couldn't see it had just run the same construction 3×).
+    # Full texts are capped at 8 — the measured length-ratchet came from 150 in-prompt texts.
+    recent_feed = ""
+    try:
+        from app.corpus import reels as _reels
+        latest = _reels.recent_captions(8)
+        if latest:
+            recent_feed = ("YOUR LAST POSTS, oldest to newest — the feed continues tonight, and "
+                           "you never run the play you just ran:\n\n" + "\n\n".join(latest)
+                           + "\n\n")
+    except Exception:  # noqa: BLE001 — feed memory must never break generation
+        pass
     system = (persona() + wall + _hitters_block() + craft()
-              + _SLATE5_TAIL.replace("{k}", str(k)))
+              + _SLATE5_TAIL.replace("{k}", str(kk)))
     user = ((f"Lean (soft): {note}\n\n" if note else "")
             + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
-            + "So you don't repeat yourself — your most recent posts and the ones that flopped:\n"
+            + recent_feed
+            + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
-            + f"\n\nWrite tonight's {k} posts: two takes each.")
+            + f"\n\nWrite tonight's {kk} posts: two takes each.")
 
     def _is_literal(t: str) -> bool:
         words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
@@ -823,7 +841,7 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
         raise RuntimeError("v4: slate call returned no JSON — check the LLM ledger")
     posts = json.loads(out_text[s:e + 1]).get("posts", [])
     pairs: list[list[str]] = []
-    for p in posts[:k]:
+    for p in posts[:kk]:
         takes = [t.strip() for t in (p if isinstance(p, list) else [p])
                  if isinstance(t, str) and t.strip() and not _is_literal(t)]
         if takes:
