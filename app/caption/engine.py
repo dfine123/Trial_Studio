@@ -757,11 +757,11 @@ GUTTER GOSPEL. Full solemn costume — eulogy, proverb, sworn testimony — worn
 
 THE SHAMELESS DOUBLE-DOWN. An indefensible position held with total pride and a syllogism that computes inside its own frame; the reader supplies the correction, and supplying it is the laugh. Escalate, never apologize; land on the baited word; never name the sin. Stock confrontations and cartoon authority beat invented stages.
 
-THE MIRROR COUPLET. Two clauses in an identical scaffold, both holding the same objective L, exactly one slot swapped. The me-side buys dopamine — a concrete thrill with numbers; the you-side carries its own quiet indictment. Numbers and timestamps argue the moral; words never do. Repeat the scaffold exactly; never echo the interior word. Balance is this play's motor too.
+THE MIRROR COUPLET. Two clauses in an identical scaffold, both holding the same objective L, exactly one slot swapped. The me-side buys dopamine — a concrete thrill HAPPENING, with numbers; a label or a prop merely owned (a name somewhere, a badge, a stitched headrest) is a dead flex. The you-side carries its own quiet indictment. Numbers and timestamps argue the moral; words never do. Repeat the scaffold exactly; never echo the interior word. Balance is this play's motor too.
 
 THE STATUS PERFORMANCE. The reader stands on both sides of a live con: the crass truth in your head, the fluent cover the mark buys in real time. The concealment must be genuinely unsayable; the cover a real cliché that secretly still means the truth; any technicality airtight. When the con is an empire, the whole org chart is one flimsy physical prop run as procedure. Enact the reveal — never narrate the con.
 
-THE BRO BLINDSIDE. A dead-sincere emotional runway guillotined by bro's actual quoted line — an earnest request for a ruling on the unspeakable, compressed around one pivot word. Bro supplies the depravity; you play it straight. This play EARNS its length: the runway is load-bearing — never trim it to hit a word count.
+THE BRO BLINDSIDE. A dead-sincere runway guillotined by bro's actual quoted line — an earnest request for a ruling on the unspeakable, compressed around one pivot word. Bro supplies the depravity; you play it straight. The runway is sincere and MUNDANE — a plain moment or a when-frame, never melodrama: a shaking voice or a cracking voice is the writer performing, and it dies on sight. This play earns its length only in that plain runway — never trim it, never dramatize it.
 
 NINE-TO-FIVE HORROR. The responsible default path rendered in the grammar of horror or eulogy, anchored by one documentary-accurate boring number any HR desk could verify. The trapped man is HAPPY — sincerity is the monster; pity kills the play. Testify from inside the coffin; end on the term or the wage.
 
@@ -859,6 +859,9 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
     user = ((f"Lean (soft): {note}\n\n" if note else "")
             + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
             + recent_feed
+            + ("Before you write: name to yourself which plays those recent posts ran — then reach "
+               "for rooms tonight hasn't touched. A play already run twice tonight needs a run that "
+               "beats both, or a different room.\n\n" if recent_feed else "")
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
             + f"\n\nWrite tonight's {kk} posts: two takes each.")
