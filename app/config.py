@@ -46,11 +46,11 @@ class Settings(BaseSettings):
     # ── Captions (Phase 1) ────────────────────────────────────
     caption_model: str = "claude-opus-4-8"        # Anthropic model for the Caption Assistant
     caption_provider: str = "anthropic"           # "anthropic" | "openai" — which LLM generates (per-instance via env)
-    generation_engine: str = "v3"                 # "v3" = SEED -> FIVE ENGINES -> SELECTOR (operator
-                                                  # architecture 2026-07-10): one random variation seed
-                                                  # fans to five separate interaction-point engines
-                                                  # (screenshot/send/exotic/mirror/menace) in parallel;
-                                                  # their outputs ARE the option set. "v2" = fused
+    generation_engine: str = "v4"                 # "v4" = THE ONE-AUTHOR SLATE (2026-07-15): ONE call
+                                                  # writes the whole card — k posts, k DIFFERENT plays,
+                                                  # SENSE-led, formal variety self-enforced in-context.
+                                                  # "v3" = SEED -> FIVE ENGINES -> SELECTOR (rollback;
+                                                  # measured five-construction cage). "v2" = fused
                                                   # message-first slate (rollback). "v1" = legacy
                                                   # anchor-rotation (deep rollback).
     reel_render_concurrency: int = 2              # batch generation: renders (clip-match + ffmpeg) that
