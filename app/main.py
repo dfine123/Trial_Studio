@@ -1597,6 +1597,16 @@ def grade_reels_page(request: Request):
     return FileResponse(os.path.join(_WEB_DIR, "grade_reels.html"))
 
 
+@app.get("/system")
+def system_map_page(request: Request):
+    """TEMPORARY (2026-07-15, operator request): a read-only visualization of the live caption
+    pipeline — every prompt layer with live counts/texts, the guards, the chooser, the learn
+    loop. Fetches operator-gated debug endpoints; changes nothing."""
+    if not _is_authed(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join(_WEB_DIR, "system.html"))
+
+
 @app.get("/promote")
 def promote_page(request: Request):
     if not _is_authed(request):

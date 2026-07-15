@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>System Map — treelz.ai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🗺️%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/ui.css?v=2">
+<style>
+  body { padding: 28px clamp(16px, 4vw, 48px) 80px; max-width: 1060px; margin: 0 auto; }
+  .maphead { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+  .maphead h1 { font-size:22px; font-weight:800; margin:0; }
+  .temptag { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+             color:var(--acc,#7d7bff); border:1px solid var(--acc,#7d7bff); border-radius:99px; padding:3px 10px; }
+  .sub { color:var(--muted,#9a9ab0); font-size:13.5px; margin:0 0 26px; max-width:76ch; line-height:1.55; }
+  .stage { position:relative; border:1px solid var(--line,#26263a); border-radius:14px;
+           background:var(--panel,#141420); padding:18px 20px 16px; margin:0 0 0 34px; }
+  .stage + .stage { margin-top:34px; }
+  .stage::before { content:attr(data-n); position:absolute; left:-34px; top:14px; width:24px; height:24px;
+                   display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+                   border-radius:50%; background:linear-gradient(135deg,#5b8cff,#8b5bff); color:#fff; }
+  .stage:not(:last-of-type)::after { content:""; position:absolute; left:-23px; top:44px; bottom:-40px;
+                   width:2px; background:linear-gradient(#5b8cff44,#8b5bff44); }
+  .stage h2 { font-size:15px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .stage .what { color:var(--muted,#9a9ab0); font-size:13px; line-height:1.55; margin:0 0 12px; max-width:80ch; }
+  .chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:99px;
+          background:#1e1e30; border:1px solid var(--line,#26263a); color:var(--muted,#a9a9c0); }
+  .chip.acc { color:#a8a6ff; border-color:#4a48a8; }
+  .chip.good { color:#5fd08a; border-color:#2c5c3e; }
+  .layer { border:1px solid var(--line,#26263a); border-radius:10px; padding:12px 14px; margin-top:10px; background:#101018; }
+  .layer h3 { font-size:13px; font-weight:800; margin:0 0 3px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+  .layer p { font-size:12.5px; color:var(--muted,#9a9ab0); margin:4px 0 0; line-height:1.5; max-width:78ch; }
+  .layer .peek { margin-top:8px; font-size:12px; line-height:1.55; color:#c9c9dd; background:#0b0b12;
+                 border:1px solid #1e1e30; border-radius:8px; padding:10px 12px; white-space:pre-wrap;
+                 max-height:200px; overflow-y:auto; }
+  .layer .peek.tall { max-height:420px; }
+  details > summary { cursor:pointer; font-size:12px; color:#a8a6ff; margin-top:8px; user-select:none; }
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin-top:10px; }
+  .touch { border:1px solid var(--line,#26263a); border-radius:10px; padding:12px 14px; background:#101018; }
+  .touch b { font-size:12px; letter-spacing:.06em; color:#a8a6ff; }
+  .touch p { font-size:12px; color:var(--muted,#9a9ab0); margin:4px 0 0; line-height:1.5; }
+  .loop { border:1px dashed #4a48a8; border-radius:14px; padding:18px 20px; margin:40px 0 0 34px; background:#12122a33; }
+  .loop h2 { font-size:15px; font-weight:800; margin:0 0 8px; color:#a8a6ff; }
+  .loopflow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12.5px; font-weight:600; }
+  .loopflow .n { background:#1e1e30; border:1px solid #34345a; border-radius:8px; padding:7px 11px; }
+  .loopflow .a { color:#8b5bff; font-weight:800; }
+  .foot { margin:26px 0 0 34px; font-size:12px; color:var(--muted,#9a9ab0); line-height:1.7; max-width:82ch; }
+  .warn { color:#e0b45c; }
+  code { font-size:11.5px; background:#1e1e30; border-radius:5px; padding:1px 6px; }
+</style>
+</head>
+<body class="grain">
+
+<div class="maphead">
+  <h1>System Map — how a caption is made</h1>
+  <span class="temptag">temporary tab</span>
+  <span class="chip acc" id="engineChip">engine: v4 · one-author slate</span>
+</div>
+<p class="sub">This is the live pipeline, not a diagram of an idea of it — the counts and texts below are fetched
+from the running system right now. Flow reads top to bottom: what the author knows → the one call that writes the
+card → what filters it → how the default gets picked → how your grades feed it all back.</p>
+
+<div class="stage" data-n="1">
+  <h2>What the author knows <span class="chip">the system prompt, in exact order</span> <span class="chip" id="sysTok">~— tokens</span></h2>
+  <p class="what">One "author" — the model embodying the creator — receives these layers, in this order, on every card.
+  The material dominates the instructions on purpose: references teach; prompts stay small.</p>
+
+  <div class="layer">
+    <h3>① PERSONA <span class="chip" id="personaChip">…</span></h3>
+    <p>Who he is — voice identity, world, what's not his universe. Per-profile, operator-editable.</p>
+    <details><summary>peek at the live persona</summary><div class="peek" id="personaPeek">loading…</div></details>
+  </div>
+
+  <div class="layer">
+    <h3>② THE WALL <span class="chip" id="wallChip">…</span></h3>
+    <p>Every reference in the active voice's corpus, shuffled, framed as <i>"your feed — tonight's posts are the NEXT
+    POSTS in this exact feed."</i> This is the main teacher: shapes, sound, and range are learned from here by
+    example, never from rules. Grows automatically when your grades promote new winners.</p>
+    <details><summary>peek at 8 random refs from the live wall</summary><div class="peek" id="wallPeek">loading…</div></details>
+  </div>
+
+  <div class="layer">
+    <h3>③ THE ONES THAT HIT HARDEST <span class="chip" id="hittersChip">…</span></h3>
+    <p>The bar: every reference your grades validated (promotions, note-endorsements, your authored lines) plus the
+    north stars, rendered at the end of the context — <i>"tonight lives at THIS level."</i></p>
+  </div>
+
+  <div class="layer">
+    <h3>④ THE SENSE <span class="chip" id="senseChip">…</span> <span class="chip good">operator-editable · /api/craft</span></h3>
+    <p>The one understanding layer — what a good caption <i>is</i>. Re-synthesized from your notes after every graded
+    round. Contains zero shape lists by design (named plays become templates — measured).</p>
+    <details open><summary>the live SENSE, verbatim</summary><div class="peek tall" id="sensePeek">loading…</div></details>
+  </div>
+
+  <div class="layer">
+    <h3>⑤ THE TASK <span class="chip">slate tail</span></h3>
+    <p>"Tonight's <b>k+2</b> posts — one night on your feed. k+2 DIFFERENT plays; a real night never runs the same
+    construction twice. Two takes per post; say each aloud once; the bar is THE ONES THAT HIT HARDEST."
+    Drafting more than the card needs (k+2, cap 8) gives the guards room to prune without leaving thin cards.</p>
+  </div>
+
+  <div class="layer">
+    <h3>⑥ THE MESSAGE <span class="chip">per-generation context</span></h3>
+    <p><b>Variation seed</b> — one random phrase, pure entropy; the caption owes it NOTHING (a mechanical check
+    retries takes that use its words). <b>Your last posts</b> — the profile's most recent chosen captions, full text,
+    logged the moment each pick is made: <i>"the feed continues tonight, and you never run the play you just ran."</i>
+    <b>The taken block</b> — ~150 recent premise stubs + last 40 killed captions, so premises don't repeat.</p>
+    <details><summary>peek at this profile's live feed memory</summary><div class="peek" id="feedPeek">loading…</div></details>
+  </div>
+</div>
+
+<div class="stage" data-n="2">
+  <h2>One call writes the card <span class="chip acc">1 opus call</span> <span class="chip">k+2 plays × 2 takes</span></h2>
+  <p class="what">The whole card is written in a single context — so the author <b>sees its own slate</b> while writing
+  it and makes the plays formally different, the way a person naturally would. (The previous architecture ran five
+  parallel "engines" that couldn't see each other; each converged to its own pet construction and whole species of
+  your references were structurally unreachable. Measured, replaced 2026-07-15.)</p>
+</div>
+
+<div class="stage" data-n="3">
+  <h2>Take competition <span class="chip">1 small sonnet call</span></h2>
+  <p class="what">Each play arrived as two takes. A judge reads both aloud and keeps the one that lands on the first
+  pass — <i>"the last five words usually decide."</i> Competition beats prescriptions: nothing is rewritten, the better
+  take just wins.</p>
+</div>
+
+<div class="stage" data-n="4">
+  <h2>The guards <span class="chip">subtractive only — they can drop, never rewrite</span></h2>
+  <p class="what">Four screens between the author and the card. Copies are the guards' job so the prompts never need
+  anti-reference pressure:</p>
+  <div class="cols">
+    <div class="touch"><b>MORPH / COPY</b><p>word-set containment ≥ .62 against the corpus + the <i>entire</i> generation
+    history + every killed caption. The guard forgets nothing.</p></div>
+    <div class="touch"><b>SIBLINGS</b><p>two slate-mates telling the same joke — the later one drops.</p></div>
+    <div class="touch"><b>RE-SKIN</b><p>an identity screen for same-joke-new-nouns (hyenas→raccoons class).</p></div>
+    <div class="touch"><b>REFINE</b><p>trims trailing words that land after the payoff. Removes only — never adds, never rewrites.</p></div>
+  </div>
+  <p class="what" style="margin-top:12px">Survivors become <b>THE OPTIONS</b> on the reel card — all of them ship to you;
+  clicking one re-renders the reel with it (that click is the strongest taste signal the system can receive).</p>
+</div>
+
+<div class="stage" data-n="5">
+  <h2>The chooser picks the default <span class="chip">1 sonnet call · eval-gated</span></h2>
+  <p class="what">Options are <b>shuffled</b> (position carries zero information), then judged as a reader:
+  <i>pick the hardest hitter</i> — with two vetoes, applied first:</p>
+  <div class="cols">
+    <div class="touch"><b>VETO 1 · NOT HIM</b><p>soft / self-pitying / couldn't sit in the feed — checked against a live
+    sample of 12 real references (the seam test). References judge the output here.</p></div>
+    <div class="touch"><b>VETO 2 · TONIGHT'S RERUN</b><p>same play as a post already up tonight (the last 10 defaults ride
+    along in the call) — take the next-hardest hitter instead.</p></div>
+  </div>
+  <p class="what" style="margin-top:12px">Every change to this layer must replay the selection benchmark without
+  regressing (your "should have picked X" corrections are the ground truth). The pick is logged to the feed memory the
+  moment it's made.</p>
+</div>
+
+<div class="stage" data-n="6">
+  <h2>The reel gets built <span class="chip">downstream of captions</span></h2>
+  <p class="what">Caption-first: audio matched to the caption's vibe → clips matched to the caption (fit + freshness,
+  visually-distinct picks) → beat-cut → composite. This tab focuses on captions; the clip pipeline has its own
+  diagnostics (<code>/api/debug/clip-sim</code>, <code>clip-probe</code>).</p>
+</div>
+
+<div class="loop">
+  <h2>THE LOOP — how your grades drive everything</h2>
+  <div class="loopflow">
+    <span class="n">you grade reels /10 + notes</span><span class="a">→</span>
+    <span class="n">learn mines every note<br><small>"X would have been an 8" · your rewrites · off-voice calls</small></span><span class="a">→</span>
+    <span class="n">≥8s + endorsed lines PROMOTED into the corpus<br><small>the wall & the bar grow</small></span><span class="a">→</span>
+    <span class="n">THE SENSE re-synthesized from your notes<br><small>by the agent, never mechanically</small></span><span class="a">→</span>
+    <span class="n">next night's author knows more</span>
+  </div>
+  <p class="what" style="margin-top:12px">Grades are the only quality signal the system trusts — no internal judge ever
+  decides what's "good." A low grade never deletes a format: a miss is evidence about an execution, not a verdict on a
+  play.</p>
+</div>
+
+<div class="stage" data-n="✦" style="margin-top:40px">
+  <h2>Where your references touch the system</h2>
+  <div class="cols">
+    <div class="touch"><b>TEACH</b><p>the wall — every ref, every call, by example</p></div>
+    <div class="touch"><b>ASPIRE</b><p>the hitters — grade-validated refs set tonight's level</p></div>
+    <div class="touch"><b>POLICE</b><p>the guards — every ref screens copies & morphs</p></div>
+    <div class="touch"><b>JUDGE</b><p>the chooser — the seam test scores every default</p></div>
+  </div>
+  <p class="what" style="margin-top:12px"><span class="warn">The one place references never go:</span> seeding individual
+  slots. Shown to a slot, a reference gets rewritten — proven four times under four names (anchors, quoted winners,
+  format assignments, sparks). Relevance is enforced at the output instead.</p>
+</div>
+
+<p class="foot">
+  <b>Cost & speed per card:</b> ~1 opus slate call + 1 take-pick + 1 chooser + clip-match ≈ <b>$0.35</b>, captions in
+  one call (~3× faster than the five-engine era). ·
+  <b>Rollbacks:</b> <code>GENERATION_ENGINE=v3|v2|v1</code> switch old engines back on instantly. ·
+  <b>Known watch-item:</b> within one card the options can orbit one premise territory (the seed's neighborhood);
+  constructions still differ per option — flag it in grading notes if it bothers you. ·
+  This tab is <b>temporary</b> and read-only: it fetches live state and changes nothing.
+</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+async function j(url){ const r = await fetch(url); if(!r.ok) throw new Error(url+': '+r.status); return r.json(); }
+(async () => {
+  try {
+    const profiles = await j('/api/profiles');
+    const active = profiles.find(p => p.active) || {};
+    // corpus + hitters
+    try {
+      const dump = await j('/api/debug/corpus-dump');
+      const refs = dump.refs || [];
+      const validated = refs.filter(r => ['promoted_gen','note_endorsed','operator_authored','lab_promoted'].includes(r.source));
+      $('wallChip').textContent = refs.length + ' references · shuffled every call';
+      const sample = refs.map(r=>r.caption).filter(Boolean).sort(()=>Math.random()-.5).slice(0,8);
+      $('wallPeek').textContent = sample.join('\n\n');
+      let stars = 0; try { stars = ((await j('/api/northstars')).north_stars||[]).length; } catch(e){}
+      $('hittersChip').textContent = validated.length + ' grade-validated + ' + stars + ' north stars · end of context';
+      const persona = dump.persona || '';
+      $('personaChip').textContent = persona.length + ' chars';
+      $('personaPeek').textContent = persona;
+      $('sysTok').textContent = '~' + Math.round((persona.length/4 + refs.map(r=>(r.caption||'').length).reduce((a,b)=>a+b,0)/4 + 3200/4 + 2400)/100)/10 + 'k tokens of context';
+    } catch(e) { $('wallChip').textContent = 'operator session required'; }
+    // the sense
+    try {
+      const sense = (await j('/api/craft')).text || '';
+      $('senseChip').textContent = sense.length + ' chars';
+      $('sensePeek').textContent = sense;
+    } catch(e) { $('sensePeek').textContent = 'unavailable: ' + e.message; }
+    // feed memory: newest chosen captions from pending+graded records
+    try {
+      const pend = await j('/api/reels/pending');
+      const feed = pend.slice(0,8).map(r => r.caption).filter(Boolean);
+      $('feedPeek').textContent = feed.length ? feed.join('\n\n') : '(no reels yet on this profile — the feed memory starts with the first card)';
+    } catch(e) { $('feedPeek').textContent = 'unavailable'; }
+  } catch(e) { console.error(e); }
+})();
+</script>
+</body>
+</html>
