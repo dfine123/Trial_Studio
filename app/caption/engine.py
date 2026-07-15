@@ -710,15 +710,58 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
         return cands
 
 
+# ── THE CRAFT (2026-07-15, from the full-corpus craft read of every grade + the operator's 57
+# rewrites) — the moves the winners run on, stated as PRINCIPLES a caption draws on when it's
+# that kind of caption, never as laws every caption must pass through (operator directive:
+# "these come from principles more than they come from rules... we don't need rules that apply
+# to everything when they only apply to a specific caption"). Operator-editable via
+# var/craft.md (GET/POST /api/craft); this constant is the seed/fallback. No winner texts are
+# quoted here (the orbit law) — the references above teach the sound; this names the moves.
+_CRAFT_DEFAULT = """THE CRAFT — how your lines land. These are your moves, not laws: a caption picks the one or two it needs and commits to them; the rest stay in the bag.
+
+THE PIVOT. Your best lines hide the whole joke in one word or one number, and every other word plays it dead straight. The pivot reads two ways and both ways are true — and the straighter the rest of the sentence holds, the harder it hits. Funny spread evenly across a line is funny nowhere.
+
+END ON THE PAYLOAD. The line is over the instant the picture lands — the payoff word is usually the last word. Anything after it is you explaining, and explaining is the reader's job. If the last stretch tells him what it meant, it goes; the last words are the thing itself — a picture, a number, a name — never the meaning.
+
+THE COMEBACK, when it's a comeback: built from their own material. The hardest flips spend zero new words — take the word they said and hand it back meaning the opposite. A comeback that needs new vocabulary is reaching; a comeback made of their own sentence is checkmate.
+
+THE FLEX, when it's a flex: concede first, win inside the concession. You never deny the L — you own it completely and re-read it as the W, on logic that holds inside the delusion. That's confidence. Denying it is cope.
+
+THE SCENE, when it's a scene: one continuous motion, one absurd physical detail doing all the work. Their line, your reply — and the reply is too honest and too confident at the same time, airtight on its own terms.
+
+THE CATCH, when you catch a behavior: the damning detail is one he actually performs — the timestamp, the number, the little lie he tells while doing it. An exaggeration lands when it's one a real person commits, typed like testimony; a flourish nobody actually does reads as writing.
+
+THE SLOT. When a line needs a specific — the purchase, the asset, the name, the excuse — it comes from YOUR world (spectacle, positions, things with your name on them, the come-up) and it's one the reader recognizes on sight. A detail can be perfectly concrete and still dead if it's nobody's; the right one is the exact thing that type of guy would actually say or buy. In your mouth the broke are "broke mfs" or "broke 🥷s".
+
+THE LITERAL READ. Grant any premise, then it has to compute: numbers do the math, comparisons map one-to-one, the double-read survives being read flat. The reader runs every line literally once — it has to win that run too.
+
+ONE COSTUME. When a line borrows a genre — the testimonial, the proverb, the condolence, the dilemma, the listicle — it wears it all the way through, dead serious; the genre played straight IS the bit, and half-wearing it shows the seams. Your grammar is allowed to loosen exactly where the point lands — typed the way you'd say it.
+
+TEETH. Your sincere lane is real and it's yours — a plain truth said calmly can carry a whole post. But it stings somebody specific — the coward, the guy shopping for permission, the one in the mirror — or it's a poster. Wise with teeth gets screenshotted; wise without teeth gets scrolled. And that's the test for every line: somewhere in it something HAPPENS — a catch, a flip, a scene, a sting. A line where nothing happens is a caption-shaped sentence.
+"""
+
+
+def craft() -> str:
+    """The operator-editable craft/moves layer (volume file; falls back to the seed above)."""
+    try:
+        with open(os.path.join("var", "craft.md"), encoding="utf-8") as f:
+            t = f.read().strip()
+        if len(t) >= 100:
+            return "\n\n" + t + "\n"
+    except Exception:  # noqa: BLE001
+        pass
+    return "\n\n" + _CRAFT_DEFAULT + "\n"
+
+
 _V3_TAIL = """
 
 THE TASK: write tonight's post.
 
 The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in the caption, its world is never the subject, and the finished caption owes it nothing.
 
-Draft a handful in your head and keep only the TWO that make you exhale out the nose when you re-read them — the ones you'd actually post. If a draft is merely true, merely well-said, or feels sad, wistful, or behind — that's not you; you're winning the entire time, and even your Ls come out grinning. Funny beats deep, every single night. And the bar is not "good enough for the feed" — it's THE ONES THAT HIT HARDEST: if neither draft would sit among those, throw the idea away and write a different one before you answer.
+Draft a handful in your head and keep only the TWO that make you exhale out the nose when you re-read them — the ones you'd actually post. You're winning the entire time — even your Ls come out grinning, never sorry for themselves. And the bar is not "good enough for the feed" — it's THE ONES THAT HIT HARDEST: if neither draft would sit among those, throw the idea away and write a different one before you answer.
 
-Two genuinely different takes, so the better landing wins; the last five words usually decide. Say each out loud once: it lands on the first pass, exactly enough words, ends on the thing itself. Never talk AT the reader; no "X is just Y" definitions; broke people are "broke mfs" or "broke 🥷s".
+Two genuinely different takes, so the better landing wins; the last five words usually decide. Say each out loud once: it lands on the first pass, exactly enough words, ends on the thing itself. The reader is eavesdropping and catches himself in it — hand him everything, explain nothing.
 
 The finished caption sits in the feed above like it was always there — and it lives at the level of THE ONES THAT HIT HARDEST, without re-telling any of them.
 
@@ -734,8 +777,12 @@ def _hitters_block() -> str:
     rows: list[str] = []
     try:
         validated = ("promoted_gen", "note_endorsed", "operator_authored", "lab_promoted")
+        # ALL validated refs render — the old [-60:] tail-slice cut by FILE ORDER, silently
+        # dropping the 18 earliest-promoted winners (including 10/9-rated lines) while keeping
+        # whatever was promoted last. Nothing the operator validated disappears from the bar
+        # (~78 refs ≈ +400 tokens over the cap — a budget rounding error next to the wall).
         rows += [(r.get("caption") or "").strip() for r in load_refs()
-                 if r.get("source") in validated][-60:]
+                 if r.get("source") in validated]
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -844,7 +891,9 @@ def _generate_v3(n: int, notes: str | None = None) -> list[dict]:
 
     def run_engine(task: tuple[dict, str]) -> tuple[str, str, list[str]]:
         eng, seed = task
-        system = persona() + wall + hitters + ch.charter(eng["id"]) + _V3_TAIL
+        # persona (who) + wall (the feed) + hitters (the bar) + craft (the moves, as
+        # principles) + this engine's charter (tonight's job) + tail (the task)
+        system = persona() + wall + hitters + craft() + ch.charter(eng["id"]) + _V3_TAIL
         user = _user_for(seed)
 
         def one(extra: str = "") -> list[str]:

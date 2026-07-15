@@ -8,6 +8,7 @@ dropped). Raises per-caption quality: the max of 3 independent shots beats any s
 from __future__ import annotations
 
 import json
+import random
 
 from app.caption.llm import complete_json
 
@@ -55,17 +56,33 @@ def choose_best(candidates: list[str]) -> str:
         return ""
     if len(cands) == 1:
         return cands[0]
-    listing = "\n\n".join(f"[{i}] {c}" for i, c in enumerate(cands))
+    # SHUFFLE before listing (2026-07-15 forensics): candidates arrive in fixed engine order
+    # (screenshot always first), and every failure path below used to resolve to index 0 —
+    # live picks were index-0 in 56/56 graded post-07-07 and 59/63 pending (13% before).
+    # Shuffling makes position carry zero lane information, so residual primacy bias and any
+    # fallback land on a random lane instead of silently always the same one.
+    order = list(range(len(cands)))
+    random.shuffle(order)
+    listing = "\n\n".join(f"[{i}] {cands[j]}" for i, j in enumerate(order))
     # NOTE: the distilled-taste block was REMOVED here — it narrowed selection toward "tight one-twist" and
     # sanded the range (lists/POV/developed/sincere). Selection stays best-first + full-range.
+    # max_tokens: adaptive thinking spends from the SAME budget (the documented lab truncation
+    # bug) — at 500 the sonnet judge's JSON truncated and the silent except shipped cands[0];
+    # that was the real cause of the post-07-06 index-0 monoculture. 3000 leaves thinking room.
     try:
-        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=500,
+        out = complete_json(_system(), f"Pick the ONE you'd actually post:\n\n{listing}", effort="high", max_tokens=3000,
                             cache_system=True, tag="chooser",   # stable system → cross-reel cache hits
                             model=getattr(settings, "chooser_model", None) or None)
         s, e = out.find("{"), out.rfind("}")
-        best = int(json.loads(out[s:e + 1]).get("best", 0))
+        if s == -1 or e == -1:
+            raise ValueError(f"no JSON object in chooser output (len={len(out)}): {out[:120]!r}")
+        best = int(json.loads(out[s:e + 1])["best"])
         if 0 <= best < len(cands):
-            return cands[best]
-    except Exception:  # noqa: BLE001 — chooser must never break generation
-        pass
-    return cands[0]
+            return cands[order[best]]
+        raise ValueError(f"chooser index {best} out of range 0..{len(cands) - 1}")
+    except Exception as exc:  # noqa: BLE001 — chooser must never break generation
+        # LOUD fallback (the old bare `pass` hid 8 days of truncation): log why, and fall back
+        # to the first LISTED candidate — post-shuffle that's a uniformly random lane, never a
+        # structurally privileged one.
+        print(f"[chooser] FALLBACK ({exc}) — shipping listed[0]", flush=True)
+    return cands[order[0]]

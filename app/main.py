@@ -1814,6 +1814,29 @@ def api_genlog_dump(request: Request, n: int = 300):
     return {"captions": recent_generated(max(1, min(2000, n)))}
 
 
+@app.get("/api/debug/lane-stats")
+def api_lane_stats(request: Request):
+    """Operator-only: per-engine grade ledger for the active voice (which lanes' defaults the
+    operator has actually graded, and how they scored). Populated at grade time; empty until
+    v3-era reels get graded."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from collections import defaultdict
+    rows = []
+    try:
+        with open(profiles.voice_file("lane_stats.jsonl"), encoding="utf-8") as f:
+            rows = [json.loads(x) for x in f if x.strip()]
+    except FileNotFoundError:
+        pass
+    agg: dict[str, list[int]] = defaultdict(list)
+    for r in rows:
+        agg[r.get("engine") or "?"].append(int(r.get("rating") or 0))
+    return {"observations": len(rows),
+            "lanes": {e: {"n": len(v), "mean": round(sum(v) / len(v), 2),
+                          "ge8": sum(1 for x in v if x >= 8), "le4": sum(1 for x in v if x <= 4)}
+                      for e, v in sorted(agg.items())}}
+
+
 @app.get("/api/debug/corpus-dump")
 def api_corpus_dump(request: Request):
     """Operator-only: the ACTIVE VOICE's full corpus + persona (used to export the Base voice as
@@ -2148,6 +2171,29 @@ def api_voice_core_set(req: VoiceCoreUpdate):
     return {"ok": True, "chars": len(t)}
 
 
+@app.get("/api/craft")
+def api_craft_get():
+    from app.caption.engine import craft
+    return {"text": craft().strip()}
+
+
+@app.post("/api/craft")
+def api_craft_set(req: VoiceCoreUpdate):
+    """The OPERATOR edits the craft/moves layer directly — this text sits in every v3 engine
+    system prompt. Principles a caption draws on when it's that kind of caption, never
+    universal rules (operator directive 2026-07-15)."""
+    t = (req.text or "").strip()
+    if len(t) < 100:
+        raise HTTPException(status_code=400, detail="craft text suspiciously short — refusing")
+    path = os.path.join("var", "craft.md")
+    os.makedirs("var", exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(t)
+    os.replace(tmp, path)
+    return {"ok": True, "chars": len(t)}
+
+
 class CharterUpdate(BaseModel):
     engine_id: str
     text: str
@@ -2428,6 +2474,21 @@ def api_reels_grade(req: ReelGrade, backend: str | None = None):
         try:    # learn selection taste: if the note names a better candidate, capture the pairwise preference
             from app.caption import taste
             taste.learn_from_reel(rec)
+        except Exception:   # noqa: BLE001
+            pass
+        try:    # PER-LANE ledger (2026-07-15): v3 candidates carry engine tags but nothing ever
+                # aggregated them — CLAUDE.md's "grades accumulate per interaction lane" described
+                # unimplemented wiring. Append-only observations, voice-owned; read via
+                # GET /api/debug/lane-stats. Pure bookkeeping — nothing reads it into generation.
+            import time as _t
+            chosen_eng = next((c.get("engine") for c in (rec.get("candidates") or [])
+                               if c.get("chosen") and c.get("engine")), None)
+            if chosen_eng and isinstance(req.rating, int):
+                lp = profiles.voice_file("lane_stats.jsonl", uuid.UUID(rec["voice_profile_id"])
+                                         if rec.get("voice_profile_id") else None)
+                with open(lp, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"engine": chosen_eng, "rating": req.rating,
+                                        "reel_id": rec.get("reel_id"), "ts": _t.time()}) + "\n")
         except Exception:   # noqa: BLE001
             pass
         return {"ok": True}

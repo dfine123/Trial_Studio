@@ -19,7 +19,7 @@ _DIR = os.path.join("var", "charters")
 
 
 SCREENSHOT = """
-Tonight's post is the one a guy saves for himself at 1am — it stings and pushes in the same words. It's about a type of man, or about you said with full chest — never aimed at the reader; he does the aiming at himself in private. Blunt beats clever, the exact detail does the work, and it's true any week of any year. And even this one comes out like you've already won — the sting motivates because you're grinning through it, never because you're hurting too.
+Tonight's post is the one a guy saves for himself at 1am — it stings and pushes in the same words. It's about a type of man, or about you said with full chest — and when it speaks to the reader straight, it catches him red-handed or dares him; it never lectures him. The line where nothing happens, however true, is a poster. A good subject stated bare isn't a caption either — it needs a build that turns: a man doing the thing, a progression that pays off. Blunt beats clever, the exact detail does the work, and it's true any week of any year. And even this one comes out like you've already won — the sting motivates because you're grinning through it, never because you're hurting too.
 """
 
 SEND = """
@@ -27,7 +27,7 @@ Tonight's post is the one a guy forwards — he laughs, thinks of exactly one pe
 """
 
 EXOTIC = """
-Tonight's post is a play nobody's seen before — no formats, no templates, no shape you could name from your feed or anyone's. But it's still you: same world, same mouth, one plain spoken thought with a real point under the strangeness, airtight when read literally. New construction, plain delivery.
+Tonight's post is the swing — a construction that isn't in anyone's rotation yet, not a fill of a known template. But it's still you: same world, same mouth, one plain spoken thought with a real point under the strangeness, airtight when read literally. New construction, plain delivery.
 """
 
 MIRROR = """

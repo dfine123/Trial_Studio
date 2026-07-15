@@ -590,7 +590,10 @@ def instruction_layers_quote_no_winners():
     # GENERATION-visible surfaces only. (_reskin_check's judge prompt legitimately NAMES formats —
     # it must know a shared format is NOT a re-skin, or it would false-drop validated species.
     # The BRIEF describes vehicle MECHANISMS without quoting winner texts — that's the line.)
+    from app.caption import charters as ch
     surfaces = (engine._VOICE_CORE_DEFAULT + engine._SLATE_TAIL
+                + engine._CRAFT_DEFAULT + engine._V3_TAIL
+                + "".join(e["charter"] for e in ch.ENGINES)
                 + inspect.getsource(engine._pick_takes))
     low = surfaces.lower()
     banned = ["raccoon", "vending machine", "led sign", "rothschild", "energy drinks",
@@ -649,13 +652,19 @@ def chooser_uses_configured_judge_model():
 
     def fake_llm(system, user, **kw):
         got.update(kw)
+        got["user"] = user
         return '{"best": 1}'
 
     with patched(chooser, complete_json=fake_llm, _system=lambda: "SYS"):
         pick = chooser.choose_best(["a", "b", "c"])
     from app.config import settings
     assert got.get("model") == settings.chooser_model, got
-    assert pick == "b"
+    # candidates are SHUFFLED before listing (index-0 primacy fix, 2026-07-15), so "best": 1
+    # must map back to whichever candidate was LISTED at [1] — not input position 1
+    import re as _re
+    listed = dict(_re.findall(r"\[(\d+)\] (\w+)", got["user"]))
+    assert pick == listed["1"], (pick, listed)
+    assert sorted(listed.values()) == ["a", "b", "c"], listed   # all candidates listed exactly once
 
 
 # ─── V3: seed → five engines → selector ───
@@ -758,9 +767,13 @@ def v3_charters_are_pure_and_separate():
         for j in range(i + 1, len(texts)):
             shared = grams(texts[i]) & grams(texts[j])
             assert not shared, f"charters {i}/{j} share phrasing: {list(shared)[:2]}"
-    # exotic gets no format palette
+    # exotic gets no format palette, and stays the novelty lane — but WITHOUT anti-reference
+    # pressure ("no shape you could name from your feed" pushed output out of the reference
+    # distribution; conformance-first law, removed 2026-07-15)
     assert "shapes that have historically" not in ch.EXOTIC.lower()
-    assert "no formats" in ch.EXOTIC.lower() or "no templates" in ch.EXOTIC.lower()
+    assert "isn't in anyone's rotation" in ch.EXOTIC.lower() \
+        and "not a fill of a known template" in ch.EXOTIC.lower()
+    assert "from your feed" not in ch.EXOTIC.lower()
 
 
 # ─── V3: the reader-defendant (you-lecture) detector ───
