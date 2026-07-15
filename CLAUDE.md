@@ -97,6 +97,59 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
+- **⭐⭐⭐⭐⭐⭐⭐ THE CHOOSER OUTAGE + THE CRAFT LAYER (2026-07-15, commits 20dc75f+7b48934) — the
+  chooser had been functionally OFF since 2026-07-06; every default the operator saw for 8 days
+  was an unselected first-draft of the screenshot lane.** Found by a full-corpus forensic sweep
+  (all 298 grades + the operator's 57 note-rewrites read AS WRITING; 30-agent adversarially-
+  verified panel). THE OUTAGE: index-0 picks were 13% of graded reels before 07-06 → 100% (56/56)
+  after → 94% of pending. Mechanism: the 07-06 opus→sonnet judge swap ran at max_tokens=500 while
+  adaptive thinking spends from the SAME budget (the documented lab truncation class) — the JSON
+  truncated, the bare `except: pass` swallowed it, cands[0] shipped; and v3 assembles candidates
+  in fixed ENGINES order, so cands[0] = SCREENSHOT always. send/mirror/menace had NEVER shipped
+  as a default; round 8's "monoculture" was this outage, and its "post-fix picks spread 2/1"
+  claim was false (the alive-beats-wise prompt never governed picks — the call was failing).
+  FIXES: candidates SHUFFLED pre-listing (position carries zero lane info; residual primacy and
+  every fallback land on a RANDOM lane), max_tokens 8000 (a cap is not a spend target — only
+  generated tokens bill; the tight cap WAS the bug), every fallback logged loudly (`[chooser]
+  FALLBACK`). Eval gate (canon 3): baseline 0.222 acc/6 losers → post-fix 0.222/0.185 across two
+  runs (Δ=1 case = shuffle noise) with picked_loser IMPROVED 6→4→3. LIVE-VERIFIED same day
+  (5 fresh sets, first post-fix batch): chosen engines screenshot 2 / send 1 / menace 1 /
+  exotic 1 (was 12/13 screenshot), chosen indexes {0:2, 1:2, 4:1} (was 100% index-0) — a menace
+  dialogue shipped as a default for the first time in the profile's history.
+  **THE CRAFT (operator directive: "these come from principles more than they come from rules…
+  we don't need rules that apply to everything when they only apply to a specific caption"):**
+  a principles layer now sits in every v3 engine system (persona + wall + hitters + CRAFT +
+  charter + tail), derived from the craft read of every winner + rewrite: THE PIVOT (one
+  word/number, all else straight) · END ON THE PAYLOAD (last words = the thing itself, never the
+  meaning) · THE COMEBACK when it's a comeback (built from their own material) · THE FLEX when
+  it's a flex (concede first, win inside it) · THE SCENE (one motion, one absurd physical
+  detail) · THE CATCH (a detail he actually performs; exaggerations a real person commits) ·
+  THE SLOT (recognized in-world specifics; "broke mfs"/"broke 🥷s" lives here positively) ·
+  THE LITERAL READ · ONE COSTUME (genre worn fully; grammar loosens at the turn) · TEETH (the
+  sincere lane is load-bearing but stings somebody specific; every line: something HAPPENS).
+  Every move is CONDITIONAL by construction — no winner texts quoted (orbit law; purity test
+  extended over craft+tail+charters). Operator-editable: var/craft.md + GET/POST /api/craft.
+  TAIL: "FUNNY BEATS DEEP" replaced — the grade-verified axis is winning-even-in-Ls +
+  something-happens vs poster (his 9-rated sincere friday line is deep AND a winner; "don't
+  narrow to truths"). CHARTERS: screenshot regains the round-8 packaging law (it had been cut
+  hours after shipping by the kernel shrink) + reader-aim boundary corrected — 21/59 winners are
+  second-person; the axis is JOKE-PRESENCE not address-direction (caught-red-handed/dared
+  licensed, lectures never); exotic loses "no shape you could name from your feed"
+  (anti-reference pressure, conformance-first law). WIRING: hitters block keeps ALL validated
+  refs — the [-60:] file-order slice had silently dropped the 18 earliest promotions incl. the
+  Edging 10, two 9s, eight 8s (the bar block was missing the hardest hitters); per-lane grade
+  ledger now real (lane_stats.jsonl written at grade time + GET /api/debug/lane-stats — the old
+  "grades accumulate per interaction lane" line described unimplemented wiring).
+  KEY VERIFIED HISTORY (the sweep's surviving findings): era means 5.36/6.14/4.61/6.86(n=7)/
+  4.84/3.22; the payoff-slot fumble is THE invariant kill class (~61/118 noted kills; operator
+  fix classes: generic→concrete slot, trailing compression, 1:1 logic); v2-understanding-first's
+  6.86 is the one measured machinery UP-move (understanding-led prompts — the craft layer is its
+  v3 descendant); 54/59 all-time winners live in the corpus; the winner families (crude bathos,
+  wyr dilemmas, guru fake-math parody, animal parables ≈ 20/59 winners, 3/7 tens) were PRESENT
+  in the v3 pool all along and died at selection. STANDING RULE (self-report discipline): no
+  "verified fixed" claim without a live-data replay dated AFTER the deploy — the "broke dude"/
+  "(beat)" post-fix "regressions" turned out to be date-label confusion (candidates generated
+  before their fixes deployed; post-fix windows were clean 0/139 and 0/98).
 - **⭐⭐ BANGERS AT SCALE (2026-07-10, commits ae9c46d+bf945e0).** Two compounding fixes: (1) THE
   SOUND FIX — output had drifted wistful/poignant (felt Ls) while refs are FUNNY and WINNING;
   tail now leads with the author's own filter ("keep the TWO that make you exhale out the nose…
@@ -141,10 +194,12 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   progression does" / "over-trimming... needs better delivery/packaging" — a good subject stated
   bare isn't a caption. FIXES: chooser = ALIVE BEATS WISE (+ sincere-jab balance clause);
   packaging law in the screenshot charter; **Check voice → Base** (staleness class closed);
-  learn captured his rewrites (corpus 162). Post-fix picks spread 2/1 across engines. ⚠️ living
-  chooser-eval matched only 4 stale cases (not comparable to 0.273) — next graded round
-  arbitrates; rerun the frozen-set replay before further chooser edits. STANDING: monoculture in
-  a graded round → check the chooser's engine distribution FIRST.
+  learn captured his rewrites (corpus 162). ~~Post-fix picks spread 2/1 across engines~~
+  ⚠️ FALSIFIED 2026-07-15: live pending showed 12/13 screenshot — the monoculture was the
+  chooser OUTAGE (see the 2026-07-15 entry), and the alive-beats-wise prompt never governed
+  picks because the judge call was silently failing to index 0. ⚠️ living chooser-eval matched
+  only 4 stale cases (not comparable to 0.273) — next graded round arbitrates. STANDING:
+  monoculture in a graded round → check the chooser's engine distribution FIRST.
 - **⭐⭐⭐ NATURAL-YET-SUFFICIENT (2026-07-10, commit e2965bf) — the operator's named biggest gap.**
   Winners pass the READ-ALOUD-ONCE test (median 18 words, one breath or explicit beats; more room
   = a NEW BEAT, never a longer sentence); our output was 23-word breathless prose. Also: HE
