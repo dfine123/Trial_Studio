@@ -61,10 +61,40 @@ def pending(pid=None) -> list[dict]:
     return [r for r in reversed(_load(pid)) if not r.get("grade")]
 
 
+def log_default(caption: str, pid=None) -> None:
+    """Log a chosen default at CAPTION time (reel records append only after render, which is
+    too late for feed memory inside a pipelined batch — two adjacent cards both ran a Dealer
+    scene because neither could see the other). Append-only, profile-owned."""
+    cap = (caption or "").strip()
+    if not cap:
+        return
+    p = profiles.feed_log_path(pid)
+    os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+    with _LOCK, open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"caption": cap, "ts": time.time()}, ensure_ascii=False) + "\n")
+
+
 def recent_captions(n: int = 10, pid=None) -> list[str]:
-    """The profile's most recent reel captions, oldest→newest — 'tonight's feed so far' for the
-    chooser's never-the-same-play-twice judgment (2026-07-15 realignment)."""
-    return [(r.get("caption") or "").strip() for r in _load(pid)[-n:] if (r.get("caption") or "").strip()]
+    """The profile's most recent posted/chosen captions, oldest→newest — 'the feed so far' for
+    both the slate author and the chooser (2026-07-15 realignment). Merges the reel records
+    with the caption-time feed log (which leads them by one render), deduped, newest-last."""
+    rows = [(r.get("ts") or 0, (r.get("caption") or "").strip()) for r in _load(pid)]
+    try:
+        p = profiles.feed_log_path(pid)
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        r = json.loads(line)
+                        rows.append((r.get("ts") or 0, (r.get("caption") or "").strip()))
+    except Exception:  # noqa: BLE001 — feed memory must never break anything
+        pass
+    rows.sort(key=lambda x: x[0])
+    out: list[str] = []
+    for _, cap in rows:
+        if cap and (not out or cap != out[-1]) and cap not in out[-3:]:
+            out.append(cap)
+    return out[-n:]
 
 
 def record_grade(reel_id: str, rating, notes, pid=None) -> dict | None:

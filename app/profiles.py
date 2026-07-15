@@ -112,6 +112,7 @@ def grades_path(pid: uuid.UUID | None = None) -> str:    return voice_file(_suff
 def taste_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("taste.md"), pid or voice_id())
 def lab_pool_path(pid: uuid.UUID | None = None) -> str:  return voice_file(_suffixed("lab_pool.jsonl"), pid or voice_id())
 def reels_path(pid: uuid.UUID | None = None) -> str:     return voice_file(_suffixed("reels.jsonl"), pid)   # PROFILE-owned
+def feed_log_path(pid: uuid.UUID | None = None) -> str:  return voice_file(_suffixed("feed_log.jsonl"), pid)  # PROFILE-owned; chosen captions logged at CAPTION time (reel records append post-render - too late for in-batch feed memory)
 
 
 def settings_path(pid: uuid.UUID | None = None) -> str:  return voice_file("profile_settings.json", pid or active_id())

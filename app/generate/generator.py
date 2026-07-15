@@ -281,6 +281,10 @@ def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str,
     except Exception:  # noqa: BLE001
         recent = []
     chosen = choose_best(texts, recent_defaults=recent) or texts[0]
+    try:    # feed memory at CAPTION time — reel records land post-render, one card too late
+        reel_store.log_default(chosen)
+    except Exception:  # noqa: BLE001
+        pass
     for c in cands:
         c["chosen"] = (c["text"] == chosen)
     return chosen, cands
