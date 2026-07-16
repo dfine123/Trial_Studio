@@ -97,7 +97,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
 
 ## Generation → selection → learning (the pipeline)
 
-- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE SENSE v2: FLOOR + ENGINE ROOMS (2026-07-15, commits afb2cde→a0a83ee) —
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ SENSE v2.2 (2026-07-16, commit dda2983) — current SENSE text**: seven
+  type-local laws translated from the Brandon 24-grade session (fresh-round means 3.22 →
+  4.24 → 4.54; ≥7 rate 19%→29%): VOLTAGE lexicon-is-voltage (the mf / a broke 🥷, never
+  "dude", including inside analogies); COPE ANALOGY subjects wear the lexicon; QUOTE-FLIP
+  quoted cliché must be actually-posted verbatim (inventions cap ~8); MIRROR COUPLET
+  notification/bank-alert ≠ thrill + line-break at the turn; STATUS PERFORMANCE confessed
+  motive on its own parenthetical line; BRO BLINDSIDE runway = present-tense LIVE when-frame
+  (never past-tense recap) + payload parses in one read; NINE-TO-FIVE HORROR flattest real
+  noun beats stacked poetic detail. Same session's curated corpus moves: +p085 +p086 (Base
+  161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
+  /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
+
+- **THE SENSE v2: FLOOR + ENGINE ROOMS (2026-07-15, commits afb2cde→a0a83ee) —
   THE current understanding layer, from the 39-agent full-corpus principles review.** The
   review tested the 10 universal laws the stack applied to every caption against all 59
   winners + 13 stars, one by one, adversarially rechecked: **2 universal** (literal-read
