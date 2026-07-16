@@ -109,6 +109,26 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
   /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
 
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ SELECTION-BIAS FIX (2026-07-16 late, commit 61e952b) — repetition round 3
+  root cause: DIVERSITY DIES AT SELECTION, NOT AUTHORSHIP.** Measured on a 23-card night
+  (13 post-SENSE-v2.2): slates offered wyr 2×, fake-math 3×, quote-flip-😭🙏 4×, mfs-will 4×,
+  redefinitions 2×, status-cons 3×, 9-5 horror 3× — near-zero shipped as defaults; meanwhile
+  6 mirror couplets (corpus rate ~2%, default rate 26% — 10× over-shipped), 3 so?-flips,
+  3 POV-bros. When-frames = the corpus's largest named family (14/162) shipped ZERO. Two
+  chooser mechanisms did it: (1) "said beats written" executes every deliberate written
+  artifact standing next to speech; (2) the franchise rerun-veto ("not sharper than") never
+  fires — the judge always calls its pick sharper (3 couplets shipped in 15 min against a
+  visible TONIGHT'S POSTS block). FIX: (a) chooser — written-artifact-on-purpose is "speech
+  in costume", judged as the artifact (scoped rider INSIDE the load-bearing sentence — passed
+  the gate where the two earlier license attempts failed); played-tonight veto = dead unless
+  you'd DELETE the earlier post to keep this ("about as good" is dead); freshness tie-break.
+  EVAL GATE: 0.148/0.296/0.222 mean 0.222 ≥ 0.21, picked_loser 2-3 (healthy). (b) author —
+  a play already in recent posts enters the card at most once, only sharper; rest from unseen
+  plays. (c) SENSE part-two header — the 15 sections are settled law NOT the catalog; the
+  wall is the catalog (orbit law: the named rooms had become the menu). ⚠️ /api/captions/
+  generate (sync) dies at the 60s edge timeout with v4 — behavioral verification needs real
+  reel generation; next graded batch arbitrates.
+
 - **THE SENSE v2: FLOOR + ENGINE ROOMS (2026-07-15, commits afb2cde→a0a83ee) —
   THE current understanding layer, from the 39-agent full-corpus principles review.** The
   review tested the 10 universal laws the stack applied to every caption against all 59
