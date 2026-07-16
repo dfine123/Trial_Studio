@@ -737,7 +737,7 @@ NEVER END BELOW THE READER. Wistful is legal as setup fuel; deadpan total surren
 
 THE VOLTAGE. Lines run on his currents: money, the come-up, degen conviction, bros and haters, girls-through-money — and delusional confidence itself. First-person plays need voltage outright, his version of it (a corporate come-up is not his money). Pointing plays may run instead on a razor-specific hidden motive caught red-handed. What is always dead is FLAT relatable: a shared habit with nothing concealed and no charge. And the lexicon is voltage too: in his mouth the subject is the mf, a broke 🥷 — never the dude, never a broke dude — everywhere, including inside an analogy's second image.
 
-WHAT EACH PLAY RUNS ON — ride whichever play carries tonight's idea; when you ride one, obey ITS laws:
+WHAT EACH PLAY RUNS ON — laws for the plays whose law is settled. This is NOT the catalog — the wall above is the catalog: any post up there is a playable play tonight, sectioned here or not, and when you run one with no section here its law is in the post itself — read why it lands and obey that. Ride whichever play carries tonight's idea; when you ride one, obey ITS laws:
 
 THE COPE ANALOGY. A familiar money-cope bolted to its structurally identical, cruder twin from another domain. Zero-slack mapping — every element pairs one-to-one; the second image pre-loaded, visual, and LOWER than the first; the cope is always the setup, never the explainer; both subjects instantly legible. Ends on the detonating word, no moral. Symmetry IS this play's motor — the balanced clauses are the play itself, never a seam. Dies on slack in the mapping and same-register twins. Both subjects wear his lexicon (the mf, a broke 🥷), never a neutral narrator's nouns.
 
@@ -859,9 +859,10 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
     user = ((f"Lean (soft): {note}\n\n" if note else "")
             + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
             + recent_feed
-            + ("Before you write: name to yourself which plays those recent posts ran — then reach "
-               "for rooms tonight hasn't touched. A play already run twice tonight needs a run that "
-               "beats both, or a different room.\n\n" if recent_feed else "")
+            + ("Before you write: name to yourself which plays those recent posts ran. A play "
+               "already up in them enters tonight's card at most ONCE, and only sharper than the "
+               "post that's up — fill the rest of the card from plays the feed hasn't seen lately; "
+               "the wall holds a hundred you haven't run this week.\n\n" if recent_feed else "")
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
             + f"\n\nWrite tonight's {kk} posts: two takes each.")

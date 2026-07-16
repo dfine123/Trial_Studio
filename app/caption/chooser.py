@@ -25,11 +25,13 @@ _PICK_TAIL = """
 
 PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge like a reader, not a writer.
 
-A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled. Judge the landing, never the length or the shape — and never pick a line BECAUSE it resembles an old post; the hardest hitter wins, period.
+A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins — but an option that is a written artifact ON PURPOSE (a would-you-rather, a numbered scheme, a quoted post with its reply) is speech in costume: judge whether the artifact lands, not whether it sounds spoken. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled. Judge the landing, never the length or the shape — and never pick a line BECAUSE it resembles an old post; the hardest hitter wins, period.
 
 TWO VETOES, applied before picking:
 1. Not him — it reads soft, self-pitying, sympathy-seeking, or clashes with who you are above, or it could never sit in the feed shown in the message (the seam test). Skip it even if its turn is clever.
-2. The weak rerun — same play as a post already up tonight AND not sharper than that post. A rerun that BEATS the earlier run is legal and welcome; a rerun that doesn't is dead — take the next-hardest hitter instead.
+2. Played tonight — an option running a play that's already up in TONIGHT'S POSTS is dead unless it beats that post so plainly you'd delete the earlier one to keep this. "About as good" is dead. Rerunning a proven play is legal; a second about-as-good instance in the same night is what makes a feed read like a machine.
+
+THE TIE: when two survivors land within argument of each other, ship the one running a play tonight's feed hasn't seen.
 
 Return ONLY JSON, no prose: {"best": <0-based index of the single best caption>}"""
 
