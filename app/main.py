@@ -1695,22 +1695,26 @@ def api_reels_learn(backend: str | None = None):
                 ov += 1 if got.get("off_voice") else 0
             except Exception:  # noqa: BLE001
                 pass
-        # THE core-generator loop: every operator-validated line (posted >=8 + note-endorsed >=8) enters
-        # the reference corpus — the generator's grounding grows from exactly what the operator rates best.
-        grown = promote.promote_all()
-        codex_ok = None
-        try:    # v2 generation ideates FROM the codex — rebuild it so every learn round compounds
-                # the understanding (new refs' decodes + the fresh notes) into the next generation
-            from app.caption import lab
-            codex_ok = bool(lab.build_codex(force=True).get("ok"))
-        except Exception:  # noqa: BLE001 — codex refresh must never sink a learn run
-            codex_ok = False
+        # ⚠️ AUTO-PROMOTION DISABLED (2026-07-15, operator directive): "grades are just a medium
+        # to communicate with you how we need to improve the system — that should never be
+        # happening programmatically." Nothing enters the reference corpus mechanically anymore.
+        # This endpoint now GATHERS: it mines notes into data records (pairwise -> the eval
+        # harness; authored/off_voice -> files) and returns a DIGEST of promotion candidates for
+        # the AGENT to review deliberately — corpus changes happen only via curated
+        # /api/debug/corpus-add / corpus-remove calls after the agent reads the round.
+        candidates = []
+        try:
+            for r in reels.graded():
+                g = r.get("grade") or {}
+                if isinstance(g.get("rating"), int) and g["rating"] >= 8 and not r.get("promoted"):
+                    candidates.append({"rating": g["rating"], "notes": (g.get("notes") or "")[:200],
+                                       "caption": (r.get("caption") or "")[:160]})
+        except Exception:  # noqa: BLE001
+            pass
         return {"ok": True, "pairs_captured": pw, "off_voice_captured": ov,
-                "codex_rebuilt": codex_ok,
-                # 2026-07-15 realignment: THE SENSE (var/craft.md, /api/craft) is re-synthesized
-                # BY THE AGENT after each graded round — from the round's notes + the corpus —
-                # never mechanically (the brief-resynthesis precedent). This flag is the reminder.
-                "sense_resynthesis_due": True, **grown}
+                "auto_promotion": "disabled — grades are messages to the agent, not triggers",
+                "promotion_candidates": candidates,
+                "sense_resynthesis_due": True}
 
 
 @app.post("/api/reels/refresh-taste")
