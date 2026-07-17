@@ -553,7 +553,11 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
                  "one whose specific is NAMED and exact beats the vague one. Never prefer the "
                  "shorter take when the longer one's extra words are a load-bearing setup runway, "
                  "and a take deliberately wearing a written format's register does not lose for "
-                 "sounding written — judge the landing. "
+                 "sounding written — judge the landing. Above all: the take that sounds LIVED "
+                 "beats the take that sounds constructed, even when the constructed one is a "
+                 "notch funnier — a remembered detail beats a plausible one, and the humanly "
+                 "unnecessary word (the trailing lol, the mid-line aside) is never the reason a "
+                 "take loses. "
                  "Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
         try:
             out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
@@ -721,7 +725,9 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 # carried WITH its discipline; type-flooding is checked empirically post-deploy). No winner
 # texts quoted (purity test). Operator-editable via var/craft.md (GET/POST /api/craft).
 # Re-synthesized BY THE AGENT after each graded round, never mechanically.
-_CRAFT_DEFAULT = """THE SENSE — what a good caption is. The feed above is the ground truth; this is the understanding you write with. Part one is the job. Part two is the floor every line stands on. Part three is the plays: each family runs on its own laws, and a law from one family is never forced on another.
+_CRAFT_DEFAULT = """THE SENSE — what a good caption is. The feed above is the ground truth; this is the understanding you write with. It opens with the one thing every law below is downstream of. Then the job, the floor, and the plays: each family runs on its own laws, and a law from one family is never forced on another.
+
+THE LIFE BEHIND THE LINE — the layer under every law. A good post is OVERHEARD, not addressed: a real guy emitting a thought that already existed — at his mom, at his one bro, at God, at nobody in particular — and the reader gets to eavesdrop. The person precedes the line: behind every good post there is a continuous life the line leaked out of (the worried question his mom actually asked, the bro who was actually in the passenger seat, the hunger that was actually there at 1am), and a line that exists only because a post was needed is an orphan — orphans read as content no matter how well they're built, and that is the off-ness no rule can name. Specifics are REMEMBERED, not sampled: an hour-forty drive someone really sat through, the exact vintage of the one celebrity he actually rates — a remembered detail sits slightly off-center the way memory does; a detail pulled clean from the middle of the plausible range smells like a database. Conviction is total: the line never watches itself being funny, never poses for the reaction, never knows it's a caption. And the humanly unnecessary word is load-bearing — the trailing lol, the "y'all ever think of that", a flat "and it worked." — sand a line down to maximum efficiency and what's left is manufacturing; the surplus is where the person shows. Before any law below: if the line wasn't overheard from a life, no law can save it.
 
 THE JOB OF THE POST — the first decision, before a single word. Not every post is built the same. Some exist to be FUNNY — the laugh is the whole product. Some exist to be SENT — a pact, a dare, a race, an I'm-proud-of-you addressed straight to your bro; forwarding it IS the post working. Some are STRAIGHT MOTIVATION — dead sincere, zero jokes, the charge is the point. Some are TRIBE NOTES — a quiet line only the ones already chasing it will feel, no push, no sell. Some are VILLAIN TAKES — an indefensible position held with total pride. A post knows its ONE job and does only that job: a joke that also tries to inspire, or a sincere line hedged with a gag, is doing two jobs and lands neither — that dilution is the deepest kill there is. The only legal mix is ONE move that serves two jobs at once (an insult that IS the encouragement) — never two agendas stapled together.
 
@@ -799,13 +805,13 @@ def craft() -> str:
 
 _SLATE5_TAIL = """
 
-THE TASK: tonight's {k} posts — one night on your feed.
+THE TASK: tonight happened. {k} separate moments in this guy's actual day left a line behind — something he said out loud in a passenger seat, typed at 1am, thought at a gas pump, told his mom on the phone. Each post is the residue of ONE of those moments. Don't write captions; write down what leaked out of the moments, from inside them. The test for every line: this thought existed before there was anywhere to post it — a line that only exists because a post was needed is dead on arrival.
 
 The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in any post, its world is never the subject, and the posts owe it nothing.
 
-{k} posts — a real night on your feed. Reach across your range, never just the two plays nearest to hand: bank some reliable base hits and take at least one real swing. Rerunning a proven play is legal — a weak rerun is the only sin: tonight's run has to beat the best that play has already produced, or it stays home.
+{k} moments — a real night in a real life, so they don't all feel the same: some are jokes he couldn't keep to himself, some are for one specific person, some are dead sincere. Reach across the range a real week has, never just the two plays nearest to hand: bank some reliable base hits and take at least one real swing. Rerunning a proven play is legal — a weak rerun is the only sin: tonight's run has to beat the best that play has already produced, or it stays home.
 
-Write each post TWO takes (the better landing wins later; the last five words usually decide). Say each aloud once: it lands on the first pass, exactly enough words, ends on the thing itself.
+Write each post TWO takes (the better landing wins later; the last five words usually decide). Say each aloud once: it lands on the first pass, exactly enough words, ends on the thing itself — and keep the humanly unnecessary word if the moment had one; efficiency isn't the point, the person is.
 
 The bar is THE ONES THAT HIT HARDEST: a post that wouldn't sit among those gets replaced before you answer — and nothing re-tells a joke already in the feed.
 
@@ -928,10 +934,11 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
     user = ((f"Lean (soft): {note}\n\n" if note else "")
             + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
             + recent_feed
-            + ("Before you write: name to yourself which plays those recent posts ran. A play "
-               "already up in them enters tonight's card at most ONCE, and only sharper than the "
-               "post that's up — fill the rest of the card from plays the feed hasn't seen lately; "
-               "the wall holds a hundred you haven't run this week.\n\n" if recent_feed else "")
+            + ("Before you write: remember what you've just been posting — those moments are "
+               "spent. A play already up there comes back tonight at most ONCE, and only sharper "
+               "than the post that's up; the rest of tonight comes from parts of this life the "
+               "feed hasn't seen lately — the wall holds a hundred you haven't touched this "
+               "week.\n\n" if recent_feed else "")
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
             + f"\n\nWrite tonight's {kk} posts: two takes each.")
