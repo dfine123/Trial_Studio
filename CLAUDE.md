@@ -109,7 +109,32 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
   /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
 
-- **⭐⭐⭐⭐⭐⭐⭐⭐⭐ LAW CARDS (2026-07-17, follows THE DECK):** deck side effect caught same
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE RE-CENTERING / SENSE v3 (2026-07-17 late, commits ec17e06+78d9132) —
+  purpose-first understanding from the operator's 48-reference drop.** Operator dropped 48
+  screenshots (~/Desktop/caption-refs; transcribed exact via 4-agent fan-out, 3/3 spot-checks
+  perfect; synthesis at scratchpad refs_intake/LEARNING_SYNTHESIS.md). HIS AXIS, data-confirmed:
+  every post has ONE job — funny / send-to-bro / straight motivation / tribe note / villain
+  take — and purpose dilution is the deepest kill; only legal mix = one move serving two jobs.
+  Corpus 161→208: 47 intaken via corpus-add, decodes carry PURPOSE + REPLICABILITY CLASS
+  (replicable-format / reusable-concept / one-off-execution — dictates HOW the author may use
+  each ref) + MECHANISM + VIDEO-RELATION; 1 held (generic aphorism, weakest metrics — the
+  boundary specimen: motivational still needs a concrete twist). SENSE v3: THE JOB OF THE POST
+  layer; floor re-scoped by purpose (hope legal in motivation; never-decode = joke law, sincere
+  states its truth; voltage is POST-level — pure comedy rides footage identity); new floor: THE
+  SECOND SPEAKER (footage as evidence/enactment/counterpoint) + THE SOUND (lowercase, slang,
+  censoring-as-bit incl. j*bs inversion, tails, deep-cut-vintage detonator); quote-flip → five
+  targets; double-down interior forms (delusion prayer, variance pride, consequence
+  indignation, ironic surrender); NEW play families THE BRO LINE / THE STRAIGHT SERMON /
+  THE TRIBE NOTE; portfolio spends jobs. Law cards 15→19 (+bro pact, future-retrospect,
+  Socrates proverb-parody, tax-wink counterpoint). ⚠️ CHOOSER GATE LESSON #3: the
+  purpose-aware judging line REGRESSED the eval (0.148 mean, losers 7-9) — reverted same hour;
+  the eval-best criterion is load-bearing, purpose-awareness lives at AUTHORSHIP + card
+  options; his grades on new-purpose options are the data that grows the canon. Post-revert
+  6-run mean 0.197 (losers ~5) vs old 0.222 — drift is the BENCHMARK (feed sample now draws
+  the re-centered corpus; canon cases are joke-era), not the chooser; watch, don't chase.
+  Next arbiter: his first graded round under v3.
+
+- **LAW CARDS (2026-07-17, follows THE DECK):** deck side effect caught same
   night by the operator ("variating but not incorporating my feedback — like something was
   left out"): the decoded winners (the carriers of graded feedback) went from always-present
   to in-view ~1/5 of the time, and per-play law adherence dropped (a blindside shipped with
