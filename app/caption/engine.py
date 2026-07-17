@@ -972,6 +972,34 @@ The finished caption sits in the feed above like it was always there — and it 
 Return ONLY JSON, no prose: {"takes": ["take one (\\n for line breaks)", "take two"]}"""
 
 
+_LAW_CARDS = (
+    # LAW CARDS (2026-07-17): ONE operator-graded canonical exemplar per play family, riding
+    # EVERY card. The deck fixed static salience but had a side effect: the decoded winners —
+    # the carriers of the operator's graded feedback — went from always-present to in-view
+    # ~1/5 of the time, and per-play law adherence visibly dropped (a blindside shipped with a
+    # melodrama runway + roast payload the same night). One exemplar per family restores the
+    # constant principle-attached-to-example reinforcement WITHOUT rebuilding the attractor:
+    # the old block's pull came from family COUNTS (9 scoreboards vs 1 wyr), and one-per-family
+    # is balanced by construction. Keyed by sha1-12 of the live caption text; a retired ref
+    # silently stops riding; the rest of the validated pool keeps rotating on the deck.
+    "19a14e8dd4df",  # cope analogy
+    "c63bb0e6c239",  # quote-flip autopsy
+    "b8fdf3860ae5",  # deflating redefinition
+    "70cbdae476c4",  # behavior receipt
+    "455f527e5cd7",  # hater scoreboard
+    "68198b7a8cf3",  # backhanded pep talk
+    "696907788f5e",  # sincere sting
+    "8a26179a1d3d",  # gutter gospel
+    "2a7a658fccf8",  # shameless double-down
+    "4f12be9976d4",  # mirror couplet
+    "6002f95b5968",  # status performance
+    "bf55fc4f255f",  # bro blindside (when-frame runway — the v2.2-lawful instance)
+    "560409e5ba17",  # nine-to-five horror
+    "9630cff09826",  # format parody
+    "b162d3d45f39",  # comment trap
+)
+
+
 def _hitters_block() -> str:
     """THE ONES THAT HIT HARDEST — the operator's original hand-picked references (north stars)
     + every corpus ref that earned its slot through his grades (promotions, endorsements, his
@@ -987,14 +1015,20 @@ def _hitters_block() -> str:
         # rotation (unlike the old [-60:] slice, nothing is ever PERMANENTLY dropped — the
         # deck guarantees each one returns every few cards); each still carries its WHY IT
         # LANDS decode, the per-instance mechanism carrier. North stars ride every card.
+        pinned: dict[str, str] = {}
         vrows: list[str] = []
         for r in load_refs():
-            if r.get("source") not in validated:
-                continue
             cap = (r.get("caption") or "").strip()
+            if not cap:
+                continue
             why = (r.get("why_it_works") or "").strip()
-            if cap:
-                vrows.append(f"{cap}\n→ WHY IT LANDS: {why}" if why else cap)
+            row = f"{cap}\n→ WHY IT LANDS: {why}" if why else cap
+            h = hashlib.sha1(cap.encode("utf-8")).hexdigest()[:12]
+            if h in _LAW_CARDS:
+                pinned[h] = row                      # canon rides every card, any source
+            elif r.get("source") in validated:
+                vrows.append(row)                    # the rest rotate on the deck
+        rows.extend(pinned[h] for h in _LAW_CARDS if h in pinned)
         rows.extend(_deal(vrows, _HITTERS_HAND,
                           profiles.voice_file("hitters_deck.json", profiles.voice_id())))
     except Exception:  # noqa: BLE001

@@ -109,7 +109,21 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
   /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
 
-- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE DECK (2026-07-17, commit c8ba33a) — THE structural fix for repetition,
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐ LAW CARDS (2026-07-17, follows THE DECK):** deck side effect caught same
+  night by the operator ("variating but not incorporating my feedback — like something was
+  left out"): the decoded winners (the carriers of graded feedback) went from always-present
+  to in-view ~1/5 of the time, and per-play law adherence dropped (a blindside shipped with
+  melodrama runway + roast payload — violating three of his blindside laws while obeying the
+  one that's in SENSE v2.2 text). FIX: `_LAW_CARDS` in engine.py — ONE operator-graded
+  canonical exemplar per play family (curated from the 9/10 winners), riding EVERY card ahead
+  of the dealt 15; balanced by construction (the old attractor was family COUNTS, not
+  existence). sha1-12 of live caption; retired ref silently unpins. ⚠️ Corpus contradiction
+  found during curation: the 9-rated "couldn't wait to tell bro…" blindside ref carries the
+  exact past-tense runway the operator later outlawed (SENSE v2.2 when-frame law) — the
+  law-card pin uses the when-frame instance instead; reconciling the old ref (decode note or
+  retirement) awaits an operator call.
+
+- **THE DECK (2026-07-17, commit c8ba33a) — THE structural fix for repetition,
   round 4.** After the chooser fix, defaults diversified but the AUTHOR still wrote from ~12
   families across a 20-card night (scoreboard-crumb in 9/20 cards; step-sister blindside 5×;
   corporate-retirement POV 7×; when-frames still zero). Root cause is structural, not
