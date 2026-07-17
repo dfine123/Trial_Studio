@@ -109,7 +109,27 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
   /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
 
-- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ SELECTION-BIAS FIX (2026-07-16 late, commit 61e952b) — repetition round 3
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE DECK (2026-07-17, commit c8ba33a) — THE structural fix for repetition,
+  round 4.** After the chooser fix, defaults diversified but the AUTHOR still wrote from ~12
+  families across a 20-card night (scoreboard-crumb in 9/20 cards; step-sister blindside 5×;
+  corporate-retirement POV 7×; when-frames still zero). Root cause is structural, not
+  instructional: the SAME 161-ref wall + SAME ~77 decoded hitters in view on every card means
+  the same salient families win attention every time — a static input distribution produces a
+  static output distribution; shuffling doesn't change salience and 'reach for unseen plays'
+  can't beat the model's own preference distribution. FIX: `_deal()` in engine.py — per-voice
+  persistent shuffled cycles (wall_deck.json / hitters_deck.json, keyed by caption sha1;
+  removed refs drop out, new refs join the running cycle, failure falls back to
+  random.sample). Wall: hands of 40/card → every ref guaranteed in view every ~4 cards, and
+  each ref ~4× more salient than 1-of-161. Hitters: 13 north stars always + 15 validated
+  dealt/card (the static 77-decode block was the strongest attractor in the prompt). Orbit
+  law holds — refs stay ambient teachers, never output slots; no batch machinery; spread is
+  natural across generations. ~4k fewer prompt tokens/card. Verify live:
+  GET /api/debug/wall-deck (remaining/dealt per cycle). Test: wall_deck_cycles_full_pool
+  (36/42 baseline). ⚠️ Feedback-loop watch: validated winners skew toward families the OLD
+  biased chooser shipped — grades sample the system's own output distribution; weigh curation
+  accordingly.
+
+- **SELECTION-BIAS FIX (2026-07-16 late, commit 61e952b) — repetition round 3
   root cause: DIVERSITY DIES AT SELECTION, NOT AUTHORSHIP.** Measured on a 23-card night
   (13 post-SENSE-v2.2): slates offered wyr 2×, fake-math 3×, quote-flip-😭🙏 4×, mfs-will 4×,
   redefinitions 2×, status-cons 3×, 9-5 horror 3× — near-zero shipped as defaults; meanwhile
