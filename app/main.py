@@ -1832,6 +1832,24 @@ def api_genlog_dump(request: Request, n: int = 300):
     return {"captions": recent_generated(max(1, min(2000, n)))}
 
 
+@app.get("/api/debug/wall-deck")
+def api_wall_deck(request: Request):
+    """Operator-only: state of the two deal decks (wall + hitters) for the active voice —
+    how far through the current cycle each is. Files appear after the first post-deck deal."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    out = {}
+    for name in ("wall_deck.json", "hitters_deck.json"):
+        try:
+            with open(profiles.voice_file(name, profiles.voice_id()), encoding="utf-8") as f:
+                st = json.load(f)
+            out[name] = {"remaining_this_cycle": len(st.get("remaining", [])),
+                         "dealt_this_cycle": len(st.get("cycle_seen", []))}
+        except Exception:  # noqa: BLE001
+            out[name] = None
+    return out
+
+
 @app.get("/api/debug/lane-stats")
 def api_lane_stats(request: Request):
     """Operator-only: per-engine grade ledger for the active voice (which lanes' defaults the

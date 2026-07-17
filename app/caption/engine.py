@@ -800,6 +800,61 @@ The bar is THE ONES THAT HIT HARDEST: a post that wouldn't sit among those gets 
 Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
 
 
+_WALL_HAND = 40      # refs dealt per card — full corpus cycles every ~4 cards at 161 refs
+_HITTERS_HAND = 15   # validated refs dealt per card (north stars always ride)
+
+
+def _deal(pool: list[str], n: int, state_file: str) -> list[str]:
+    """THE DECK (2026-07-17) — the structural fix for static-salience mode collapse.
+
+    Four rounds of repetition complaints survived four understanding-level fixes because the
+    cause was never the instructions: with the SAME full wall + SAME decoded hitters in view
+    on every card, the same dozen salient families win the author's attention every time —
+    a static input distribution produces a static output distribution, and ~150 references
+    never surface (measured: when-frames = the corpus's largest family, 14/162, shipped zero
+    across 43 cards). Shuffling doesn't change salience; 'reach for plays you haven't run'
+    can't beat it — a model can't prefer against its own distribution.
+
+    So the input rotates instead: each card is dealt the next hand from a persistent shuffled
+    cycle through the FULL pool. Every reference is guaranteed in view once per cycle; a
+    40-hand also makes each ref MORE salient than 1-of-161 ever was. This is data-layer and
+    per-card — nothing is seeded into output (the orbit law holds: refs teach ambiently,
+    they never become slots), no batch-scoped rules, and the spread stays natural across
+    generations. Removed refs drop out on the next deal; new refs shuffle into the current
+    cycle. Any failure falls back to a plain random sample — the deck must never break
+    generation."""
+    try:
+        keys = {hashlib.sha1(t.encode("utf-8")).hexdigest()[:12]: t for t in pool}
+        try:
+            with open(state_file, encoding="utf-8") as f:
+                st = json.load(f)
+        except Exception:  # noqa: BLE001 — first deal, or an unreadable deck: fresh cycle
+            st = {}
+        remaining = [k for k in st.get("remaining", []) if k in keys]
+        seen = {k for k in st.get("cycle_seen", []) if k in keys}
+        new = [k for k in keys if k not in seen and k not in set(remaining)]
+        random.shuffle(new)
+        remaining += new
+        if n >= len(keys):
+            dealt, remaining, seen = list(keys), [], set()
+        elif len(remaining) < n:                      # cycle ends mid-hand: carry the tail,
+            carry = remaining                         # reshuffle the rest into a new cycle
+            fresh = [k for k in keys if k not in set(carry)]
+            random.shuffle(fresh)
+            dealt = carry + fresh[:n - len(carry)]
+            remaining, seen = fresh[n - len(carry):], set(dealt)
+        else:
+            dealt = remaining[:n]
+            remaining, seen = remaining[n:], seen | set(dealt)
+        tmp = state_file + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"remaining": remaining, "cycle_seen": sorted(seen)}, f)
+        os.replace(tmp, state_file)
+        return [keys[k] for k in dealt]
+    except Exception:  # noqa: BLE001
+        return random.sample(pool, min(n, len(pool)))
+
+
 def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
     """V4 — THE ONE-AUTHOR SLATE (2026-07-15, after the operator rejected three straight
     lane-era batches as 'super repetitive... so many references that seem to just be dead').
@@ -829,15 +884,17 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
     k = max(1, n)
     kk = min(k + 2, 8)   # draft more, ship the best k — guards prune with backfill headroom
     seed = seeds.draw()
-    shuffled = list(refs)
-    random.shuffle(shuffled)
-    ref_block = "\n\n".join((r.get("caption") or "").strip() for r in shuffled
-                            if (r.get("caption") or "").strip())
-    wall = ("\n\nBelow is your feed — your real posted captions. Tonight's posts are the NEXT "
-            "POSTS in this exact feed: same guy, same world, same sound. A follower scrolling "
-            "past shouldn't be able to tell tonight's posts from these. Don't re-tell any "
-            "specific joke that's already in here — everything else about how these sound and "
-            "where they live is exactly what tonight should be:\n\n" + ref_block + "\n\n")
+    pool = [(r.get("caption") or "").strip() for r in refs
+            if (r.get("caption") or "").strip()]
+    hand = _deal(pool, _WALL_HAND, profiles.voice_file("wall_deck.json", profiles.voice_id()))
+    ref_block = "\n\n".join(hand)
+    wall = ("\n\nBelow is a stretch of your feed — your real posted captions (a different "
+            "stretch surfaces each night; the catalog is far bigger than what's in view). "
+            "Tonight's posts are the NEXT POSTS in this exact feed: same guy, same world, "
+            "same sound. A follower scrolling past shouldn't be able to tell tonight's posts "
+            "from these. Don't re-tell any specific joke that's already in here — everything "
+            "else about how these sound and where they live is exactly what tonight should "
+            "be:\n\n" + ref_block + "\n\n")
     # THE FEED CONTINUES (2026-07-15, operator: "the spread should just be natural across
     # generations" — never batch-scoped): the author sees its own most recent SHIPPED posts
     # verbatim, the way a real person remembers what they just put up. Construction variety
@@ -924,19 +981,22 @@ def _hitters_block() -> str:
     rows: list[str] = []
     try:
         validated = ("promoted_gen", "note_endorsed", "operator_authored", "lab_promoted")
-        # ALL validated refs render (the old [-60:] file-order slice silently dropped the 18
-        # earliest-promoted winners incl. 10/9-rated lines) — and each carries its WHY IT LANDS
-        # decode (2026-07-15 principles review: the decodes are the system's per-instance
-        # mechanism carrier and reached NO prompt in the v4 path; principles attached to
-        # examples is the grounding mechanism that has never failed, and the anti-menu answer
-        # to type-level law).
+        # Validated refs are DEALT, not all-rendered (2026-07-17 deck fix): a static block of
+        # ~75 decoded winners was the strongest attractor in the prompt — the same salient
+        # families won attention every card. Every validated ref still cycles through in
+        # rotation (unlike the old [-60:] slice, nothing is ever PERMANENTLY dropped — the
+        # deck guarantees each one returns every few cards); each still carries its WHY IT
+        # LANDS decode, the per-instance mechanism carrier. North stars ride every card.
+        vrows: list[str] = []
         for r in load_refs():
             if r.get("source") not in validated:
                 continue
             cap = (r.get("caption") or "").strip()
             why = (r.get("why_it_works") or "").strip()
             if cap:
-                rows.append(f"{cap}\n→ WHY IT LANDS: {why}" if why else cap)
+                vrows.append(f"{cap}\n→ WHY IT LANDS: {why}" if why else cap)
+        rows.extend(_deal(vrows, _HITTERS_HAND,
+                          profiles.voice_file("hitters_deck.json", profiles.voice_id())))
     except Exception:  # noqa: BLE001
         pass
     try:

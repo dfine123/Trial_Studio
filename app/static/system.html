@@ -181,7 +181,7 @@ card → what filters it → how the default gets picked → how your grades fee
 <div class="stage" data-n="✦" style="margin-top:40px">
   <h2>Where your references touch the system</h2>
   <div class="cols">
-    <div class="touch"><b>TEACH</b><p>the wall — every ref, every call, by example</p></div>
+    <div class="touch"><b>TEACH</b><p>the wall — every ref in rotation, by example</p></div>
     <div class="touch"><b>ASPIRE</b><p>the hitters — grade-validated refs set tonight's level</p></div>
     <div class="touch"><b>POLICE</b><p>the guards — every ref screens copies & morphs</p></div>
     <div class="touch"><b>JUDGE</b><p>the chooser — the seam test scores every default</p></div>
@@ -213,7 +213,7 @@ async function j(url){ const r = await fetch(url); if(!r.ok) throw new Error(url
       const dump = await j('/api/debug/corpus-dump');
       const refs = dump.refs || [];
       const validated = refs.filter(r => ['promoted_gen','note_endorsed','operator_authored','lab_promoted'].includes(r.source));
-      $('wallChip').textContent = refs.length + ' references · shuffled every call';
+      $('wallChip').textContent = refs.length + ' references · dealt in rotating 40-hands (full cycle every ~4 cards)';
       const sample = refs.map(r=>r.caption).filter(Boolean).sort(()=>Math.random()-.5).slice(0,8);
       $('wallPeek').textContent = sample.join('\n\n');
       let stars = 0; try { stars = ((await j('/api/northstars')).north_stars||[]).length; } catch(e){}

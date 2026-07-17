@@ -1038,6 +1038,28 @@ def recaption_updates_record_and_logs_swap():
             assert reel_store.record_recaption("nope", "/reels/x.mp4", "y", []) is None
 
 
+@test
+def wall_deck_cycles_full_pool():
+    """THE DECK: every ref is guaranteed to surface once per cycle; only the cycle-boundary
+    carry hand repeats; removed refs drop out and new refs join the running cycle."""
+    from app.caption.engine import _deal
+    pool = [f"cap {i}" for i in range(23)]
+    with tempfile.TemporaryDirectory() as td:
+        f = os.path.join(td, "deck.json")
+        seen: list[str] = []
+        for _ in range(5):
+            hand = _deal(pool, 5, f)
+            assert len(hand) == 5 and len(set(hand)) == 5 and not set(hand) - set(pool)
+            seen += hand
+        assert set(seen) == set(pool)
+        assert len(seen) - len(set(seen)) == 2
+        pool2 = pool[:20] + ["fresh A", "fresh B"]
+        hand = _deal(pool2, 5, f)
+        assert not set(hand) - set(pool2)
+        # n >= pool: whole pool deals, nothing crashes
+        assert sorted(_deal(["a", "b"], 5, f)) == ["a", "b"]
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:
