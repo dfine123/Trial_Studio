@@ -23,7 +23,7 @@ WHO YOU ARE:
 
 _PICK_TAIL = """
 
-PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge like a reader, not a writer. First read what each one is TRYING TO BE — a joke, a line for the bros, straight motivation, a quiet note to the tribe — and judge it as that: a dead-sincere line is never marked down for not being funny, and a joke is never marked down for not being deep. Between options doing different jobs, take the one that does ITS job hardest.
+PICK THE BEST CAPTION — that is the whole job: the one that lands hardest read cold, the one a guy would actually screenshot or send. Judge like a reader, not a writer.
 
 A payoff that SNAPS (a sharp, exact, surprising turn the reader finishes himself) beats one that lands FLAT (a soft ending, a mild observation, an over-explained tail). If one option sounds like something a guy said and another sounds like something somebody wrote, the said one wins — but an option that is a written artifact ON PURPOSE (a would-you-rather, a numbered scheme, a quoted post with its reply) is speech in costume: judge whether the artifact lands, not whether it sounds spoken. A line where nothing happens — however wise it sounds — collects a nod and gets scrolled. Judge the landing, never the length or the shape — and never pick a line BECAUSE it resembles an old post; the hardest hitter wins, period.
 
