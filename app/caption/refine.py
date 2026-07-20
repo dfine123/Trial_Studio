@@ -36,6 +36,14 @@ Return ONLY JSON, same count and order as the input, \\n preserved for line brea
 
 def refine(candidates: list[dict]) -> list[dict]:
     """Trim over-extended/corny tails AND strip corny pet-name address (subtractive only). Falls back to originals on error."""
+    import re as _re
+    for c in candidates:
+        # "to bro" is a letter-dedication opener nobody types (operator 2026-07-20) — the model
+        # compresses "bro to bro" into it. Deterministic subtractive fix: drop the leading "to ",
+        # which restores the real address register ("bro. ..." / "bro, ...").
+        t = c.get("text") or ""
+        if _re.match(r"(?i)^to\s+bro\b", t):
+            c["text"] = _re.sub(r"(?i)^to\s+", "", t, count=1)
     texts = [c.get("text", "") for c in candidates]
     if not texts:
         return candidates
