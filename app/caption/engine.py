@@ -728,20 +728,7 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 # carried WITH its discipline; type-flooding is checked empirically post-deploy). No winner
 # texts quoted (purity test). Operator-editable via var/craft.md (GET/POST /api/craft).
 # Re-synthesized BY THE AGENT after each graded round, never mechanically.
-_CRAFT_DEFAULT = """THE SENSE — the understanding you write with. The feed above is the ground truth: those posts carry the HOW — every register, every shape, every length. Nothing here overrides what the wall shows; when they disagree, the wall wins.
-
-THE LIFE BEHIND THE LINE. A good post comes FROM the person, never from the need to post: behind it is a continuous life it leaked out of, and a line that exists only because a caption was needed reads as content no matter how well built. Some are overheard — said at his mom, his one bro, God, nobody. Some are addressed dead-on. Both are alive when it's him talking at someone he'd really talk to; aiming at a reaction is the only dead version. Conviction is total: the line never watches itself, never poses, never knows it's a caption. Plain words, real referents — every phrase answers WHAT DOES THAT ACTUALLY MEAN instantly; a phrase shaped like meaning with nothing inside is the deepest kill there is. One image at most, one the reader already owns. Typed like real typing. The complexity lives in the situation, never the sentence.
-
-THE JOB AND ITS TEN. Every post has ONE job, and each job has its own 10:
-FUNNY — a FOUND idea: a collision of two worlds sharing one exact structure, a real fact that already is the lesson, the pettiest true instance. Inevitable after the fact; the words just don't ruin it. Grant any premise, then the internal logic is law — it must compute exactly.
-MOTIVATIONAL — a felt truth named at exactly the right depth: the reader couldn't have phrased it and recognizes it instantly. Recognition, not surprise. Dead sincere, zero jokes — and never generic: the plain aphorism anyone could post is this job's one failure.
-FOR ONE PERSON — the message you wish you'd already sent your bro: a pact, a dare, tough love, pride in him. The 10 is the send itself — precision of feeling; no punchline needed, and one bolted on breaks it.
-VILLAIN — an indefensible position held with total pride, airtight inside its own frame; the reader supplies the correction, and supplying it is the laugh.
-One post, one job. The only legal mix is one move serving two jobs at once.
-
-THE SECOND SPEAKER. The caption sits on footage from his world, and the footage talks back — proving the sentence, performing it, or contradicting it into a bit. Write lines that use that.
-
-SAID ONCE. Read aloud once, it lands — one breath or honest beats; never pad, never trim a load-bearing runway. His currents carry the charge — money, the come-up, degen conviction, bros and haters, delusional confidence — and the lexicon rides everywhere: the mf, a broke 🥷, never the dude. A written costume (fake math in a stacked list, a proverb, a trade offered to the comments) speaks its format's language on purpose — those aren't speech and don't pretend to be."""
+_CRAFT_DEFAULT = """THE BAR. Every post above earned its place; tonight's posts sit among them or don't ship. A line lands when it comes FROM the person — a thought that existed before there was anywhere to post it — never from the need to post. Every phrase answers WHAT DOES THAT ACTUALLY MEAN instantly; a phrase shaped like meaning, or a realization performed for the reader, is the deepest kill there is. The line never watches itself, never poses, never knows it's a caption. Whatever it is — a joke, a jab, something dead sincere, a line for one person — it is only that one thing, aimed at a 10 for what it is, and it must compute exactly on a literal read. The footage from his world sits under every post and talks back: proof, performance, or the contradiction that makes the bit."""
 
 
 def craft() -> str:
@@ -758,17 +745,13 @@ def craft() -> str:
 
 _SLATE5_TAIL = """
 
-THE TASK — two passes, one sitting.
-
-FIRST, THE NOTEBOOK: pour out 25+ SPARKS — raw noticings, not captions. A collision between his world and any other world. A felt truth the ones chasing it would recognize instantly. A line he'd actually send his one bro. A real fact that already is the lesson. The pettiest true instance of something. An image that carries the whole feeling. Two lines max each, no polish, no filtering while pouring — volume first; the rare one only shows up after the obvious ones are out.
-
-THEN, THE CUT: kill every spark that isn't swinging at a 10 — measured against what a 10 IS for its own job, never against the other jobs'. From the survivors write tonight's {k} posts, two takes each. Every post aims at 10. There are no safe posts worth writing — a swing that misses beats a 5 that lands. Rerunning a play from the feed is legal only sharper than the post that's up.
+THE TASK: the feed continues. Everything above is one guy's real feed — his formats, his premises, his registers, his lengths, his shapes. Write the NEXT {k} posts of that exact feed: same guy, new nights. They should read like they were always going to be posted — drawn from the same well the feed above draws from, running its kinds of plays at addresses it hasn't hit, never re-telling any specific joke that's already up. Different posts, different kinds — the feed above never posts the same way twice in a row.
 
 The SEED below exists only to knock you somewhere you wouldn't have gone — its words never appear, its world is never the subject, and the posts owe it nothing.
 
-Say each post aloud once: it lands on the first pass and ends on the thing itself. Keep the humanly unnecessary word if the moment had one. When a post wears a built shape from the wall — the quote with its reply below, stacked beats, a one-word tail — it wears the real shape: real line breaks.
+Two takes per post. Say each aloud once. When a post wears a built shape the feed uses — the quoted line with its reply below, stacked beats, a one-word tail — it wears the real shape: real line breaks.
 
-Return ONLY JSON, no prose: {"sparks": ["spark", ...], "posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
+Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
 
 
 _WALL_HAND = 60      # refs dealt per card — example-led: the wall is the dominant mass
@@ -895,7 +878,7 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> 
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
             + (f"TONIGHT'S FOOTAGE WORLD (the second speaker): {world}\n\n" if world else "")
-            + f"\n\nPour the notebook, make the cut, then write tonight's {kk} posts: two takes each.")
+            + f"\n\nThe feed continues: the next {kk} posts, two takes each.")
 
     def _is_literal(t: str) -> bool:
         words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
@@ -903,7 +886,7 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> 
         low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
         return any(w in low for w in words)
 
-    out_text = complete_json(system, user, effort="high", max_tokens=16000,
+    out_text = complete_json(system, user, effort="high", max_tokens=8000,
                              cache_system=True, tag="slate-v4")
     s, e = out_text.find("{"), out_text.rfind("}")
     if s == -1 or e == -1:
