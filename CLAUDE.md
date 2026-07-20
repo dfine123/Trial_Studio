@@ -109,6 +109,19 @@ secrets); service `Trial_Studio` in project `dynamic-emotion`, app URL
   161). No var/craft.md override exists — edit `_CRAFT_DEFAULT` + deploy; don't POST
   /api/craft into existence. Details below still apply (v2.2 edits v2 in place):
 
+- **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE TONGUE (2026-07-19, commit 9934990) — the language layer.** 13-grade
+  verdict on the full v3 stack: mean ~3.0, subjects LAND (6 notes concede), delivery fails —
+  the system wrote prestige-language (coined antitheses, possession-metaphors, adjective
+  stacks, phantom props like "this table", enumeration where a vow wants sweep, sprinkled
+  devices, narration framing); the refs speak plain-outcome vernacular. Operator rewrites were
+  the Rosetta stone, translated to PRINCIPLES per his explicit directive (verbatim rewrites
+  never ride prompts; note-lines never enter corpus). Shipped: SENSE chapter THE TONGUE
+  (what-does-that-actually-mean test; plain-outcome law — essay-praise = death; one OWNED
+  image, no phantom props; S-V-O payloads; job-scoped detail size — receipts exact, vows
+  sweeping; device deletion test; anti-narration; written costumes exempt); VOLTAGE stakes law
+  (his flexes big — crumbs belong to the hater); take-pick meaning tiebreak. Verification
+  card post-ship: 5/5 pass per-phrase audit.
+
 - **⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐ THE RE-CENTERING / SENSE v3 (2026-07-17 late, commits ec17e06+78d9132) —
   purpose-first understanding from the operator's 48-reference drop.** Operator dropped 48
   screenshots (~/Desktop/caption-refs; transcribed exact via 4-agent fan-out, 3/3 spot-checks
