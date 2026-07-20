@@ -263,7 +263,8 @@ def match_audio(caption: str, audio_descs: list[str]) -> int:
         return 0
 
 
-def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str, list[dict]]:
+def generate_caption(niche: str | None, energy: str | None = None,
+                     audio_desc: str | None = None, audio_vibe: list[str] | None = None) -> tuple[str, list[dict]]:
     """Caption OPTIONS for a reel (audio-agnostic). v3: one variation seed → five separate
     interaction engines (screenshot/send/exotic/mirror/menace) → their outputs ARE the options —
     five different jobs the post could do. The chooser only picks the DEFAULT render — every
@@ -272,7 +273,8 @@ def generate_caption(niche: str | None, energy: str | None = None) -> tuple[str,
     from app.caption.chooser import choose_best
     from app.caption.engine import generate_independent
     from app.corpus import reels as reel_store
-    cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy)
+    cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy,
+                                 audio_desc=audio_desc, audio_vibe=audio_vibe)
     if not cands:
         raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
     texts = [c["text"] for c in cands]
@@ -334,7 +336,8 @@ def generate_reel(
         bpm = audio_bpm or bp.bpm
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
         # BEST-OF-3 caption (audio-agnostic; the chooser picks the one to post). Notes stay MINIMAL.
-        caption_text, caption_candidates = generate_caption((niche or "").strip() or None, energy)
+        caption_text, caption_candidates = generate_caption((niche or "").strip() or None, energy,
+                                                            audio_desc=audio_desc, audio_vibe=audio_vibe)
 
     # DURATION SCALES WITH THE CAPTION. A reel is just the caption over b-roll, so it runs only as long as
     # the line needs to be read + land — ~5s short, up to 9s long, never the full track. Cap the beat plan

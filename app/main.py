@@ -1832,6 +1832,41 @@ def api_genlog_dump(request: Request, n: int = 300):
     return {"captions": recent_generated(max(1, min(2000, n)))}
 
 
+class ChooserEval2(BaseModel):
+    cases: list[dict]   # {candidates: [str], avoid: int|None, prefer: [int]|None}
+
+
+@app.post("/api/chooser/eval2")
+def api_chooser_eval2(req: ChooserEval2, request: Request):
+    """Operator-only: replay the LIVE chooser against a grade-derived benchmark posted in the
+    body. Each case = one real card. avoid = index of the operator-graded <=4 default (the
+    chooser should NOT pick it again); prefer = indexes the operator identified as better.
+    Chooser text changes gate on: picked_avoided DOWN, picked_preferred UP vs baseline."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.caption.chooser import choose_best
+    avoid_hits = prefer_hits = avoid_n = prefer_n = skipped = 0
+    for case in req.cases:
+        cands = [c for c in (case.get("candidates") or []) if isinstance(c, str) and c.strip()]
+        if len(cands) < 2:
+            skipped += 1
+            continue
+        pick = choose_best(list(cands))
+        idx = cands.index(pick) if pick in cands else 0
+        if isinstance(case.get("avoid"), int) and 0 <= case["avoid"] < len(cands):
+            avoid_n += 1
+            if idx == case["avoid"]:
+                avoid_hits += 1
+        pref = [i for i in (case.get("prefer") or []) if isinstance(i, int) and 0 <= i < len(cands)]
+        if pref:
+            prefer_n += 1
+            if idx in pref:
+                prefer_hits += 1
+    return {"cases": len(req.cases), "skipped": skipped,
+            "avoid_cases": avoid_n, "picked_avoided": avoid_hits,
+            "prefer_cases": prefer_n, "picked_preferred": prefer_hits}
+
+
 @app.get("/api/debug/wall-deck")
 def api_wall_deck(request: Request):
     """Operator-only: state of the two deal decks (wall + hitters) for the active voice —

@@ -728,65 +728,20 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 # carried WITH its discipline; type-flooding is checked empirically post-deploy). No winner
 # texts quoted (purity test). Operator-editable via var/craft.md (GET/POST /api/craft).
 # Re-synthesized BY THE AGENT after each graded round, never mechanically.
-_CRAFT_DEFAULT = """THE SENSE — what a good caption is. The feed above is the ground truth: the references carry the HOW in every register, at every length, and tonight's lines have to sound like the same guy. What follows is the understanding — a lens and the few laws that earned their place. Everything finer than this lives in the references themselves, not in rules: when you ride a play, the posts up there show its textures better than any instruction could.
+_CRAFT_DEFAULT = """THE SENSE — the understanding you write with. The feed above is the ground truth: those posts carry the HOW — every register, every shape, every length. Nothing here overrides what the wall shows; when they disagree, the wall wins.
 
-THE LIFE BEHIND THE LINE — the lens under everything, not a rule. Many good posts are OVERHEARD — a real guy emitting a thought that already existed, at his mom, his one bro, God, nobody — and the reader eavesdrops. Plenty are ADDRESSED dead-on — a sting at the reader, a dare at his bro, a trap built to be answered — and address is just as alive when it's HIM talking at someone he'd really say it to. The dead version of both is the same: a line aimed at a reaction instead of coming from the person. Aim is the tell, not address. The person precedes the line: behind every good post is a continuous life it leaked out of, and a line that exists only because a post was needed is an orphan — orphans read as content no matter how well built, and that is the off-ness no rule can name. Conviction is total: the line never watches itself, never poses, never knows it's a caption (a written costume worn on purpose is commitment inside the costume). And the humanly unnecessary word stays when the moment produced it — never sprinkled in as decoration.
+THE LIFE BEHIND THE LINE. A good post comes FROM the person, never from the need to post: behind it is a continuous life it leaked out of, and a line that exists only because a caption was needed reads as content no matter how well built. Some are overheard — said at his mom, his one bro, God, nobody. Some are addressed dead-on. Both are alive when it's him talking at someone he'd really talk to; aiming at a reaction is the only dead version. Conviction is total: the line never watches itself, never poses, never knows it's a caption. Plain words, real referents — every phrase answers WHAT DOES THAT ACTUALLY MEAN instantly; a phrase shaped like meaning with nothing inside is the deepest kill there is. One image at most, one the reader already owns. Typed like real typing. The complexity lives in the situation, never the sentence.
 
-THE JOB OF THE POST — the first decision. Some posts exist to be FUNNY. Some exist to be SENT to one person. Some are STRAIGHT MOTIVATION, dead sincere. Some are quiet TRIBE NOTES. Some are VILLAIN TAKES held with total pride. A post knows its one job and does only that job — a joke that also tries to inspire lands neither; the only legal mix is one move that serves two jobs at once. Different jobs obey different laws: sincere posts may end lifted and hoping; jokes never explain themselves; nothing anywhere begs or pities itself.
+THE JOB AND ITS TEN. Every post has ONE job, and each job has its own 10:
+FUNNY — a FOUND idea: a collision of two worlds sharing one exact structure, a real fact that already is the lesson, the pettiest true instance. Inevitable after the fact; the words just don't ruin it. Grant any premise, then the internal logic is law — it must compute exactly.
+MOTIVATIONAL — a felt truth named at exactly the right depth: the reader couldn't have phrased it and recognizes it instantly. Recognition, not surprise. Dead sincere, zero jokes — and never generic: the plain aphorism anyone could post is this job's one failure.
+FOR ONE PERSON — the message you wish you'd already sent your bro: a pact, a dare, tough love, pride in him. The 10 is the send itself — precision of feeling; no punchline needed, and one bolted on breaks it.
+VILLAIN — an indefensible position held with total pride, airtight inside its own frame; the reader supplies the correction, and supplying it is the laugh.
+One post, one job. The only legal mix is one move serving two jobs at once.
 
-THE FLOOR — the few laws that held across every winner:
+THE SECOND SPEAKER. The caption sits on footage from his world, and the footage talks back — proving the sentence, performing it, or contradicting it into a bit. Write lines that use that.
 
-AT MOST ONE OPERATION. One twist, one gap, one reveal — every word not serving it plays dead straight. Pure recognition runs zero: the mirror is the move.
-
-THE LITERAL READ. Grant any premise, however insane — then it must compute exactly. Internal consistency is law; almost-right reads as nothing.
-
-ONE SPOKEN PASS. Said aloud once, it lands — one breath, or honest beats. Never pad; never trim a load-bearing runway; a line that is done is done.
-
-THE VOLTAGE. Lines run on his currents — money, the come-up, degen conviction, bros and haters, girls-through-money, and delusional confidence in all its forms. Pointing plays may run instead on a razor-specific motive caught red-handed. FLAT relatable — a shared habit with nothing concealed, no charge — is always dead. Stakes run one way: his side of a flex is big; the tiny win belongs to the hater and the mark. Voltage lives in the POST, not always the words — pure comedy can carry zero money when the footage carries the life. And the lexicon is voltage: the mf, a broke 🥷 — never the dude — everywhere, including inside an analogy.
-
-THE SECOND SPEAKER. The caption sits on footage from his world, and the footage talks back: as EVIDENCE (the window proves the sentence, so the words stay bare), as ENACTMENT (the clip performs the line), or as COUNTERPOINT (the line claims small over footage screaming big — the contradiction is the bit). Write lines that give the footage one of those jobs.
-
-THE TONGUE. How the feed actually speaks. Every phrase passes one test: WHAT DOES THAT ACTUALLY MEAN — answerable instantly, in plain words; a phrase shaped like meaning with nothing inside is the deepest delivery kill there is. Outcomes are stated as plain fact, not dressed — no coined metaphors, no antitheses built for shape, no adjectives stacked to fake intensity; if a phrase would earn praise in an essay it is dead here. One image at most, and only a thing every reader already owns — never a prop that needs a scene the reader wasn't in. Payload clauses stay simple: subject, verb, object; the complexity lives in the situation. Typed like real typing: lowercase resting state, real shorthand, numerals, censoring as a bit (🥷, 🐱, f*ck — and square words wearing the stars: j*bs). Details take the size the job wants — a receipt runs on the exact figure; a vow or a vent runs on one sweeping round number. Tails and fillers survive only the deletion test: if the line loses nothing without it, it was decoration. Never narrate yourself from outside the moment, and never drift through the point in a side-track voice — the self-interrupting aside, the qualifier trailing in after the landing; a position is held head-on. None of this applies inside a written costume — a format parody speaks its format's language on purpose.
-
-THE PLAYS — what each family runs on. Ride whichever play carries tonight's idea and obey ITS motor; a law from one family is never forced on another. This is NOT the catalog — the wall is the catalog: any post up there is a playable play, sectioned here or not, and the references show every texture these summaries leave out — including the SHAPE. When a play wears a built shape on the wall (the quoted line with its reply below, the stacked beats, the one-word tail), tonight's instance wears that shape too: the shape is part of the play, not decoration.
-
-THE COPE ANALOGY. A familiar cope bolted to its structurally identical, cruder twin from another domain — zero-slack mapping, second image lower and pre-loaded, ends on the detonating word. Symmetry is this play's motor.
-
-THE QUOTE-FLIP. A line people ACTUALLY say — the simp's cliché, the doubter's verdict, the normie cope, the standard question, the insult, the advice-word — returned through its own key word as a blunt already-true fact. Recognition is half the kill; an invented quote caps it low.
-
-THE DEFLATING REDEFINITION. A respectable label restated as its embarrassing literal content — plainer and dumber, never cleverer. A reliable 8 that burns fast: one a night.
-
-THE BEHAVIOR RECEIPT. A category of people caught in something they were CONCEALING, convicted by concretes — the polarity of the two concretes carries everything; never the charge-word.
-
-THE HATER SCOREBOARD. Their loudest insult near-verbatim, then their genuine oversized joy priced at a denominated crumb. The number does the moral argument. Reruns well — rotate the crumb.
-
-THE BACKHANDED PEP TALK. Unhedged supportive speech around a knife that finds one taggable person's real, un-said insecurity. The wrapper's sincerity is absolute.
-
-THE SINCERE STING. A cold second-person diagnosis snapped shut by rank inversion — the person winning placed below the reader. End on the wound, never a moral.
-
-GUTTER GOSPEL. Full solemn costume worn by the gutter. The law that decides it: strip the filth and the lesson must still be true. Land on the grimiest specific noun.
-
-THE SHAMELESS DOUBLE-DOWN. An indefensible position held with total pride and a syllogism that computes inside its own frame; the reader supplies the correction, and supplying it is the laugh. The delusion prayer, variance worn as the perk, indignation at fair consequences, the ironic surrender to a doubter — same motor, first person.
-
-THE MIRROR COUPLET. Two clauses, identical scaffold, same objective L, one slot swapped. A thrill HAPPENING beats anything merely owned. Numbers argue the moral; words never do.
-
-THE STATUS PERFORMANCE. A live con the reader stands on both sides of — enact the reveal, never narrate the con.
-
-THE BRO BLINDSIDE. A sincere, mundane, LIVE runway guillotined by bro's quoted line — bro supplies the shamelessness, you play it straight, and his payload parses in one read.
-
-NINE-TO-FIVE HORROR. The responsible default path in the grammar of horror or eulogy, anchored by one boring verifiable number — the flattest real noun detonates hardest. The trapped man is HAPPY; pity kills it.
-
-THE FORMAT PARODY. A saturated written format reproduced with perfect fidelity, rigged in exactly one hidden element. Written register is the law here. One run per format, then retire it.
-
-THE COMMENT TRAP. A device with exactly one thing deliberately wrong, played dead straight so the reader physically has to reply. End on the detonator.
-
-THE BRO LINE. Addressed to one bro and built to be forwarded — a vow, a race, a dare, tough love, pride in him. Sincerity is the payload; no punchline is required, and a joke bolted on breaks what makes it sendable. The wall shows how these actually sound.
-
-THE STRAIGHT SERMON. Dead-sincere motivation, zero jokes — alive only on one concrete twist; the plain aphorism anyone could post is this family's one failure.
-
-THE TRIBE NOTE. A quiet interior truth only the ones already chasing it will feel — understated, and never followed by advice or a sell. Run it rarely.
-
-THE PORTFOLIO. Base hits and swings: bank some reliable plays, take at least one real shot. Plays are FRANCHISES — a rerun is legal when it beats the play's best prior, dead when it doesn't. And a real feed never runs one play, one job, or one size all night — spend what tonight's ideas actually deserve."""
+SAID ONCE. Read aloud once, it lands — one breath or honest beats; never pad, never trim a load-bearing runway. His currents carry the charge — money, the come-up, degen conviction, bros and haters, delusional confidence — and the lexicon rides everywhere: the mf, a broke 🥷, never the dude. A written costume (fake math in a stacked list, a proverb, a trade offered to the comments) speaks its format's language on purpose — those aren't speech and don't pretend to be."""
 
 
 def craft() -> str:
@@ -803,20 +758,20 @@ def craft() -> str:
 
 _SLATE5_TAIL = """
 
-THE TASK: tonight happened. {k} separate moments in this guy's actual day left a line behind — something he said out loud in a passenger seat, typed at 1am, thought at a gas pump, told his mom on the phone. Each post is the residue of ONE of those moments. Don't write captions; write down what leaked out of the moments, from inside them. The test for every line: this thought existed before there was anywhere to post it — a line that only exists because a post was needed is dead on arrival.
+THE TASK — two passes, one sitting.
 
-The SEED in the message below exists only to knock you somewhere you wouldn't have gone — its words never appear in any post, its world is never the subject, and the posts owe it nothing.
+FIRST, THE NOTEBOOK: pour out 25+ SPARKS — raw noticings, not captions. A collision between his world and any other world. A felt truth the ones chasing it would recognize instantly. A line he'd actually send his one bro. A real fact that already is the lesson. The pettiest true instance of something. An image that carries the whole feeling. Two lines max each, no polish, no filtering while pouring — volume first; the rare one only shows up after the obvious ones are out.
 
-{k} moments — a real night in a real life, so they don't all feel the same: some are jokes he couldn't keep to himself, some are for one specific person, some are dead sincere. Reach across the range a real week has, never just the two plays nearest to hand: bank some reliable base hits and take at least one real swing. Rerunning a proven play is legal — a weak rerun is the only sin: tonight's run has to beat the best that play has already produced, or it stays home.
+THEN, THE CUT: kill every spark that isn't swinging at a 10 — measured against what a 10 IS for its own job, never against the other jobs'. From the survivors write tonight's {k} posts, two takes each. Every post aims at 10. There are no safe posts worth writing — a swing that misses beats a 5 that lands. Rerunning a play from the feed is legal only sharper than the post that's up.
 
-Write each post TWO takes (the better landing wins later; the last five words usually decide). Say each aloud once: it lands on the first pass, and ends on the thing itself. Keep the humanly unnecessary word if the moment had one; efficiency isn't the point, the person is.
+The SEED below exists only to knock you somewhere you wouldn't have gone — its words never appear, its world is never the subject, and the posts owe it nothing.
 
-The bar is THE ONES THAT HIT HARDEST: a post that wouldn't sit among those gets replaced before you answer — and nothing re-tells a joke already in the feed.
+Say each post aloud once: it lands on the first pass and ends on the thing itself. Keep the humanly unnecessary word if the moment had one. When a post wears a built shape from the wall — the quote with its reply below, stacked beats, a one-word tail — it wears the real shape: real line breaks.
 
-Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
+Return ONLY JSON, no prose: {"sparks": ["spark", ...], "posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
 
 
-_WALL_HAND = 40      # refs dealt per card — full corpus cycles every ~4 cards at 161 refs
+_WALL_HAND = 60      # refs dealt per card — example-led: the wall is the dominant mass
 _HITTERS_HAND = 15   # validated refs dealt per card (north stars always ride)
 
 
@@ -871,7 +826,7 @@ def _deal(pool: list[str], n: int, state_file: str) -> list[str]:
         return random.sample(pool, min(n, len(pool)))
 
 
-def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
+def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> list[dict]:
     """V4 — THE ONE-AUTHOR SLATE (2026-07-15, after the operator rejected three straight
     lane-era batches as 'super repetitive... so many references that seem to just be dead').
 
@@ -939,7 +894,8 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
                "week.\n\n" if recent_feed else "")
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
-            + f"\n\nWrite tonight's {kk} posts: two takes each.")
+            + (f"TONIGHT'S FOOTAGE WORLD (the second speaker): {world}\n\n" if world else "")
+            + f"\n\nPour the notebook, make the cut, then write tonight's {kk} posts: two takes each.")
 
     def _is_literal(t: str) -> bool:
         words = [w for w in re.sub(r"[^a-z0-9\s]", " ", seed.lower()).split()
@@ -947,7 +903,7 @@ def _generate_v4(n: int, notes: str | None = None) -> list[dict]:
         low = re.sub(r"[^a-z0-9\s]", " ", (t or "").lower())
         return any(w in low for w in words)
 
-    out_text = complete_json(system, user, effort="high", max_tokens=8000,
+    out_text = complete_json(system, user, effort="high", max_tokens=16000,
                              cache_system=True, tag="slate-v4")
     s, e = out_text.find("{"), out_text.rfind("}")
     if s == -1 or e == -1:
@@ -1373,7 +1329,11 @@ def generate(
     from app.config import settings
     mode = (getattr(settings, "generation_engine", "v4") or "v4")
     if mode not in ("v3", "v2", "v1"):
-        return _generate_v4(n, notes)
+        world = "; ".join(x for x in [
+            (clip_context or "").strip() or None,
+            ("sound: " + ", ".join(audio_vibe)) if audio_vibe else None,
+            ("energy: " + audio_energy) if audio_energy else None] if x) or None
+        return _generate_v4(n, notes, world=world)
     if mode == "v3":
         return _generate_v3(n, notes)
     if mode == "v2":
@@ -1449,7 +1409,8 @@ def generate(
     return out
 
 
-def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None) -> list[dict]:
+def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None,
+                         audio_desc: str | None = None, audio_vibe: list[str] | None = None) -> list[dict]:
     """k INDEPENDENT single-caption generations for best-of-N selection (the reel chooser layer).
 
     Each candidate rides a DISTINCT anchor (one usage update, no race) and is generated in its OWN
@@ -1461,7 +1422,11 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
     from app.config import settings
     mode = (getattr(settings, "generation_engine", "v4") or "v4")
     if mode not in ("v3", "v2", "v1"):
-        return _generate_v4(max(1, k), notes)
+        world = "; ".join(x for x in [
+            (audio_desc or "").strip() or None,
+            ("sound: " + ", ".join(audio_vibe)) if audio_vibe else None,
+            ("energy: " + audio_energy) if audio_energy else None] if x) or None
+        return _generate_v4(max(1, k), notes, world=world)
     if mode == "v3":
         return _generate_v3(max(1, k), notes)
     if mode == "v2":
