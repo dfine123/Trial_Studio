@@ -18,14 +18,14 @@ from app.caption.llm import complete_json
 from app.corpus import reels as reel_store
 from app.corpus.store import load_refs
 
-_LABEL_SYS = """You are annotating ONE caption for a creator's reference corpus — it was operator-rated 9-10/10 on a real post, so it IS the voice at its best. Decode WHY IT WORKS at the EXECUTION level, TWICE — the same understanding at two depths:
+_LABEL_SYS = """You are annotating ONE caption for a creator's reference corpus — operator-rated as the voice at its best. Your job is NOT to extract a reusable format. It is to transfer TASTE: what makes this line STRONG where its almost-identical neighbor would be weak, corny, or senseless. Write as a sharp writer reading a line he admires — never as an engineer reverse-engineering a template.
 
-- why_it_works: ≤ 50 words, punchy, mechanism-first, in the creator's own blunt idiom — name the move and the exact word/image/logic that snaps, zero essay padding. This is read INSIDE the voice as self-knowledge.
-- why_full: the rich analysis at full depth — the actual mechanism of the joke/insight AND what makes this exact rendition land (the precise word/image/logic/rhythm that snaps) — nuanced and faithful to THIS line, never generic advice.
+- why_it_works: ≤ 50 words, punchy, in the creator's own blunt idiom. Cover whatever mix THIS line demands of: why the PREMISE carries charge before the wording even arrives (the subject pulls its own weight); why it makes sense in ONE read (the logic clicks with nothing re-assembled); and what the DELIVERY refuses to do that the corny version of this exact line would have done — name what it dodged. NEVER describe the shape ("quote then flip", "X then Y", "template", "format") — describe the strength.
+- why_full: the same lens at full depth: the taste calls inside the line (the word chosen, what's left unsaid, where it stops), why this subject is strong where a nearby subject would be weak, and what an 8/10 version of this same idea would have gotten wrong. Faithful to THIS line, never generic advice, never a recipe.
 
-Also give a precise persona_trait (open vocabulary, e.g. shameless_villain, self_aware_hustler, deadpan_crude, absurd_motivational, deep_bro_sincere, anticope_callout), a primary_lever (e.g. shareability, comment_bait, iykyk_decode, relatability), and generativity: "generative" if the line's MECHANISM transposes to fresh subjects (a move that can be run again on new material); "singular" if it won on a one-time collision of premise/word/moment that doesn't meaningfully transpose. One judgment, no hedging.
+Also give a precise persona_trait (open vocabulary, e.g. shameless_villain, self_aware_hustler, deadpan_crude, absurd_motivational, deep_bro_sincere, anticope_callout), a primary_lever (e.g. shareability, comment_bait, iykyk_decode, relatability), and generativity: "generative" if the line's STRENGTH transposes to fresh subjects; "singular" if it won on a one-time collision that doesn't transpose. One judgment, no hedging.
 
-⚠️ Both decode fields are rendered inside the creator's own voice prompt as self-knowledge. If you're given the operator's note, fold its INSIGHT in as plain understanding of the line — but NEVER mention the operator, a note, feedback, grades, or ratings in EITHER field. Wrong: "The operator's note nails the missed peak: 'X'". Right: "The peak version cashes 'X' — …".
+⚠️ Both decode fields are rendered inside the creator's own voice prompt as self-knowledge. If you're given the operator's note, fold its INSIGHT in as plain understanding of the line — but NEVER mention the operator, a note, feedback, grades, or ratings in EITHER field.
 
 Return ONLY JSON: {"why_it_works": "...", "why_full": "...", "persona_trait": "...", "primary_lever": "...", "generativity": "generative" | "singular"}"""
 
