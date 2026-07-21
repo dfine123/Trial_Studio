@@ -1873,6 +1873,7 @@ def api_chooser_eval2(req: ChooserEval2, request: Request):
 
 class RefDirections(BaseModel):
     mapping: dict[str, str]   # sha1-12(caption) -> tag string over {F,M,S}
+    pins: dict[str, list[str]] | None = None   # direction -> hashes riding every card of that focus
 
 
 @app.get("/api/debug/ref-directions")
@@ -1899,7 +1900,12 @@ def api_ref_directions_set(req: RefDirections, request: Request):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(clean, f)
     os.replace(tmp, path)
-    return {"ok": True, "tagged": len(clean)}
+    if req.pins is not None:
+        ppath = profiles.voice_file("direction_pins.json", profiles.voice_id())
+        with open(ppath + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({k: list(v) for k, v in req.pins.items() if isinstance(v, list)}, f)
+        os.replace(ppath + ".tmp", ppath)
+    return {"ok": True, "tagged": len(clean), "pinned": {k: len(v) for k, v in (req.pins or {}).items()}}
 
 
 @app.get("/api/debug/wall-deck")

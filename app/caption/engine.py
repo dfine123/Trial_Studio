@@ -757,10 +757,20 @@ Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take 
 _FOCUS_BARS = {
     # one sentence each — the SLICE does the focusing; these only sharpen the bar
     "funny": "\n\nTonight the feed is running its funny side only — every post is a joke that computes exactly on a literal read; the feed above sets the register.",
-    "motivational": "\n\nTonight the feed is running it dead sincere — zero jokes; each post lives on one concrete twist, and generic is the only failure.",
+    "motivational": "\n\nTonight is dead sincere, bro-to-bro — plain lowercase first-person talk about the want itself, the way you'd text your day-1 at 2am. No parables, no gym or animal or object metaphors, no third-person archetypes: if it reads like a quote card instead of a text, it failed.",
     "shareable": "\n\nTonight every post is built to be SENT — a reader should instantly know the exact person he's forwarding it to.",
 }
 _DIR_LETTER = {"funny": "F", "motivational": "M", "shareable": "S"}
+
+
+def _direction_pins() -> dict:
+    """direction -> [caption hashes] pinned to EVERY card of that focus (the slice's north
+    stars — the refs that most purely define its voice; audit-curated, operator-graded)."""
+    try:
+        with open(profiles.voice_file("direction_pins.json", profiles.voice_id()), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _directions() -> dict:
@@ -876,7 +886,15 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None,
         pool = [(r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()]
         direction = None
     deck_name = f"wall_deck_{direction}.json" if direction else "wall_deck.json"
-    hand = _deal(pool, _WALL_HAND, profiles.voice_file(deck_name, profiles.voice_id()))
+    pinned: list[str] = []
+    if direction:
+        want = set(_direction_pins().get(direction) or [])
+        if want:
+            by_hash = {hashlib.sha1(c.encode("utf-8")).hexdigest()[:12]: c for c in pool}
+            pinned = [by_hash[hh] for hh in want if hh in by_hash]
+            pool = [c for c in pool if hashlib.sha1(c.encode("utf-8")).hexdigest()[:12] not in want]
+    hand = pinned + _deal(pool, max(1, _WALL_HAND - len(pinned)),
+                          profiles.voice_file(deck_name, profiles.voice_id()))
     ref_block = "\n\n".join(hand)
     wall = ("\n\nBelow is a stretch of your feed — your real posted captions (a different "
             "stretch surfaces each night; the catalog is far bigger than what's in view). "
