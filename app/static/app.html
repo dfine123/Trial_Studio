@@ -320,6 +320,13 @@
               <option value="1">Single clip</option>
               <option value="2">Two clips</option>
             </select>
+            <label class="u-label rail-label" for="direction">Focus</label>
+            <select id="direction">
+              <option value="">Base — the whole feed</option>
+              <option value="funny">Funny</option>
+              <option value="motivational">Motivational</option>
+              <option value="shareable">Shareable</option>
+            </select>
             <label class="u-label rail-label" for="notes">Notes — optional nudge</label>
             <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
             <label class="u-label rail-label" for="count">How many reels</label>
@@ -848,7 +855,8 @@ document.getElementById('gen').onclick = async () => {
   let job;
   try {
     const r = await fetch('/api/generate/batch', { method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ n, audio_id: (sel && sel !== 'mix') ? sel : null, notes, folder_id, no_caption: noCaption }) });
+      body: JSON.stringify({ n, audio_id: (sel && sel !== 'mix') ? sel : null, notes, folder_id, no_caption: noCaption,
+        direction: (document.getElementById('direction')||{}).value || null }) });
     if (!r.ok) throw new Error((await r.text()).slice(0,200));
     job = await r.json();
   } catch (e) {

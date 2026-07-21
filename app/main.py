@@ -65,6 +65,7 @@ class TemplateUpdate(BaseModel):
 class CapGenRequest(BaseModel):
     notes: str | None = None
     n: int = 8
+    direction: str | None = None
 
 
 class GradeRequest(BaseModel):
@@ -1006,7 +1007,7 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                 with SessionLocal() as s:
                     choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
                 if len(choices) > 1:
-                    pre_caption, pre_cands = generate_caption(niche or None)
+                    pre_caption, pre_cands = generate_caption(niche or None, direction=getattr(req, 'direction', None))
                     bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in choices])
                     audio = choices[bi]
                     _p = _audio_path(audio)
@@ -1020,7 +1021,8 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                                 audio_desc=audio.description, audio_bpm=audio.bpm,
                                 audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
                                 clip_ids=clip_ids, no_caption=req.no_caption,
-                                caption_text=pre_caption, caption_candidates=pre_cands)
+                                caption_text=pre_caption, caption_candidates=pre_cands,
+                                direction=getattr(req, "direction", None))
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 
@@ -1070,6 +1072,7 @@ class BatchGenerateRequest(BaseModel):
     notes: str | None = None
     folder_id: uuid.UUID | None = None
     no_caption: bool = False
+    direction: str | None = None   # focus: funny | motivational | shareable | None=base
 
 
 def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
@@ -1098,6 +1101,7 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                                 audio_energy=audio_row["energy_arc"], audio_vibe=audio_row["thematic_tags"],
                                 clip_ids=clip_ids, no_caption=req.no_caption,
                                 caption_text=pre_caption, caption_candidates=pre_cands,
+                                direction=getattr(req, "direction", None),
                                 batch_clip_used=batch_clip_used)
             try:
                 reel_store.append({
@@ -1158,7 +1162,7 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
             pre_caption = pre_cands = None
             if not req.no_caption:
                 try:   # caption FIRST (serial); audio matched to it when the operator didn't pin one
-                    pre_caption, pre_cands = generate_caption(niche or None)
+                    pre_caption, pre_cands = generate_caption(niche or None, direction=getattr(req, 'direction', None))
                     if req.audio_id is None and len(audio_pool) > 1:
                         bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})"
                                                        for a in audio_pool])
@@ -1867,6 +1871,37 @@ def api_chooser_eval2(req: ChooserEval2, request: Request):
             "prefer_cases": prefer_n, "picked_preferred": prefer_hits}
 
 
+class RefDirections(BaseModel):
+    mapping: dict[str, str]   # sha1-12(caption) -> tag string over {F,M,S}
+
+
+@app.get("/api/debug/ref-directions")
+def api_ref_directions_get(request: Request):
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    try:
+        with open(profiles.voice_file("directions.json", profiles.voice_id()), encoding="utf-8") as f:
+            return {"mapping": json.load(f)}
+    except Exception:  # noqa: BLE001
+        return {"mapping": {}}
+
+
+@app.post("/api/debug/ref-directions")
+def api_ref_directions_set(req: RefDirections, request: Request):
+    """Focus-slice tags for the active voice (hash-keyed — survives ref renumbering). Curated by
+    the agent as part of the standing loop; untagged refs ride BASE only."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    clean = {k: "".join(sorted(set(v))) for k, v in req.mapping.items()
+             if isinstance(k, str) and isinstance(v, str) and set(v) <= {"F", "M", "S"} and v}
+    path = profiles.voice_file("directions.json", profiles.voice_id())
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(clean, f)
+    os.replace(tmp, path)
+    return {"ok": True, "tagged": len(clean)}
+
+
 @app.get("/api/debug/wall-deck")
 def api_wall_deck(request: Request):
     """Operator-only: state of the two deal decks (wall + hitters) for the active voice —
@@ -2571,7 +2606,7 @@ def api_captions_generate(req: CapGenRequest, craft: bool = False):
         from app.caption import engine  # lazy import (pulls anthropic + corpus)
         tok = engine._CRAFT.set(bool(craft))   # A/B: craft-deepened grounding (off by default)
         try:
-            cands = engine.generate(notes=req.notes, n=req.n)
+            cands = engine.generate(notes=req.notes, n=req.n, direction=req.direction)
         finally:
             engine._CRAFT.reset(tok)
     except Exception as exc:  # noqa: BLE001

@@ -754,6 +754,35 @@ Two takes per post. Say each aloud once. When a post wears a built shape the fee
 Return ONLY JSON, no prose: {"posts": [["take one (\\n for line breaks)", "take two"], ...]} with exactly {k} pairs."""
 
 
+_FOCUS_BARS = {
+    # one sentence each — the SLICE does the focusing; these only sharpen the bar
+    "funny": "\n\nTonight the feed is running its funny side only — every post is a joke that computes exactly on a literal read; the feed above sets the register.",
+    "motivational": "\n\nTonight the feed is running it dead sincere — zero jokes; each post lives on one concrete twist, and generic is the only failure.",
+    "shareable": "\n\nTonight every post is built to be SENT — a reader should instantly know the exact person he's forwarding it to.",
+}
+_DIR_LETTER = {"funny": "F", "motivational": "M", "shareable": "S"}
+
+
+def _directions() -> dict:
+    """hash(caption)->tag-string (e.g. 'FS') for the active voice. Untagged refs ride BASE only —
+    tagging new refs is part of the standing curation loop, never automatic."""
+    try:
+        with open(profiles.voice_file("directions.json", profiles.voice_id()), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _in_direction(caption: str, direction: str | None, tags: dict) -> bool:
+    if not direction:
+        return True
+    letter = _DIR_LETTER.get(direction)
+    if not letter:
+        return True
+    h = hashlib.sha1((caption or "").strip().encode("utf-8")).hexdigest()[:12]
+    return letter in (tags.get(h) or "")
+
+
 _WALL_HAND = 60      # refs dealt per card — example-led: the wall is the dominant mass
 _HITTERS_HAND = 15   # validated refs dealt per card (north stars always ride)
 
@@ -809,7 +838,8 @@ def _deal(pool: list[str], n: int, state_file: str) -> list[str]:
         return random.sample(pool, min(n, len(pool)))
 
 
-def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> list[dict]:
+def _generate_v4(n: int, notes: str | None = None, world: str | None = None,
+                 direction: str | None = None) -> list[dict]:
     """V4 — THE ONE-AUTHOR SLATE (2026-07-15, after the operator rejected three straight
     lane-era batches as 'super repetitive... so many references that seem to just be dead').
 
@@ -838,9 +868,15 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> 
     k = max(1, n)
     kk = min(k + 2, 8)   # draft more, ship the best k — guards prune with backfill headroom
     seed = seeds.draw()
+    tags = _directions() if direction else {}
     pool = [(r.get("caption") or "").strip() for r in refs
-            if (r.get("caption") or "").strip()]
-    hand = _deal(pool, _WALL_HAND, profiles.voice_file("wall_deck.json", profiles.voice_id()))
+            if (r.get("caption") or "").strip()
+            and _in_direction(r.get("caption") or "", direction, tags)]
+    if direction and len(pool) < 10:   # slice too thin (untagged voice) — fall back to the full feed
+        pool = [(r.get("caption") or "").strip() for r in refs if (r.get("caption") or "").strip()]
+        direction = None
+    deck_name = f"wall_deck_{direction}.json" if direction else "wall_deck.json"
+    hand = _deal(pool, _WALL_HAND, profiles.voice_file(deck_name, profiles.voice_id()))
     ref_block = "\n\n".join(hand)
     wall = ("\n\nBelow is a stretch of your feed — your real posted captions (a different "
             "stretch surfaces each night; the catalog is far bigger than what's in view). "
@@ -865,7 +901,8 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None) -> 
                            + "\n\n")
     except Exception:  # noqa: BLE001 — feed memory must never break generation
         pass
-    system = (persona() + wall + _hitters_block() + craft()
+    system = (persona() + wall + _hitters_block(direction) + craft()
+              + (_FOCUS_BARS.get(direction, "") if direction else "")
               + _SLATE5_TAIL.replace("{k}", str(kk)))
     user = ((f"Lean (soft): {note}\n\n" if note else "")
             + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
@@ -961,7 +998,7 @@ _LAW_CARDS = (
 )
 
 
-def _hitters_block() -> str:
+def _hitters_block(direction: str | None = None) -> str:
     """THE ONES THAT HIT HARDEST — the operator's original hand-picked references (north stars)
     + every corpus ref that earned its slot through his grades (promotions, endorsements, his
     own authored lines). Rendered at the END of the context (max salience) as the explicit
@@ -978,9 +1015,12 @@ def _hitters_block() -> str:
         # LANDS decode, the per-instance mechanism carrier. North stars ride every card.
         pinned: dict[str, str] = {}
         vrows: list[str] = []
+        tags = _directions() if direction else {}
         for r in load_refs():
             cap = (r.get("caption") or "").strip()
             if not cap:
+                continue
+            if direction and not _in_direction(cap, direction, tags):
                 continue
             why = (r.get("why_it_works") or "").strip()
             row = f"{cap}\n→ WHY IT LANDS: {why}" if why else cap
@@ -990,8 +1030,8 @@ def _hitters_block() -> str:
             elif r.get("source") in validated:
                 vrows.append(row)                    # the rest rotate on the deck
         rows.extend(pinned[h] for h in _LAW_CARDS if h in pinned)
-        rows.extend(_deal(vrows, _HITTERS_HAND,
-                          profiles.voice_file("hitters_deck.json", profiles.voice_id())))
+        hdeck = f"hitters_deck_{direction}.json" if direction else "hitters_deck.json"
+        rows.extend(_deal(vrows, _HITTERS_HAND, profiles.voice_file(hdeck, profiles.voice_id())))
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -1305,6 +1345,7 @@ def generate(
     notes: str | None = None,
     n: int = 8,
     clip_context: str | None = None,
+    direction: str | None = None,
 ) -> list[dict]:
     """Grade-weighted rotation-anchored generation (v1). Each candidate carries its `anchor_ref` so
     future grades attribute back exactly. Routed to _generate_v3 (seed → five engines) unless
@@ -1316,7 +1357,7 @@ def generate(
             (clip_context or "").strip() or None,
             ("sound: " + ", ".join(audio_vibe)) if audio_vibe else None,
             ("energy: " + audio_energy) if audio_energy else None] if x) or None
-        return _generate_v4(n, notes, world=world)
+        return _generate_v4(n, notes, world=world, direction=direction)
     if mode == "v3":
         return _generate_v3(n, notes)
     if mode == "v2":
@@ -1393,7 +1434,8 @@ def generate(
 
 
 def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str | None = None,
-                         audio_desc: str | None = None, audio_vibe: list[str] | None = None) -> list[dict]:
+                         audio_desc: str | None = None, audio_vibe: list[str] | None = None,
+                         direction: str | None = None) -> list[dict]:
     """k INDEPENDENT single-caption generations for best-of-N selection (the reel chooser layer).
 
     Each candidate rides a DISTINCT anchor (one usage update, no race) and is generated in its OWN
@@ -1409,7 +1451,7 @@ def generate_independent(k: int = 3, notes: str | None = None, audio_energy: str
             (audio_desc or "").strip() or None,
             ("sound: " + ", ".join(audio_vibe)) if audio_vibe else None,
             ("energy: " + audio_energy) if audio_energy else None] if x) or None
-        return _generate_v4(max(1, k), notes, world=world)
+        return _generate_v4(max(1, k), notes, world=world, direction=direction)
     if mode == "v3":
         return _generate_v3(max(1, k), notes)
     if mode == "v2":

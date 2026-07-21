@@ -264,7 +264,8 @@ def match_audio(caption: str, audio_descs: list[str]) -> int:
 
 
 def generate_caption(niche: str | None, energy: str | None = None,
-                     audio_desc: str | None = None, audio_vibe: list[str] | None = None) -> tuple[str, list[dict]]:
+                     audio_desc: str | None = None, audio_vibe: list[str] | None = None,
+                     direction: str | None = None) -> tuple[str, list[dict]]:
     """Caption OPTIONS for a reel (audio-agnostic). v3: one variation seed → five separate
     interaction engines (screenshot/send/exotic/mirror/menace) → their outputs ARE the options —
     five different jobs the post could do. The chooser only picks the DEFAULT render — every
@@ -274,7 +275,7 @@ def generate_caption(niche: str | None, energy: str | None = None,
     from app.caption.engine import generate_independent
     from app.corpus import reels as reel_store
     cands = generate_independent(k=5, notes=(niche or None), audio_energy=energy,
-                                 audio_desc=audio_desc, audio_vibe=audio_vibe)
+                                 audio_desc=audio_desc, audio_vibe=audio_vibe, direction=direction)
     if not cands:
         raise RuntimeError("this profile has no voice yet — add caption references to its corpus first")
     texts = [c["text"] for c in cands]
@@ -314,6 +315,7 @@ def generate_reel(
     audio_vibe: list[str] | None = None,
     caption_text: str | None = None,
     caption_candidates: list[dict] | None = None,
+    direction: str | None = None,
     caption_vibe: list[str] | None = None,
     no_caption: bool = False,
     sources: dict[str, str] | None = None,
@@ -337,7 +339,8 @@ def generate_reel(
         energy = audio_energy or ("low" if bpm and bpm < 100 else "high" if bpm and bpm > 132 else "mid")
         # BEST-OF-3 caption (audio-agnostic; the chooser picks the one to post). Notes stay MINIMAL.
         caption_text, caption_candidates = generate_caption((niche or "").strip() or None, energy,
-                                                            audio_desc=audio_desc, audio_vibe=audio_vibe)
+                                                            audio_desc=audio_desc, audio_vibe=audio_vibe,
+                                                            direction=direction)
 
     # DURATION SCALES WITH THE CAPTION. A reel is just the caption over b-roll, so it runs only as long as
     # the line needs to be read + land — ~5s short, up to 9s long, never the full track. Cap the beat plan
