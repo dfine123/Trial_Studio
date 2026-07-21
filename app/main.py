@@ -1915,7 +1915,10 @@ def api_wall_deck(request: Request):
     if not _is_authed(request):
         raise HTTPException(status_code=401, detail="operator only")
     out = {}
-    for name in ("wall_deck.json", "hitters_deck.json"):
+    import glob as _g
+    vdir = os.path.dirname(profiles.voice_file("x", profiles.voice_id()))
+    names = sorted(os.path.basename(p) for p in _g.glob(os.path.join(vdir, "*deck*.json")))
+    for name in names or ("wall_deck.json", "hitters_deck.json"):
         try:
             with open(profiles.voice_file(name, profiles.voice_id()), encoding="utf-8") as f:
                 st = json.load(f)

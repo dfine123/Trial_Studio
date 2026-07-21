@@ -794,7 +794,9 @@ def _in_direction(caption: str, direction: str | None, tags: dict) -> bool:
 
 
 _WALL_HAND = 60      # refs dealt per card — example-led: the wall is the dominant mass
-_HITTERS_HAND = 15   # validated refs dealt per card (north stars always ride)
+_HITTERS_HAND = 12   # validated refs dealt per card
+_LAW_HAND = 7        # of the 19 family-canon law cards — in view ~37% of cards, back within ~3
+_CORE_HAND = 12      # seeds + north stars — the CORE VOICE stratum, dealt at max-salience tail
 
 
 def _deal(pool: list[str], n: int, state_file: str) -> list[str]:
@@ -891,8 +893,11 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None,
         want = set(_direction_pins().get(direction) or [])
         if want:
             by_hash = {hashlib.sha1(c.encode("utf-8")).hexdigest()[:12]: c for c in pool}
-            pinned = [by_hash[hh] for hh in want if hh in by_hash]
+            pin_pool = [by_hash[hh] for hh in want if hh in by_hash]
             pool = [c for c in pool if hashlib.sha1(c.encode("utf-8")).hexdigest()[:12] not in want]
+            if pin_pool:   # pins ROTATE too (constancy is the attractor multiplier)
+                pinned = _deal(pin_pool, min(5, len(pin_pool)),
+                               profiles.voice_file(f"wall_pin_deck_{direction}.json", profiles.voice_id()))
     hand = pinned + _deal(pool, max(1, _WALL_HAND - len(pinned)),
                           profiles.voice_file(deck_name, profiles.voice_id()))
     ref_block = "\n\n".join(hand)
@@ -1024,15 +1029,18 @@ def _hitters_block(direction: str | None = None) -> str:
     its end — his best material teaches; instructions shrink to kernels."""
     rows: list[str] = []
     try:
+        # EVERYTHING EXEMPLAR ROTATES; NOTHING EXEMPLAR RIDES EVERY CARD (2026-07-21 audit).
+        # The static-exemplar attractor recurred 4x under 4 carriers (v1 anchors, quoted
+        # winners, static hitters, law-card pins) — measured: pinned refs pulled ~20-30x the
+        # descendants of rotating ones at only ~3.5x exposure; constancy, not frequency, is
+        # the multiplier. Three strata, three decks: LAW (family canon, 7/19), VALIDATED
+        # (12/~105), CORE (seeds + north stars, 12/97 — the original voice, dealt LAST at
+        # max salience; the learn loop only ever adds non-seed refs, so without this stratum
+        # the decoded layer's voice ratchets toward the system's own sanitized output).
         validated = ("promoted_gen", "note_endorsed", "operator_authored", "lab_promoted")
-        # Validated refs are DEALT, not all-rendered (2026-07-17 deck fix): a static block of
-        # ~75 decoded winners was the strongest attractor in the prompt — the same salient
-        # families won attention every card. Every validated ref still cycles through in
-        # rotation (unlike the old [-60:] slice, nothing is ever PERMANENTLY dropped — the
-        # deck guarantees each one returns every few cards); each still carries its WHY IT
-        # LANDS decode, the per-instance mechanism carrier. North stars ride every card.
-        pinned: dict[str, str] = {}
+        law_rows: list[str] = []
         vrows: list[str] = []
+        core_rows: list[str] = []
         tags = _directions() if direction else {}
         for r in load_refs():
             cap = (r.get("caption") or "").strip()
@@ -1044,21 +1052,25 @@ def _hitters_block(direction: str | None = None) -> str:
             row = f"{cap}\n→ WHY IT LANDS: {why}" if why else cap
             h = hashlib.sha1(cap.encode("utf-8")).hexdigest()[:12]
             if h in _LAW_CARDS:
-                pinned[h] = row                      # canon rides every card, any source
+                law_rows.append(row)
+            elif r.get("source") == "seed_verbatim":
+                core_rows.append(row)
             elif r.get("source") in validated:
-                vrows.append(row)                    # the rest rotate on the deck
-        rows.extend(pinned[h] for h in _LAW_CARDS if h in pinned)
-        hdeck = f"hitters_deck_{direction}.json" if direction else "hitters_deck.json"
-        rows.extend(_deal(vrows, _HITTERS_HAND, profiles.voice_file(hdeck, profiles.voice_id())))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from app.caption import northstars
-        for r in northstars.load():
-            cap = (r.get("caption") or "").strip()
-            why = (r.get("point") or "").strip()
-            if cap:
-                rows.append(f"{cap}\n→ WHY IT LANDS: {why}" if why else cap)
+                vrows.append(row)
+        try:
+            from app.caption import northstars
+            for r in northstars.load():
+                cap = (r.get("caption") or "").strip()
+                why = (r.get("point") or "").strip()
+                if cap:
+                    core_rows.append(f"{cap}\n→ WHY IT LANDS: {why}" if why else cap)
+        except Exception:  # noqa: BLE001
+            pass
+        sfx = f"_{direction}" if direction else ""
+        vid = profiles.voice_id()
+        rows.extend(_deal(law_rows, _LAW_HAND, profiles.voice_file(f"law_deck{sfx}.json", vid)))
+        rows.extend(_deal(vrows, _HITTERS_HAND, profiles.voice_file(f"hitters_deck{sfx}.json", vid)))
+        rows.extend(_deal(core_rows, _CORE_HAND, profiles.voice_file(f"seed_deck{sfx}.json", vid)))
     except Exception:  # noqa: BLE001
         pass
     rows = [r for r in dict.fromkeys(rows) if r]
