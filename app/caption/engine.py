@@ -927,8 +927,11 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None,
     system = (persona() + wall + _hitters_block(direction) + craft()
               + (_FOCUS_BARS.get(direction, "") if direction else "")
               + _SLATE5_TAIL.replace("{k}", str(kk)))
-    user = ((f"Lean (soft): {note}\n\n" if note else "")
-            + f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
+    # NOTES-LED VARIANT (2026-07-21, operator: notes stopped shifting output): with no note the
+    # prompt is byte-identical to before. With a note, the old buried "Lean (soft)" top-line is
+    # replaced by a DIRECTIVE block at the very end of the message (max salience) — the note
+    # shapes subject and register for every post on the card, without touching the bar.
+    user = (f"VARIATION SEED (drift from it — never obey it): {seed}\n\n"
             + recent_feed
             + ("Before you write: remember what you've just been posting — those moments are "
                "spent. A play already up there comes back tonight at most ONCE, and only sharper "
@@ -938,6 +941,9 @@ def _generate_v4(n: int, notes: str | None = None, world: str | None = None,
             + "So you don't repeat yourself — your most recent material and the ones that flopped:\n"
             + _taken_block()
             + (f"TONIGHT'S FOOTAGE WORLD (the second speaker): {world}\n\n" if world else "")
+            + ((f"\n\nTONIGHT'S DIRECTION — the one request for this card, and every post serves "
+                f"it: {note}. It steers what the posts are ABOUT and how they carry — inside the "
+                f"same voice, at the same bar; it never excuses a weak line.") if note else "")
             + f"\n\nThe feed continues: the next {kk} posts, two takes each.")
 
     def _is_literal(t: str) -> bool:
