@@ -948,6 +948,7 @@ def api_demo_reels():
 def api_audios():
     with SessionLocal() as s:
         rows = s.scalars(select(Audio).order_by(Audio.created_at)).all()
+        rows = [a for a in rows if str(a.id) not in _audio_disabled()]
         return [
             {
                 "id": str(a.id),
@@ -1006,10 +1007,12 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                 from app.generate.generator import generate_caption, match_audio
                 with SessionLocal() as s:
                     choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
-                if len(choices) > 1:
+                choices = [a for a in choices if str(a.id) not in _audio_disabled()] or choices
+                hand = _audio_hand(choices)
+                if len(hand) > 1:
                     pre_caption, pre_cands = generate_caption(niche or None, direction=getattr(req, 'direction', None))
-                    bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in choices])
-                    audio = choices[bi]
+                    bi = match_audio(pre_caption, [f"{a.description or ''} (energy: {a.energy_arc or '?'})" for a in hand])
+                    audio = hand[bi]
                     _p = _audio_path(audio)
                     if _p:
                         audio_path = _p
@@ -1150,11 +1153,14 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                 audio = s.get(Audio, req.audio_id) if req.audio_id else \
                     s.scalar(select(Audio).order_by(func.random()).limit(1))
                 choices = list(s.scalars(select(Audio).where(Audio.r2_key.isnot(None))).all())
+            if req.audio_id is None:
+                choices = [a for a in choices if str(a.id) not in _audio_disabled()] or choices
             audio_pool = choices
             if req.audio_id is None:
-                audio_pool = [a for a in choices if str(a.id) not in used_audio] or choices
-                if audio is not None and str(audio.id) in used_audio and audio_pool:
-                    audio = _random.choice(audio_pool)   # the random fallback also prefers unused tracks
+                hand = _audio_hand(choices)
+                audio_pool = [a for a in hand if str(a.id) not in used_audio] or hand
+                if audio is None or str(audio.id) in used_audio or str(audio.id) in _audio_disabled():
+                    audio = _random.choice(audio_pool)   # fallback prefers the dealt, unused hand
             if audio is None or not audio.r2_key:
                 fail(i, "no audio in library")
                 continue
@@ -1909,6 +1915,54 @@ def api_ref_directions_set(req: RefDirections, request: Request):
             json.dump({k: list(v) for k, v in req.pins.items() if isinstance(v, list)}, f)
         os.replace(ppath + ".tmp", ppath)
     return {"ok": True, "tagged": len(clean), "pinned": {k: len(v) for k, v in (req.pins or {}).items()}}
+
+
+def _audio_disabled() -> set[str]:
+    try:
+        with open(os.path.join("var", "audio_disabled.json"), encoding="utf-8") as f:
+            return set(json.load(f))
+    except Exception:  # noqa: BLE001
+        return set()
+
+
+def _audio_hand(choices: list, n: int = 6) -> list:
+    """Deal a rotating hand from the audio library (same deck mechanism as the caption walls —
+    variety is structural, the matcher aligns within the hand). Shuffled to kill index bias."""
+    import random as _r
+    from app.caption.engine import _deal
+    by_id = {str(a.id): a for a in choices}
+    try:
+        ids = _deal(sorted(by_id), min(n, len(by_id)), os.path.join("var", "audio_deck.json"))
+        hand = [by_id[i] for i in ids if i in by_id]
+    except Exception:  # noqa: BLE001
+        hand = list(choices)
+    _r.shuffle(hand)
+    return hand or list(choices)
+
+
+class AudioDisable(BaseModel):
+    audio_ids: list[str]
+
+
+@app.get("/api/debug/audio-disabled")
+def api_audio_disabled_get(request: Request):
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    return {"disabled": sorted(_audio_disabled())}
+
+
+@app.post("/api/debug/audio-disabled")
+def api_audio_disabled_set(req: AudioDisable, request: Request):
+    """Operator-reversible track removal — disabled audios leave every selection path and the
+    UI dropdown; the file and DB row stay untouched."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    path = os.path.join("var", "audio_disabled.json")
+    os.makedirs("var", exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(sorted(set(req.audio_ids)), f)
+    os.replace(path + ".tmp", path)
+    return {"ok": True, "disabled": len(set(req.audio_ids))}
 
 
 @app.get("/api/debug/wall-deck")
