@@ -1022,7 +1022,8 @@ def api_generate(req: GenerateRequest, backend: str | None = None):
                                 audio_energy=audio.energy_arc, audio_vibe=audio.thematic_tags,
                                 clip_ids=clip_ids, no_caption=req.no_caption,
                                 caption_text=pre_caption, caption_candidates=pre_cands,
-                                direction=getattr(req, "direction", None))
+                                direction=getattr(req, "direction", None),
+                                font_style=getattr(req, "font", "base") or "base")
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=f"generation failed: {exc}") from exc
 
@@ -1073,6 +1074,7 @@ class BatchGenerateRequest(BaseModel):
     folder_id: uuid.UUID | None = None
     no_caption: bool = False
     direction: str | None = None   # focus: funny | motivational | shareable | None=base
+    font: str = "base"             # caption font style: base | elegant | clean | typewriter | handwritten | poster
 
 
 def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
@@ -1102,6 +1104,7 @@ def _run_batch(job_id: str, req: "BatchGenerateRequest") -> None:
                                 clip_ids=clip_ids, no_caption=req.no_caption,
                                 caption_text=pre_caption, caption_candidates=pre_cands,
                                 direction=getattr(req, "direction", None),
+                                font_style=getattr(req, "font", "base") or "base",
                                 batch_clip_used=batch_clip_used)
             try:
                 reel_store.append({

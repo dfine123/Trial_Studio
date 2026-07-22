@@ -1,0 +1,8 @@
+Bundled caption fonts — all licensed under the SIL Open Font License 1.1
+(https://openfontlicense.org). Full license texts at each project's repo.
+
+- PlayfairDisplay.ttf — Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display)
+- Montserrat.ttf — Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+- CourierPrime-Bold.ttf — Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime)
+- Caveat.ttf — Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)
+- BebasNeue-Regular.ttf — Copyright 2019 The Bebas Neue Project Authors (https://github.com/dharmatype/Bebas-Neue)

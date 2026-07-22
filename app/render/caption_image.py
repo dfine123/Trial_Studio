@@ -69,7 +69,39 @@ class _AppleThenNotoSource(BaseSource):
         return None
 
 
-def _load_font(size: int, weight: int = 800) -> ImageFont.FreeTypeFont:
+# ── FONT STYLES (2026-07-21): 5 tasteful options beyond the base TikTok look. Each style is a
+# complete treatment — face, weight, stroke vs soft shadow, sizing — not just a font swap.
+# "base" stays the locked default; the operator picks per generation (UI "Font").
+_FONT_STYLES: dict[str, dict] = {
+    "base":       {"path": None, "var": None, "size_mult": 1.0, "stroke": True,  "shadow": False, "spacing": 0.26},
+    # elegant high-contrast serif — motivational/sincere lines
+    "elegant":    {"path": "fonts/PlayfairDisplay.ttf", "var": "SemiBold", "size_mult": 0.98,
+                   "stroke": False, "shadow": True, "spacing": 0.34},
+    # clean modern grotesque — minimal, premium
+    "clean":      {"path": "fonts/Montserrat.ttf", "var": "SemiBold", "size_mult": 0.92,
+                   "stroke": False, "shadow": True, "spacing": 0.32},
+    # typewriter — notes-app/confession energy
+    "typewriter": {"path": "fonts/CourierPrime-Bold.ttf", "var": None, "size_mult": 0.94,
+                   "stroke": False, "shadow": True, "spacing": 0.30},
+    # handwritten pen — personal, bro-line energy (script runs small; upsize)
+    "handwritten": {"path": "fonts/Caveat.ttf", "var": "Bold", "size_mult": 1.35,
+                    "stroke": False, "shadow": True, "spacing": 0.18},
+    # condensed poster caps — villain/flex declarations
+    "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.18,
+                   "stroke": False, "shadow": True, "spacing": 0.22},
+}
+
+
+def _load_font(size: int, weight: int = 800, style: str = "base") -> ImageFont.FreeTypeFont:
+    spec = _FONT_STYLES.get(style) or _FONT_STYLES["base"]
+    if spec["path"]:
+        font = ImageFont.truetype(spec["path"], size)
+        if spec["var"]:
+            try:
+                font.set_variation_by_name(spec["var"])
+            except Exception:  # noqa: BLE001 — static font or missing named instance
+                pass
+        return font
     font = ImageFont.truetype(settings.font_path, size)
     try:
         font.set_variation_by_axes(_AXES(weight))
@@ -113,24 +145,28 @@ def render_caption_png(
     y_frac: float = 0.30,
     margin_frac: float = 0.86,
     max_lines: int = 4,
+    font_style: str = "base",
 ) -> str:
+    spec = _FONT_STYLES.get(font_style) or _FONT_STYLES["base"]
     width = width or settings.reel_width
     height = height or settings.reel_height
     max_w = width * margin_frac
     paras = text.split("\n")
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
 
+    font_size = int(font_size * spec["size_mult"])
+    min_font = int(min_font * spec["size_mult"])
     size = font_size
     while size > min_font:
-        lines = _wrap(paras, _load_font(size, weight), max_w, probe)
+        lines = _wrap(paras, _load_font(size, weight, font_style), max_w, probe)
         if sum(1 for ln in lines if ln) <= max_lines:
             break
         size -= 3
 
-    font = _load_font(size, weight)
+    font = _load_font(size, weight, font_style)
     lines = _wrap(paras, font, max_w, probe)
-    stroke = max(2, round(size * stroke_frac))
-    spacing = int(size * 0.26)
+    stroke = max(2, round(size * stroke_frac)) if spec["stroke"] else 0
+    spacing = int(size * spec["spacing"])
 
     # Lay the lines out MANUALLY and render each as a SINGLE Pilmoji call — Pilmoji's own multiline
     # rendering botches the stroke on every line past the first, so we stack the lines ourselves
@@ -147,6 +183,11 @@ def render_caption_png(
             if not line.strip():
                 continue
             cy = top + i * step + line_h / 2.0
+            if spec["shadow"]:
+                # soft drop shadow instead of the hard meme outline — the tasteful styles
+                off = max(2, size // 22)
+                pilmoji.text((width // 2 + off, int(cy) + off), line, font=font,
+                             fill=(0, 0, 0, 150), anchor="mm", emoji_scale_factor=1.15)
             pilmoji.text(
                 (width // 2, int(cy)),
                 line,

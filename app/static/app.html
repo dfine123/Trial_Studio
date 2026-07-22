@@ -327,6 +327,15 @@
               <option value="motivational">Motivational</option>
               <option value="shareable">Shareable</option>
             </select>
+            <label class="u-label rail-label" for="fontstyle">Font</label>
+            <select id="fontstyle">
+              <option value="base">Base — TikTok bold</option>
+              <option value="elegant">Elegant — serif</option>
+              <option value="clean">Clean — modern</option>
+              <option value="typewriter">Typewriter</option>
+              <option value="handwritten">Handwritten</option>
+              <option value="poster">Poster — condensed caps</option>
+            </select>
             <label class="u-label rail-label" for="notes">Notes — optional nudge</label>
             <input id="notes" placeholder="e.g. crypto wins, gym, late nights…" />
             <label class="u-label rail-label" for="count">How many reels</label>
@@ -856,7 +865,8 @@ document.getElementById('gen').onclick = async () => {
   try {
     const r = await fetch('/api/generate/batch', { method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({ n, audio_id: (sel && sel !== 'mix') ? sel : null, notes, folder_id, no_caption: noCaption,
-        direction: (document.getElementById('direction')||{}).value || null }) });
+        direction: (document.getElementById('direction')||{}).value || null,
+        font: (document.getElementById('fontstyle')||{}).value || 'base' }) });
     if (!r.ok) throw new Error((await r.text()).slice(0,200));
     job = await r.json();
   } catch (e) {

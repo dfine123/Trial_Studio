@@ -316,6 +316,7 @@ def generate_reel(
     caption_text: str | None = None,
     caption_candidates: list[dict] | None = None,
     direction: str | None = None,
+    font_style: str = "base",
     caption_vibe: list[str] | None = None,
     no_caption: bool = False,
     sources: dict[str, str] | None = None,
@@ -401,7 +402,7 @@ def generate_reel(
 
     cap_png = None
     if not no_caption:
-        render_caption_png(caption_text, work_png)
+        render_caption_png(caption_text, work_png, font_style=font_style)
         cap_png = work_png
     compose_reel(shots, cap_png, audio_path, out_path, reel_dur)
 
