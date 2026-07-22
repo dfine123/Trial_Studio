@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # ── Integrations ──────────────────────────────────────────
     anthropic_api_key: str = ""          # not used in Phase 0 (captions are Phase 1)
+    apify_token: str = ""                   # Apify API token — Instagram reference intake (no IG login needed)
     twelvelabs_api_key: str = ""
 
     # ── Cloudflare R2 (S3-compatible) ─────────────────────────

@@ -35,8 +35,47 @@ def find_reel_url(text: str) -> str | None:
     return m.group(0).rstrip(").,") if m else None
 
 
+def _download_via_apify(url: str) -> str | None:
+    """Primary path: Apify's Instagram scraper — no IG login/cookies needed. Returns the local
+    mp4 path, or None to fall through to yt-dlp (missing token, actor error, no video URL)."""
+    from app.config import settings
+    token = (getattr(settings, "apify_token", "") or os.environ.get("APIFY_TOKEN")
+             or os.environ.get("APIFY_API_TOKEN") or "").strip()
+    if not token:
+        return None
+    import requests
+    try:
+        r = requests.post(
+            "https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items",
+            params={"token": token},
+            json={"directUrls": [url], "resultsType": "posts", "resultsLimit": 1,
+                  "addParentData": False},
+            timeout=180,
+        )
+        r.raise_for_status()
+        items = r.json() or []
+        video_url = next((it.get("videoUrl") for it in items if it.get("videoUrl")), None)
+        if not video_url:
+            print(f"[intake] apify returned no videoUrl for {url}", flush=True)
+            return None
+        os.makedirs(_WORK, exist_ok=True)
+        path = os.path.join(_WORK, f"ref_{uuid.uuid4().hex[:10]}.mp4")
+        with requests.get(video_url, stream=True, timeout=180) as dl:
+            dl.raise_for_status()
+            with open(path, "wb") as f:
+                for chunk in dl.iter_content(1 << 16):
+                    f.write(chunk)
+        return path
+    except Exception as ex:  # noqa: BLE001 — apify is best-effort; yt-dlp is the fallback
+        print(f"[intake] apify path failed ({str(ex)[:120]}) — falling back to yt-dlp", flush=True)
+        return None
+
+
 def download_reel(url: str) -> str:
-    """Download the reel via yt-dlp; returns the local mp4 path."""
+    """Download the reel — Apify scraper first (no IG login), yt-dlp + cookies as fallback."""
+    p = _download_via_apify(url)
+    if p:
+        return _validated(p)
     os.makedirs(_WORK, exist_ok=True)
     stem = os.path.join(_WORK, f"ref_{uuid.uuid4().hex[:10]}")
     import yt_dlp
@@ -75,16 +114,20 @@ def download_reel(url: str) -> str:
             break
     if not path:
         raise RuntimeError("download finished but no video file found")
-    # validate BEFORE ffmpeg so failures are readable, not exit-code soup
+    return _validated(path)
+
+
+def _validated(path: str) -> str:
+    """ffprobe the download BEFORE ffmpeg so failures are readable, not exit-code soup."""
     probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
                             "-of", "csv=p=0", path], capture_output=True, text=True)
     streams = set((probe.stdout or "").split())
     if probe.returncode != 0 or "video" not in streams:
         raise RuntimeError("the downloaded file isn't playable video (Instagram likely served an "
-                           "error page — check/refresh the IG cookies in the app)")
+                           "error page — check the Apify token / IG cookies)")
     if "audio" not in streams:
         raise RuntimeError("the reel downloaded without its audio track (Instagram is serving "
-                           "video-only without login — check/refresh the IG cookies in the app)")
+                           "video-only — check the Apify token / IG cookies)")
     return path
 
 

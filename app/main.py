@@ -1973,13 +1973,16 @@ class IgCookies(BaseModel):
 def api_ig_cookies_status(request: Request):
     if not _is_authed(request):
         raise HTTPException(status_code=401, detail="operator only")
+    from app.config import settings as _st
+    apify = bool((getattr(_st, "apify_token", "") or os.environ.get("APIFY_TOKEN")
+                  or os.environ.get("APIFY_API_TOKEN") or "").strip())
     p = os.path.join("var", "ig_cookies.txt")
     if not os.path.exists(p):
-        return {"uploaded": False}
+        return {"uploaded": False, "apify": apify}
     import time as _t
     lines = [l for l in open(p, encoding="utf-8", errors="ignore")
              if l.strip() and not l.startswith("#")]
-    return {"uploaded": True, "cookies": len(lines),
+    return {"uploaded": True, "cookies": len(lines), "apify": apify,
             "age_days": round((_t.time() - os.path.getmtime(p)) / 86400, 1)}
 
 
