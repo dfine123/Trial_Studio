@@ -77,20 +77,20 @@ _FONT_STYLES: dict[str, dict] = {
                    "shadow": False, "spacing": 0.26, "tracking": 0, "case": None},
     # CINEMATIC treatments (2026-07-21 rework): smaller, tracked-out, lighter — title-card energy
     # elegant high-contrast serif — the motivational/cinematic centerpiece
-    "elegant":    {"path": "fonts/PlayfairDisplay.ttf", "var": "Medium", "size_mult": 0.80,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.52,
+    "elegant":    {"path": "fonts/PlayfairDisplay.ttf", "var": "SemiBold", "size_mult": 0.82,
+                   "stroke": True, "stroke_frac": 0.038, "shadow": True, "spacing": 0.52,
                    "tracking": 2, "case": None},
     # minimal cinematic caps — thin grotesque, wide tracking (A24 title-card look)
-    "clean":      {"path": "fonts/Montserrat.ttf", "var": "Light", "size_mult": 0.72,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.55,
+    "clean":      {"path": "fonts/Montserrat.ttf", "var": "Regular", "size_mult": 0.74,
+                   "stroke": True, "stroke_frac": 0.038, "shadow": True, "spacing": 0.55,
                    "tracking": 3, "case": "upper"},
     # typewriter — notes-app/confession energy
     "typewriter": {"path": "fonts/CourierPrime-Bold.ttf", "var": None, "size_mult": 0.90,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.34,
+                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
                    "tracking": 0, "case": None},
     # handwritten pen — personal, bro-line energy
     "handwritten": {"path": "fonts/Caveat.ttf", "var": "Bold", "size_mult": 1.35,
-                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.18,
+                    "stroke": True, "stroke_frac": 0.042, "shadow": True, "spacing": 0.18,
                     "tracking": 0, "case": None},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
