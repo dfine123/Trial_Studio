@@ -202,15 +202,17 @@ def select_segments(
         cid = s["clip_id"]
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + 4.0 * clip_used.get(cid, 0)                      # strong: distinct shots within a reel
-                + 1.5 * usage.get(cid, 0)                          # rotate across reels
+                + 2.5 * usage.get(cid, 0)                          # rotate across reels — variety lives HERE
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
-        if coherent and used_vecs and clip_emb:
-            # stick with the same look: similarity to what's already playing is a BONUS strong
-            # enough to beat several fit positions — once the first clip sets the scene, staying
-            # in its family outranks a nominally-better-fitting clip from a different one
+        if used_vecs and clip_emb:
+            # WITHIN-REEL COHERENCE, every reel (2026-07-22 operator: unrelated clip mashups
+            # ruin outputs): once the first pick sets the reel's world, looking like what's
+            # already playing is a BONUS — strong in recreations (one literal scene), real but
+            # fit-respecting in standard reels (one visual world). Variety is the cross-reel
+            # usage penalty's job now, never the within-reel mix.
             sim = max((_cos(clip_emb.get(cid) or [], v) for v in used_vecs), default=0.0)
-            base -= 8.0 * sim
+            base -= (8.0 if coherent else 5.0) * sim
         return base
 
     chosen: list[dict] = []
@@ -248,20 +250,16 @@ def select_segments(
             # clip in just because it's unused. Only back-to-back repeats stay excluded.
             cands = [s for s in pool if s["clip_id"] != prev_clip] or pool
         else:
-            if fresh and used_vecs and clip_emb:
-                thr = settings.clip_sim_threshold
-                visually = [s for s in fresh
-                            if max((_cos(clip_emb.get(s["clip_id"]) or [], v) for v in used_vecs), default=0.0) < thr]
-                cands = visually or fresh
-            if cands and used_words and clip_text:
-                # SUBJECT de-dup: two different clips starring the same subject read as "the same
-                # clip twice" to a viewer even when their embeddings are unrelated (different scene)
-                subject_fresh = [s for s in cands
-                                 if not any(_same_subject(word_sets.get(s["clip_id"]) or set(), uw)
-                                            for uw in used_words)]
-                cands = subject_fresh or cands
+            # (2026-07-22) the old anti-lookalike + same-subject EXCLUSIONS forced every slot
+            # into a different visual family — the "completely unrelated clips" failure. Same
+            # subject/look across shots is what a coherent reel IS; only literal repetition is
+            # limited (distinct-id preference + the 4.0 reuse penalty + no back-to-back).
+            cands = [s for s in (fresh or pool) if s["clip_id"] != prev_clip] or fresh or pool
         cands = cands or [s for s in pool if s["clip_id"] != prev_clip] or pool
-        costs = [cost(s, clip_used, used_vecs) for s in cands]
+        scored = sorted(((cost(s, clip_used, used_vecs), s) for s in cands), key=lambda cs: cs[0])
+        scored = scored[:6]   # sample within the top fits only — a bad fit never plays
+        costs = [c for c, _ in scored]
+        cands = [s for _, s in scored]
         lo = min(costs)
         weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
         seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced

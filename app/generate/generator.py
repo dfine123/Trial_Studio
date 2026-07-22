@@ -384,8 +384,8 @@ def generate_reel(
                              fit_rank=fit_rank, usage=usage, clip_emb=clip_emb,
                              clip_dur=clip_dur, clip_text=clip_text,
                              coherent=coherent_clips,
-                             # tighter sampling in coherent mode — stay in the family
-                             temperature=0.8 if coherent_clips else 2.0)
+                             # tighter sampling everywhere: coherence is the default now
+                             temperature=0.8 if coherent_clips else 1.2)
     _log_clip_usage([c["clip_id"] for c in chosen])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:
