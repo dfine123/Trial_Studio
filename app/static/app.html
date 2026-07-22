@@ -342,6 +342,8 @@
             <div class="stepper"><button type="button" class="step" data-d="-1" aria-label="fewer">−</button><input id="count" type="number" min="1" max="12" value="1" /><button type="button" class="step" data-d="1" aria-label="more">+</button></div>
             <label class="blanktoggle"><input type="checkbox" id="blankcap" /><span class="bt-track"><span class="bt-thumb"></span></span>Blank captions<span class="bt-sub">— no text overlay</span></label>
             <label class="blanktoggle"><input type="checkbox" id="refactive" /><span class="bt-track"><span class="bt-thumb"></span></span>Reference active<span class="bt-sub">— telegram recreations</span></label>
+            <label class="u-label rail-label" for="igcookies">IG cookies <span id="igcstatus" style="opacity:.6;font-size:11px"></span></label>
+            <input id="igcookies" type="file" accept=".txt" style="font-size:12px" />
             <button class="btn btn-primary btn-block cta" id="gen">Generate reels</button>
             <div class="status" id="gstatus"></div>
           </div>
@@ -957,6 +959,25 @@ document.getElementById('profileNew').onclick = newProfile;
 const _apc = document.getElementById('addProfileCard'); if (_apc) _apc.onclick = newProfile;
 
 loadProfiles(); loadAudios(); loadFolders(); loadBuild(); loadStats();
+
+  (async () => {
+    const st = document.getElementById('igcstatus'), inp = document.getElementById('igcookies');
+    if (!st || !inp) return;
+    try { const s = await (await fetch('/api/reference/cookies')).json();
+      st.textContent = s.uploaded ? `(${s.cookies} cookies, ${s.age_days}d old)` : '(none uploaded)';
+    } catch (_) {}
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      st.textContent = 'uploading…';
+      try {
+        const txt = await f.text();
+        const r = await fetch('/api/reference/cookies', { method: 'POST',
+          headers: {'content-type': 'application/json'}, body: JSON.stringify({ cookies_txt: txt }) });
+        const d = await r.json();
+        st.textContent = r.ok ? `(${d.cookies} cookies, fresh)` : ('error: ' + (d.detail || r.status));
+      } catch (e) { st.textContent = 'upload failed'; }
+    });
+  })();
 </script>
 </body>
 </html>

@@ -1965,6 +1965,42 @@ def api_audio_disabled_set(req: AudioDisable, request: Request):
     return {"ok": True, "disabled": len(set(req.audio_ids))}
 
 
+class IgCookies(BaseModel):
+    cookies_txt: str
+
+
+@app.get("/api/reference/cookies")
+def api_ig_cookies_status(request: Request):
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    p = os.path.join("var", "ig_cookies.txt")
+    if not os.path.exists(p):
+        return {"uploaded": False}
+    import time as _t
+    lines = [l for l in open(p, encoding="utf-8", errors="ignore")
+             if l.strip() and not l.startswith("#")]
+    return {"uploaded": True, "cookies": len(lines),
+            "age_days": round((_t.time() - os.path.getmtime(p)) / 86400, 1)}
+
+
+@app.post("/api/reference/cookies")
+def api_ig_cookies_set(req: IgCookies, request: Request):
+    """The operator's instagram.com cookies (Netscape cookies.txt export) — required by
+    Instagram for reel downloads since mid-2026. Stored volume-side only; never logged."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    t = (req.cookies_txt or "").strip()
+    if "instagram.com" not in t:
+        raise HTTPException(status_code=400, detail="that doesn't look like an instagram.com cookies.txt export")
+    os.makedirs("var", exist_ok=True)
+    p = os.path.join("var", "ig_cookies.txt")
+    with open(p + ".tmp", "w", encoding="utf-8") as f:
+        f.write(t if t.startswith("# Netscape") else "# Netscape HTTP Cookie File\n" + t)
+    os.replace(p + ".tmp", p)
+    lines = [l for l in t.splitlines() if l.strip() and not l.startswith("#")]
+    return {"ok": True, "cookies": len(lines)}
+
+
 @app.get("/api/debug/wall-deck")
 def api_wall_deck(request: Request):
     """Operator-only: state of the two deal decks (wall + hitters) for the active voice —

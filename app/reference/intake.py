@@ -42,27 +42,60 @@ def download_reel(url: str) -> str:
     import yt_dlp
     opts = {
         "outtmpl": stem + ".%(ext)s",
-        "format": "mp4/bestvideo*+bestaudio/best",
+        "format": "bestvideo*+bestaudio/best/mp4",
         "merge_output_format": "mp4",
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 60,
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([url])
+    # Instagram requires login cookies for media since mid-2026 ("empty media response" logged
+    # out). The operator uploads their browser's instagram.com cookies once (app: Reference
+    # settings, or POST /api/reference/cookies); we pass them to yt-dlp when present.
+    cookies = os.path.join("var", "ig_cookies.txt")
+    if os.path.exists(cookies):
+        opts["cookiefile"] = cookies
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+    except Exception as ex:  # noqa: BLE001 — surface the real cause, hint the cookie fix
+        msg = str(ex)
+        if "empty media response" in msg or "login" in msg.lower() or "cookies" in msg.lower():
+            raise RuntimeError(
+                "Instagram now requires login cookies for downloads. Upload your instagram.com "
+                "cookies once in the app (Generate rail → IG cookies) and resend the link."
+                + (" (Cookies are uploaded but seem expired — re-export and upload fresh ones.)"
+                   if os.path.exists(cookies) else "")) from ex
+        raise
+    path = None
     for ext in ("mp4", "mkv", "webm", "mov"):
         p = f"{stem}.{ext}"
         if os.path.exists(p):
-            return p
-    raise RuntimeError("download finished but no video file found")
+            path = p
+            break
+    if not path:
+        raise RuntimeError("download finished but no video file found")
+    # validate BEFORE ffmpeg so failures are readable, not exit-code soup
+    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
+                            "-of", "csv=p=0", path], capture_output=True, text=True)
+    streams = set((probe.stdout or "").split())
+    if probe.returncode != 0 or "video" not in streams:
+        raise RuntimeError("the downloaded file isn't playable video (Instagram likely served an "
+                           "error page — check/refresh the IG cookies in the app)")
+    if "audio" not in streams:
+        raise RuntimeError("the reel downloaded without its audio track (Instagram is serving "
+                           "video-only without login — check/refresh the IG cookies in the app)")
+    return path
 
 
 def extract_audio(video_path: str) -> str:
     """The reference's audio track, as m4a — the recreation runs on the same sound."""
     out = os.path.splitext(video_path)[0] + "_audio.m4a"
-    subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "aac", "-b:a", "192k", out],
-                   check=True, capture_output=True)
+    r = subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "aac", "-b:a", "192k", out],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        tail = (r.stderr or "").strip().splitlines()[-1:] or ["unknown ffmpeg error"]
+        raise RuntimeError(f"audio extract failed: {tail[0][:160]}")
     return out
 
 
