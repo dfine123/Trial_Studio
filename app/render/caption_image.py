@@ -75,6 +75,9 @@ class _AppleThenNotoSource(BaseSource):
 _FONT_STYLES: dict[str, dict] = {
     "base":       {"path": None, "var": None, "size_mult": 1.0, "stroke": True, "stroke_frac": None,
                    "shadow": False, "spacing": 0.26, "tracking": 0, "case": None},
+    # the classic lighter TikTok caption look — same face, medium weight, thinner outline
+    "slim":       {"path": None, "var": None, "weight": 550, "size_mult": 0.98, "stroke": True,
+                   "stroke_frac": 0.052, "shadow": False, "spacing": 0.28, "tracking": 0, "case": None},
     # CINEMATIC treatments (2026-07-21 rework): smaller, tracked-out, lighter — title-card energy
     # elegant high-contrast serif — the motivational/cinematic centerpiece
     "elegant":    {"path": "fonts/PlayfairDisplay.ttf", "var": "SemiBold", "size_mult": 0.82,
@@ -121,6 +124,7 @@ def _line_w(line: str, font, draw, tpx: int) -> float:
 
 def _load_font(size: int, weight: int = 800, style: str = "base") -> ImageFont.FreeTypeFont:
     spec = _FONT_STYLES.get(style) or _FONT_STYLES["base"]
+    weight = spec.get("weight") or weight
     if spec["path"]:
         font = ImageFont.truetype(spec["path"], size)
         if spec["var"]:
