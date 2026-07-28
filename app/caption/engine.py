@@ -560,7 +560,9 @@ def _pick_takes(pairs: list[list[str]]) -> list[str]:
                  "take loses. And run every phrase through WHAT DOES THAT ACTUALLY MEAN: a take "
                  "where every phrase answers instantly beats one carrying a phrase that only "
                  "sounds like it means something; a plain statement of the outcome beats a "
-                 "coined phrase for the same outcome, every time. "
+                 "coined phrase for the same outcome, every time — and the ENDING decides "
+                 "most: a take whose final clause is said plainly beats one whose ending "
+                 "performs. "
                  "Return ONLY JSON: {\"picks\": [0 or 1 per pair, in order]}")
         try:
             out = complete_json(sys_p, listing, effort="low", max_tokens=800, tag="take-pick",
@@ -728,7 +730,7 @@ def _reskin_check(cands: list[dict]) -> list[dict]:
 # carried WITH its discipline; type-flooding is checked empirically post-deploy). No winner
 # texts quoted (purity test). Operator-editable via var/craft.md (GET/POST /api/craft).
 # Re-synthesized BY THE AGENT after each graded round, never mechanically.
-_CRAFT_DEFAULT = """THE BAR. Every post above earned its place; tonight's posts sit among them or don't ship. A line lands when it comes FROM the person — a thought that existed before there was anywhere to post it — never from the need to post. Every phrase answers WHAT DOES THAT ACTUALLY MEAN instantly; a phrase shaped like meaning, or a realization performed for the reader, is the deepest kill there is. The line never watches itself, never poses, never knows it's a caption. Whatever it is — a joke, a jab, something dead sincere, a line for one person — it is only that one thing, aimed at a 10 for what it is, and it must compute exactly on a literal read. STRONG means the premise carries its own charge before the wording arrives — a line you would bet on read cold; anything that needs the reader's goodwill is weak, and a weak premise gets thrown back, never dressed up. The footage from his world sits under every post and talks back: proof, performance, or the contradiction that makes the bit."""
+_CRAFT_DEFAULT = """THE BAR. Every post above earned its place; tonight's posts sit among them or don't ship. A line lands when it comes FROM the person — a thought that existed before there was anywhere to post it — never from the need to post. Every phrase answers WHAT DOES THAT ACTUALLY MEAN instantly; a phrase shaped like meaning, or a realization performed for the reader, is the deepest kill there is. The line never watches itself, never poses, never knows it's a caption. And it SOUNDS like what it means: irony sounds ironic, crude sounds crude — a satirical premise read solemn lands as bad poetry, and one poetic word inside a crude play breaks its spell. Whatever it is — a joke, a jab, something dead sincere, a line for one person — it is only that one thing, aimed at a 10 for what it is, and it must compute exactly on a literal read. STRONG means the premise carries its own charge before the wording arrives — a line you would bet on read cold; anything that needs the reader's goodwill is weak, and a weak premise gets thrown back, never dressed up. A strong premise also DESERVES its delivery — dropping a great one in lazily wastes it. And the ending is where writing sneaks back in: the last clause is the plainest, most SAID thing in the line — when a strong build dies, it dies at a final clause that performs. The footage from his world sits under every post and talks back: proof, performance, or the contradiction that makes the bit."""
 
 
 def craft() -> str:
