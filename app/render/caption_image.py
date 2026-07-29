@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from io import BytesIO
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from pilmoji import Pilmoji
 from pilmoji.source import AppleEmojiSource, BaseSource
 
@@ -95,11 +95,46 @@ _FONT_STYLES: dict[str, dict] = {
     "handwritten": {"path": "fonts/Caveat.ttf", "var": "Bold", "size_mult": 1.35,
                     "stroke": True, "stroke_frac": 0.042, "shadow": True, "spacing": 0.18,
                     "tracking": 0, "case": None},
+    # POLISHED display treatments (2026-07-22): a pronounced, "edited" look — heavy display
+    # serif with a real outline, and a navy face wearing an ANIMATED gold gradient stroke.
+    "punch":      {"path": "fonts/AlfaSlabOne.ttf", "var": None, "size_mult": 0.86,
+                   "stroke": True, "stroke_frac": 0.085, "shadow": True, "spacing": 0.34,
+                   "tracking": 0, "case": None,
+                   "fill": (255, 205, 20), "stroke_color": (12, 10, 8)},
+    "royal":      {"path": "fonts/AlfaSlabOne.ttf", "var": None, "size_mult": 0.86,
+                   "stroke": True, "stroke_frac": 0.080, "shadow": True, "spacing": 0.34,
+                   "tracking": 0, "case": None,
+                   "fill": (18, 32, 96), "gradient_stroke": "gold", "frames": 24, "fps": 12},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
                    "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.26,
                    "tracking": 1, "case": None},
 }
+
+_GOLD_STOPS = ((158, 108, 24), (214, 164, 48), (252, 214, 92), (255, 250, 228),
+               (252, 214, 92), (214, 164, 48), (158, 108, 24))
+
+
+def _gold_at(t: float) -> tuple[int, int, int]:
+    """Colour at position t (0-1) of the repeating gold ramp — dark bronze → gold → highlight."""
+    p = (t % 1.0) * (len(_GOLD_STOPS) - 1)
+    i = int(p)
+    f = p - i
+    a, b = _GOLD_STOPS[i], _GOLD_STOPS[min(i + 1, len(_GOLD_STOPS) - 1)]
+    return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
+
+
+def _gold_layer(width: int, height: int, phase: float) -> Image.Image:
+    """A diagonal gold sweep. Computed small and upscaled — a per-pixel pass at reel size would
+    cost seconds per frame; bilinear upscaling of a smooth ramp is visually identical."""
+    sw, sh = 96, 160
+    small = Image.new("RGB", (sw, sh))
+    px = small.load()
+    for y in range(sh):
+        for x in range(sw):
+            px[x, y] = _gold_at((x / sw) * 0.85 + (y / sh) * 0.45 + phase)
+    return small.resize((width, height), Image.BILINEAR)
+
 
 def _style_line(line: str, spec: dict) -> str:
     """Case transform only — tracking is applied at measure/draw time (per-char advances),
@@ -177,6 +212,7 @@ def render_caption_png(
     margin_frac: float = 0.86,
     max_lines: int = 4,
     font_style: str = "base",
+    phase: float = 0.0,
 ) -> str:
     spec = _FONT_STYLES.get(font_style) or _FONT_STYLES["base"]
     width = width or settings.reel_width
@@ -209,7 +245,45 @@ def render_caption_png(
     total_h = len(lines) * line_h + max(0, len(lines) - 1) * spacing
     top = height * y_frac - total_h / 2.0
 
+    fill_rgb = tuple(spec.get("fill") or (255, 255, 255))
+    fill_col = (*fill_rgb, 255)
+    stroke_col = (*tuple(spec.get("stroke_color") or (0, 0, 0)), 255)
+
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    if spec.get("gradient_stroke"):
+        # ANIMATED GRADIENT STROKE: the outline is a moving gold sweep, so it can't be drawn by
+        # the text call. Build it as a layer — outline-shaped mask (stroked glyphs MINUS filled
+        # glyphs) punched out of a phase-shifted gold gradient — then the fill + emoji pass draws
+        # over it. Emoji carry no stroke (they're images, not glyphs), which is what you want.
+        outer = Image.new("L", (width, height), 0)
+        inner = Image.new("L", (width, height), 0)
+        do, di = ImageDraw.Draw(outer), ImageDraw.Draw(inner)
+        for i, line in enumerate(lines):
+            if not line.strip():
+                continue
+            cy = top + i * step + line_h / 2.0
+            do.text((width // 2, int(cy)), line, font=font, fill=255, anchor="mm",
+                    stroke_width=stroke, stroke_fill=255)
+            di.text((width // 2, int(cy)), line, font=font, fill=255, anchor="mm")
+        ring = ImageChops.subtract(outer, inner)
+        gold = _gold_layer(width, height, phase).convert("RGBA")
+        gold.putalpha(ring)
+        if spec["shadow"]:                      # lift the whole plate off the footage
+            sh = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            sh.putalpha(outer.point(lambda v: int(v * 0.55)))
+            img.alpha_composite(sh, (max(2, size // 22), max(2, size // 22)))
+        img.alpha_composite(gold)
+        with Pilmoji(img, source=_AppleThenNotoSource) as pilmoji:
+            for i, line in enumerate(lines):
+                if not line.strip():
+                    continue
+                cy = top + i * step + line_h / 2.0
+                pilmoji.text((width // 2, int(cy)), line, font=font, fill=fill_col,
+                             anchor="mm", emoji_scale_factor=1.15)
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        img.save(out_path)
+        return out_path
+
     with Pilmoji(img, source=_AppleThenNotoSource) as pilmoji:
         for i, line in enumerate(lines):
             if not line.strip():
@@ -224,10 +298,10 @@ def render_caption_png(
                     for ch in line:
                         pos = (int(x) + (off if pass_shadow else 0), int(cy) + (off if pass_shadow else 0))
                         pilmoji.text(pos, ch, font=font,
-                                     fill=(0, 0, 0, 150) if pass_shadow else (255, 255, 255, 255),
+                                     fill=(0, 0, 0, 150) if pass_shadow else fill_col,
                                      anchor="lm",
                                      stroke_width=0 if pass_shadow else stroke,
-                                     stroke_fill=(0, 0, 0, 255))
+                                     stroke_fill=stroke_col)
                         x += probe.textlength(ch, font=font) + tpx
                 continue
             if spec["shadow"]:
@@ -238,12 +312,28 @@ def render_caption_png(
                 (width // 2, int(cy)),
                 line,
                 font=font,
-                fill=(255, 255, 255, 255),
+                fill=fill_col,
                 anchor="mm",
                 stroke_width=stroke,
-                stroke_fill=(0, 0, 0, 255),
+                stroke_fill=stroke_col,
                 emoji_scale_factor=1.15,
             )
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)  # tmp/ may not exist on a fresh host
     img.save(out_path)
     return out_path
+
+
+def render_caption_frames(text: str, out_path: str, font_style: str = "base", **kw) -> tuple[str, int]:
+    """Render the caption for compositing. Static styles → (png_path, 0). Animated styles →
+    (printf pattern of the frame sequence, fps) — the compositor loops the sequence over the
+    reel, so the loop length is `frames / fps` seconds regardless of the reel's duration."""
+    spec = _FONT_STYLES.get(font_style) or _FONT_STYLES["base"]
+    n = int(spec.get("frames") or 0)
+    fps = int(spec.get("fps") or 0)
+    if not (spec.get("gradient_stroke") and n > 1 and fps > 0):
+        return render_caption_png(text, out_path, font_style=font_style, **kw), 0
+    stem = os.path.splitext(out_path)[0]
+    for i in range(n):
+        render_caption_png(text, f"{stem}_f{i:03d}.png", font_style=font_style,
+                           phase=i / float(n), **kw)
+    return f"{stem}_f%03d.png", fps

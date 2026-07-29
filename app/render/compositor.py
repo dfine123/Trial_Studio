@@ -21,9 +21,12 @@ def compose_reel(
     width: int | None = None,
     height: int | None = None,
     fps: int | None = None,
+    caption_fps: int = 0,
 ) -> str:
     """shots: [{src_path, src_start, duration}] in order. Cuts on beats come from the sequencer.
-    caption_png=None -> no text overlay (a blank-caption reel: just the beat-cut clips + audio)."""
+    caption_png=None -> no text overlay (a blank-caption reel: just the beat-cut clips + audio).
+    caption_fps>0 -> caption_png is a printf FRAME SEQUENCE (animated styles): the sequence is
+    looped for the whole reel instead of holding one still."""
     width = width or settings.reel_width
     height = height or settings.reel_height
     fps = fps or settings.reel_fps
@@ -34,7 +37,10 @@ def compose_reel(
     for sh in shots:  # one input per shot, seeking to the sub-window (decoder autorotates)
         cmd += ["-ss", f"{sh['src_start']:.3f}", "-t", f"{sh['duration']:.3f}", "-i", sh["src_path"]]
     if has_cap:
-        cmd += ["-loop", "1", "-i", caption_png]                               # input n: caption
+        if caption_fps > 0:      # animated caption: loop the frame sequence under the overlay
+            cmd += ["-framerate", str(caption_fps), "-stream_loop", "-1", "-i", caption_png]
+        else:
+            cmd += ["-loop", "1", "-i", caption_png]                           # input n: caption
     audio_idx = n + (1 if has_cap else 0)
     cmd += ["-ss", "0", "-t", f"{reel_duration:.3f}", "-i", audio_path]        # input audio_idx: audio
 

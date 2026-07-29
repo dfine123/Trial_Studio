@@ -26,7 +26,7 @@ from app.caption.llm import complete_json
 from app.db import SessionLocal
 from app.generate.sequencer import build_slot_plan, select_segments, split_slots_at
 from app.models import Clip, Segment
-from app.render.caption_image import render_caption_png
+from app.render.caption_image import render_caption_frames, render_caption_png
 from app.render.compositor import compose_reel, compose_template_reel
 
 
@@ -321,7 +321,7 @@ def generate_reel(
     no_caption: bool = False,
     sources: dict[str, str] | None = None,
     clip_ids: list[str] | None = None,
-    work_png: str = "tmp/reel_caption.png",
+    work_png: str | None = None,   # default: derived per-reel from out_path (parallel-safe)
     batch_clip_used: dict[str, int] | None = None,
     coherent_clips: bool = False,
 ) -> dict:
@@ -400,11 +400,14 @@ def generate_reel(
         for c in chosen
     ]
 
-    cap_png = None
+    cap_png, cap_fps = None, 0
     if not no_caption:
-        render_caption_png(caption_text, work_png, font_style=font_style)
-        cap_png = work_png
-    compose_reel(shots, cap_png, audio_path, out_path, reel_dur)
+        # per-reel caption path: batch renders run in PARALLEL, so a shared scratch file let two
+        # reels clobber each other's caption mid-compose (and animated styles write 24 frames,
+        # widening the window). Derived from out_path, which is unique per reel.
+        png_path = work_png or (os.path.splitext(out_path)[0] + "_cap.png")
+        cap_png, cap_fps = render_caption_frames(caption_text, png_path, font_style=font_style)
+    compose_reel(shots, cap_png, audio_path, out_path, reel_dur, caption_fps=cap_fps)
 
     # distinct clips actually used + the chosen caption's provenance — for the production-grading record
     clips_used, seen = [], set()
