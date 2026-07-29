@@ -163,6 +163,9 @@ def _same_subject(a: set[str], b: set[str], thr: float = 0.5) -> bool:
     return len(a & b) / min(len(a), len(b)) >= thr
 
 
+_FAMILY_SIM = 0.45   # cosine at/above which two clips read as the SAME scene family (recreations)
+
+
 def select_segments(
     slots: list[Slot],
     segments: list[dict],
@@ -198,10 +201,10 @@ def select_segments(
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
 
-    def cost(s: dict, clip_used: dict[str, int], used_vecs: list[list]) -> float:
+    def cost(s: dict, clip_used: dict[str, int], used_vecs: list[tuple[str, list]]) -> float:
         cid = s["clip_id"]
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
-                + 4.0 * clip_used.get(cid, 0)                      # strong: distinct shots within a reel
+                + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
                 + 2.5 * usage.get(cid, 0)                          # rotate across reels — variety lives HERE
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
@@ -211,13 +214,23 @@ def select_segments(
             # already playing is a BONUS — strong in recreations (one literal scene), real but
             # fit-respecting in standard reels (one visual world). Variety is the cross-reel
             # usage penalty's job now, never the within-reel mix.
-            sim = max((_cos(clip_emb.get(cid) or [], v) for v in used_vecs), default=0.0)
+            # In recreations the reuse penalty is sized to sit BETWEEN the family bonus and the
+            # fit-rank spread: a fresh family clip always beats a repeat (no matter how much
+            # better the repeat's caption fit), while a repeat still beats importing a clip from
+            # outside the scene once the family is exhausted.
+            # …but NEVER to ITSELF: a used clip is cosine-1.0 with its own vector, so including
+            # it made the coherence bonus (-8.0) outweigh the reuse penalty (+4.0) and the
+            # cheapest "family member" became the clip already playing — recreations repeated
+            # the same shot (operator, 2026-07-22). Similarity is measured against the OTHER
+            # clips in the reel only; a repeat now pays its reuse penalty with no self-bonus.
+            sim = max((_cos(clip_emb.get(cid) or [], v) for ucid, v in used_vecs if ucid != cid),
+                      default=0.0)
             base -= (8.0 if coherent else 5.0) * sim
         return base
 
     chosen: list[dict] = []
     clip_used: dict[str, int] = {}
-    used_vecs: list[list] = []   # embeddings of clips already in this reel (visual de-dup)
+    used_vecs: list[tuple[str, list]] = []   # (clip_id, embedding) already in this reel
     word_sets = {cid: _subject_words(t) for cid, t in (clip_text or {}).items()}
     used_words: list[set[str]] = []   # subject fingerprints already in this reel
 
@@ -245,10 +258,23 @@ def select_segments(
         fresh = [s for s in pool if s["clip_id"] not in clip_used]
         cands = fresh
         if coherent:
-            # ONE scene beats fresh footage: a used family clip may re-enter (the 4.0 reuse
-            # penalty vs the 8.0 similarity bonus decides) rather than forcing an off-family
-            # clip in just because it's unused. Only back-to-back repeats stay excluded.
-            cands = [s for s in pool if s["clip_id"] != prev_clip] or pool
+            # ONE scene, in strict tiers (cost alone left these decisions on a knife-edge that
+            # sampling flipped — the repeated-shot bug the operator caught):
+            #   1. UNUSED clips from the scene already playing  → never repeat while the family
+            #      still has footage
+            #   2. used clips from that family (not back-to-back) → a repeat beats cutting to a
+            #      different scene once the family is exhausted
+            #   3. anything fresh / the pool                     → first slot, or no family yet
+            def _fam(seg) -> bool:
+                if not used_vecs or not clip_emb:
+                    return True
+                v = clip_emb.get(seg["clip_id"]) or []
+                return max((_cos(v, uv) for _, uv in used_vecs), default=0.0) >= _FAMILY_SIM
+            fam_fresh = [s for s in fresh if _fam(s)]
+            fam_used = [s for s in pool if s["clip_id"] != prev_clip
+                        and s["clip_id"] in clip_used and _fam(s)]
+            cands = fam_fresh or fam_used or [s for s in (fresh or pool)
+                                              if s["clip_id"] != prev_clip] or pool
         else:
             # (2026-07-22) the old anti-lookalike + same-subject EXCLUSIONS forced every slot
             # into a different visual family — the "completely unrelated clips" failure. Same
@@ -265,7 +291,7 @@ def select_segments(
         seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced
         clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
         if clip_emb and clip_emb.get(seg["clip_id"]):
-            used_vecs.append(clip_emb[seg["clip_id"]])
+            used_vecs.append((seg["clip_id"], clip_emb[seg["clip_id"]]))
         if word_sets.get(seg["clip_id"]):
             used_words.append(word_sets[seg["clip_id"]])
 
