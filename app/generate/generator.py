@@ -217,11 +217,11 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
     for i, (_cid, m) in enumerate(items):
         summ = (m.get("summary") or "").strip().replace("\n", " ")[:160]
         vibe = ", ".join((m.get("vibe_tags") or [])[:6])
-        if coherent:
-            setting = (m.get("setting") or "").strip().replace("\n", " ")[:60]
-            lines.append(f"[{i}] {summ}  | setting: {setting}  | vibe: {vibe}")
-        else:
-            lines.append(f"[{i}] {summ}  | vibe: {vibe}")
+        setting = (m.get("setting") or "").strip().replace("\n", " ")[:60]
+        tod = (m.get("time_of_day") or "").strip()
+        tail = f"  | setting: {setting}" if setting else ""
+        tail += f"  | {tod}" if tod and tod != "unknown" else ""
+        lines.append(f"[{i}] {summ}  | vibe: {vibe}{tail}")
     clip_block = "CLIPS:\n" + "\n".join(lines)
     tail = f"\nCAPTION:\n{caption_text}\n\nRank the clips above for THIS caption."
     try:
@@ -382,7 +382,7 @@ def generate_reel(
             usage[cid] = usage.get(cid, 0) + 3 * cnt
     chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
                              fit_rank=fit_rank, usage=usage, clip_emb=clip_emb,
-                             clip_dur=clip_dur, clip_text=clip_text,
+                             clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
                              coherent=coherent_clips,
                              # tighter sampling everywhere: coherence is the default now
                              temperature=0.8 if coherent_clips else 1.2)

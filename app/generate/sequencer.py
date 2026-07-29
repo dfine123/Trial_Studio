@@ -164,6 +164,9 @@ def _same_subject(a: set[str], b: set[str], thr: float = 0.5) -> bool:
 
 
 _FAMILY_SIM = 0.45   # cosine at/above which two clips read as the SAME scene family (recreations)
+_NEAR_DUP = 0.82     # at/above this two clips read as the same shot — redundant, not coherent
+_SAME_WORLD = 0.35   # at/above this they read as the same world/aesthetic — the sweet spot
+_LUM_JUMP = 0.35     # brightness delta between consecutive shots that reads as a broken cut
 
 
 def select_segments(
@@ -177,6 +180,7 @@ def select_segments(
     clip_emb: dict[str, list] | None = None,
     clip_dur: dict[str, float] | None = None,
     clip_text: dict[str, str] | None = None,
+    clip_meta: dict[str, dict] | None = None,
     coherent: bool = False,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
@@ -201,7 +205,14 @@ def select_segments(
     def vibe_score(seg: dict) -> int:
         return len({t.lower() for t in (seg.get("vibe_tags") or [])} & want)
 
-    def cost(s: dict, clip_used: dict[str, int], used_vecs: list[tuple[str, list]]) -> float:
+    meta = clip_meta or {}
+
+    def _tod(cid: str) -> str:
+        v = (meta.get(cid) or {}).get("time_of_day") or ""
+        return v if v not in ("unknown", "") else ""
+
+    def cost(s: dict, clip_used: dict[str, int], used_vecs: list[tuple[str, list]],
+             prev: dict | None = None) -> float:
         cid = s["clip_id"]
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
@@ -209,26 +220,40 @@ def select_segments(
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
         if used_vecs and clip_emb:
-            # WITHIN-REEL COHERENCE, every reel (2026-07-22 operator: unrelated clip mashups
-            # ruin outputs): once the first pick sets the reel's world, looking like what's
-            # already playing is a BONUS — strong in recreations (one literal scene), real but
-            # fit-respecting in standard reels (one visual world). Variety is the cross-reel
-            # usage penalty's job now, never the within-reel mix.
-            # In recreations the reuse penalty is sized to sit BETWEEN the family bonus and the
-            # fit-rank spread: a fresh family clip always beats a repeat (no matter how much
-            # better the repeat's caption fit), while a repeat still beats importing a clip from
-            # outside the scene once the family is exhausted.
-            # …but NEVER to ITSELF: a used clip is cosine-1.0 with its own vector, so including
-            # it made the coherence bonus (-8.0) outweigh the reuse penalty (+4.0) and the
-            # cheapest "family member" became the clip already playing — recreations repeated
-            # the same shot (operator, 2026-07-22). Similarity is measured against the OTHER
-            # clips in the reel only; a repeat now pays its reuse penalty with no self-bonus.
+            # Similarity to the OTHER clips already in the reel — never to ITSELF (a used clip
+            # is cosine-1.0 with its own vector, which once made repeating the playing shot
+            # cheaper than any fresh one).
             sim = max((_cos(clip_emb.get(cid) or [], v) for ucid, v in used_vecs if ucid != cid),
                       default=0.0)
-            base -= (8.0 if coherent else 5.0) * sim
+            if coherent:
+                base -= 8.0 * sim          # recreations: one literal scene, monotonic pull
+            elif sim >= _NEAR_DUP:
+                # A BAND, not a slope (2026-07-22): "belongs together" and "redundant" are
+                # different things, and a monotonic bonus can't tell them apart — it actively
+                # rewarded near-identical framings (two driver-POV shots in one reel).
+                base += 6.0                # the same shot in different clothes — sloppy
+            elif sim >= _SAME_WORLD:
+                base -= 4.0                # same world, different shot — what a reel wants
+            else:
+                base += 2.5                # unrelated world — the jarring mash-up
+        if prev is not None and not coherent:
+            # CONTINUITY with the shot before it: a cut reads as intentional when the world
+            # holds across it. These axes are indexed per clip and were never used in selection.
+            pcid = prev["clip_id"]
+            a, b = _tod(cid), _tod(pcid)
+            if a and b and a != b:
+                base += 3.0                                       # day cutting straight to night
+            la, lb = s.get("luminance"), prev.get("luminance")
+            if la is not None and lb is not None:
+                base += 8.0 * max(0.0, abs(la - lb) - 0.20)       # dark clip into a bright one
+            m, pm = meta.get(cid) or {}, meta.get(pcid) or {}
+            if (m.get("setting") and m.get("setting") == pm.get("setting")
+                    and m.get("camera_movement") == pm.get("camera_movement")):
+                base += 3.0                                       # same place, same camera
         return base
 
     chosen: list[dict] = []
+    chosen_segs: list[dict] = []      # the source segments picked (luminance/meta for continuity)
     clip_used: dict[str, int] = {}
     used_vecs: list[tuple[str, list]] = []   # (clip_id, embedding) already in this reel
     word_sets = {cid: _subject_words(t) for cid, t in (clip_text or {}).items()}
@@ -255,6 +280,7 @@ def select_segments(
         # takes of the same scene (embedding cosine >= threshold = "the same clip" to a viewer), so the
         # preference chain is: visually-distinct unused -> id-distinct unused -> not-consecutive -> pool.
         prev_clip = chosen[-1]["clip_id"] if chosen else None
+        prev_seg = chosen_segs[-1] if chosen_segs else None
         fresh = [s for s in pool if s["clip_id"] not in clip_used]
         cands = fresh
         if coherent:
@@ -281,14 +307,40 @@ def select_segments(
             # subject/look across shots is what a coherent reel IS; only literal repetition is
             # limited (distinct-id preference + the 4.0 reuse penalty + no back-to-back).
             cands = [s for s in (fresh or pool) if s["clip_id"] != prev_clip] or fresh or pool
+            # THE CLEAN TIER (2026-07-22): a penalty can always be out-argued by a better
+            # caption-fit — which is how two driver-POV shots kept landing in one reel (they're
+            # the best fits AND near-identical), and how a bright clip landed in a night reel.
+            # So candidates that are BOTH visually fresh and continuous with the shot before are
+            # preferred outright; the scalar penalties only arbitrate when no such clip exists
+            # (a small or one-note library), instead of forcing one flaw to avoid another.
+            def _dup(seg: dict) -> bool:
+                if not (used_vecs and clip_emb):
+                    return False
+                return max((_cos(clip_emb.get(seg["clip_id"]) or [], v)
+                            for ucid, v in used_vecs if ucid != seg["clip_id"]),
+                           default=0.0) >= _NEAR_DUP
+
+            def _breaks(seg: dict) -> bool:
+                if prev_seg is None:
+                    return False
+                a, b = _tod(seg["clip_id"]), _tod(prev_seg["clip_id"])
+                if a and b and a != b:
+                    return True
+                la, lb = seg.get("luminance"), prev_seg.get("luminance")
+                return la is not None and lb is not None and abs(la - lb) > _LUM_JUMP
+
+            clean = [s for s in cands if not _dup(s) and not _breaks(s)]
+            cands = clean or cands
         cands = cands or [s for s in pool if s["clip_id"] != prev_clip] or pool
-        scored = sorted(((cost(s, clip_used, used_vecs), s) for s in cands), key=lambda cs: cs[0])
+        scored = sorted(((cost(s, clip_used, used_vecs, prev_seg), s) for s in cands),
+                        key=lambda cs: cs[0])
         scored = scored[:6]   # sample within the top fits only — a bad fit never plays
         costs = [c for c, _ in scored]
         cands = [s for _, s in scored]
         lo = min(costs)
         weights = [math.exp(-(c - lo) / max(temperature, 1e-6)) for c in costs]
         seg = random.choices(cands, weights=weights, k=1)[0]   # SAMPLE — variance is intrinsic, not forced
+        chosen_segs.append(seg)
         clip_used[seg["clip_id"]] = clip_used.get(seg["clip_id"], 0) + 1
         if clip_emb and clip_emb.get(seg["clip_id"]):
             used_vecs.append((seg["clip_id"], clip_emb[seg["clip_id"]]))
