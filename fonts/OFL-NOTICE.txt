@@ -7,3 +7,4 @@ Bundled caption fonts — all licensed under the SIL Open Font License 1.1
 - Caveat.ttf — Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)
 - BebasNeue-Regular.ttf — Copyright 2019 The Bebas Neue Project Authors (https://github.com/dharmatype/Bebas-Neue)
 - AlfaSlabOne.ttf — Copyright 2011 The Alfa Slab One Project Authors (https://github.com/googlefonts/alfa-slab-one)
+- RobotoSlab.ttf — Copyright 2015 The Roboto Slab Project Authors (Apache License 2.0, https://github.com/googlefonts/robotoslab)

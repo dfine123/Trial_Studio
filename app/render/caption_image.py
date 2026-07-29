@@ -97,14 +97,14 @@ _FONT_STYLES: dict[str, dict] = {
                     "tracking": 0, "case": None},
     # POLISHED display treatments (2026-07-22): a pronounced, "edited" look — heavy display
     # serif with a real outline, and a navy face wearing an ANIMATED gold gradient stroke.
-    "punch":      {"path": "fonts/AlfaSlabOne.ttf", "var": None, "size_mult": 0.86,
-                   "stroke": True, "stroke_frac": 0.085, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None,
-                   "fill": (255, 205, 20), "stroke_color": (12, 10, 8)},
-    "royal":      {"path": "fonts/PlayfairDisplay.ttf", "var": "Bold", "size_mult": 0.88,
-                   "stroke": True, "stroke_frac": 0.038, "shadow": True, "spacing": 0.44,
-                   "tracking": 1, "case": None,
-                   "fill": (16, 30, 92), "gradient_stroke": "gold", "frames": 40, "fps": 8},
+    "punch":      {"path": "fonts/RobotoSlab.ttf", "var": "ExtraBold", "size_mult": 0.88,
+                   "stroke": True, "stroke_frac": 0.075, "shadow": True, "spacing": 0.46,
+                   "tracking": 0, "case": None, "sphere": 0.20,
+                   "fill": (255, 208, 26), "stroke_color": (10, 9, 8)},
+    "royal":      {"path": "fonts/Montserrat.ttf", "var": "Bold", "size_mult": 0.84,
+                   "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.40,
+                   "tracking": 1, "case": None, "adaptive_fill": True,
+                   "gradient_stroke": "gold", "frames": 40, "fps": 8},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
                    "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.26,
@@ -134,6 +134,32 @@ def _gold_layer(width: int, height: int, phase: float) -> Image.Image:
         for x in range(sw):
             px[x, y] = _gold_at((x / sw) * 0.85 + (y / sh) * 0.45 + phase)
     return small.resize((width, height), Image.BILINEAR)
+
+
+def _sphere_warp(img: Image.Image, strength: float = 0.30) -> Image.Image:
+    """Bulge the text block like it's printed on a sphere — the CapCut-style warp on the
+    operator's reference: the middle of the block swells, the ends fall away and tilt. Sampling
+    is done on a 2x copy and downscaled so the outline keeps clean edges."""
+    import numpy as np
+    a = np.asarray(img.convert("RGBA"))
+    ys, xs = np.nonzero(a[..., 3])
+    if not len(xs):
+        return img
+    big = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
+    a = np.asarray(big.convert("RGBA"))
+    h, w = a.shape[:2]
+    cx, cy = (xs.min() + xs.max()), (ys.min() + ys.max())          # *2 centre (bbox mid x2)
+    rx = max(1.0, (xs.max() - xs.min()))                            # *2 half-extent
+    ry = max(1.0, (ys.max() - ys.min()))
+    yy, xx = np.mgrid[0:h, 0:w]
+    nx, ny = (xx - cx) / rx, (yy - cy) / ry
+    r = np.sqrt(nx * nx + ny * ny)
+    rc = np.clip(r, 1e-6, None)
+    f = np.where(r < 1.0, r ** (1.0 + strength), r)                 # inside the block: magnify
+    sx = np.clip((cx + nx * (f / rc) * rx).astype(np.int32), 0, w - 1)
+    sy = np.clip((cy + ny * (f / rc) * ry).astype(np.int32), 0, h - 1)
+    out = Image.fromarray(a[sy, sx])
+    return out.resize((img.width, img.height), Image.LANCZOS)
 
 
 def _style_line(line: str, spec: dict) -> str:
@@ -213,6 +239,7 @@ def render_caption_png(
     max_lines: int = 4,
     font_style: str = "base",
     phase: float = 0.0,
+    dark_bg: bool = True,
 ) -> str:
     spec = _FONT_STYLES.get(font_style) or _FONT_STYLES["base"]
     width = width or settings.reel_width
@@ -245,9 +272,14 @@ def render_caption_png(
     total_h = len(lines) * line_h + max(0, len(lines) - 1) * spacing
     top = height * y_frac - total_h / 2.0
 
-    fill_rgb = tuple(spec.get("fill") or (255, 255, 255))
+    if spec.get("adaptive_fill"):
+        # the face follows the footage: white type on dark clips, near-black on bright ones
+        fill_rgb = (255, 255, 255) if dark_bg else (16, 16, 18)
+    else:
+        fill_rgb = tuple(spec.get("fill") or (255, 255, 255))
     fill_col = (*fill_rgb, 255)
     stroke_col = (*tuple(spec.get("stroke_color") or (0, 0, 0)), 255)
+    halo_rgb = (0, 0, 0) if sum(fill_rgb) > 380 else (255, 255, 255)   # halo opposes the fill
 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     if spec.get("gradient_stroke"):
@@ -271,7 +303,7 @@ def render_caption_png(
         if spec["shadow"]:
             # a soft dark HALO, not an offset shadow: a deep-navy fill sits on dark footage, so
             # the glyphs need separation from behind rather than a drop shadow beside them.
-            halo = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            halo = Image.new("RGBA", (width, height), (*halo_rgb, 0))
             blur = outer.filter(ImageFilter.GaussianBlur(max(4, size // 8)))
             halo.putalpha(blur.point(lambda v: min(255, int(v * 1.9))))
             img.alpha_composite(halo)
@@ -283,6 +315,8 @@ def render_caption_png(
                 cy = top + i * step + line_h / 2.0
                 pilmoji.text((width // 2, int(cy)), line, font=font, fill=fill_col,
                              anchor="mm", emoji_scale_factor=1.15)
+        if spec.get("sphere"):
+            img = _sphere_warp(img, float(spec["sphere"]))
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         img.save(out_path)
         return out_path
@@ -321,12 +355,14 @@ def render_caption_png(
                 stroke_fill=stroke_col,
                 emoji_scale_factor=1.15,
             )
+    if spec.get("sphere"):
+        img = _sphere_warp(img, float(spec["sphere"]))
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)  # tmp/ may not exist on a fresh host
     img.save(out_path)
     return out_path
 
 
-def render_caption_frames(text: str, out_path: str, font_style: str = "base", **kw) -> tuple[str, int]:
+def render_caption_frames(text: str, out_path: str, font_style: str = "base", **kw) -> tuple[str, int]:  # noqa: D401
     """Render the caption for compositing. Static styles → (png_path, 0). Animated styles →
     (printf pattern of the frame sequence, fps) — the compositor loops the sequence over the
     reel, so the loop length is `frames / fps` seconds regardless of the reel's duration."""

@@ -406,7 +406,14 @@ def generate_reel(
         # reels clobber each other's caption mid-compose (and animated styles write 24 frames,
         # widening the window). Derived from out_path, which is unique per reel.
         png_path = work_png or (os.path.splitext(out_path)[0] + "_cap.png")
-        cap_png, cap_fps = render_caption_frames(caption_text, png_path, font_style=font_style)
+        # adaptive styles follow the footage: mean luminance of the segments actually chosen
+        # (already indexed per segment — no extra decode) decides white vs near-black type.
+        lum_by_seg = {s["id"]: s.get("luminance") for s in segs}
+        lum_vals = [lum_by_seg.get(c["segment_id"]) for c in chosen]
+        lum_vals = [v for v in lum_vals if v is not None]
+        dark_bg = (sum(lum_vals) / len(lum_vals)) < 0.45 if lum_vals else True
+        cap_png, cap_fps = render_caption_frames(caption_text, png_path, font_style=font_style,
+                                                 dark_bg=dark_bg)
     compose_reel(shots, cap_png, audio_path, out_path, reel_dur, caption_fps=cap_fps)
 
     # distinct clips actually used + the chosen caption's provenance — for the production-grading record
