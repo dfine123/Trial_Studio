@@ -512,6 +512,10 @@ def generate_dynamic_reel(
         sp_segs = [s for s in segs if s["clip_id"] not in used_ids] or segs
         chosen = select_segments(sp_slots, sp_segs, fit_rank=fit_rank, usage=usage,
                                  clip_emb=clip_emb, clip_dur=clip_dur, clip_text=clip_text,
+                                 clip_meta=clip_meta,
+                                 # the world holds across the caption change even though the
+                                 # mood shifts — seed continuity from the previous span's last shot
+                                 prev_seg_in=(chosen_all[-1] if chosen_all else None),
                                  # role-fit DOMINATES here — a sampled flex under a setup
                                  # caption breaks the arc, so near-argmax selection
                                  temperature=1.0)

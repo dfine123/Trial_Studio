@@ -182,6 +182,7 @@ def select_segments(
     clip_text: dict[str, str] | None = None,
     clip_meta: dict[str, dict] | None = None,
     coherent: bool = False,
+    prev_seg_in: dict | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -291,8 +292,11 @@ def select_segments(
         # DISTINCT footage within a reel — by ID *and* by LOOK. Different clip ids can be near-identical
         # takes of the same scene (embedding cosine >= threshold = "the same clip" to a viewer), so the
         # preference chain is: visually-distinct unused -> id-distinct unused -> not-consecutive -> pool.
-        prev_clip = chosen[-1]["clip_id"] if chosen else None
-        prev_seg = chosen_segs[-1] if chosen_segs else None
+        # continuity carries ACROSS a dynamic recreation's span boundary: each span is selected
+        # in its own call, so without this the first shot of a new span answers to nothing and a
+        # day/night or brightness jump lands exactly on the caption change.
+        prev_clip = chosen[-1]["clip_id"] if chosen else (prev_seg_in or {}).get("clip_id")
+        prev_seg = chosen_segs[-1] if chosen_segs else prev_seg_in
         fresh = [s for s in pool if s["clip_id"] not in clip_used]
         cands = fresh
         if coherent:
@@ -384,6 +388,7 @@ def select_segments(
                 "src_end": round(src_start + length, 3),
                 "is_hero": bool(seg.get("is_hero")),
                 "usability": seg.get("usability_score"),
+                "luminance": seg.get("luminance"),   # carried so continuity works across spans
                 "vibe_tags": seg.get("vibe_tags"),
             }
         )
