@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from io import BytesIO
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 from pilmoji import Pilmoji
 from pilmoji.source import AppleEmojiSource, BaseSource
 
@@ -101,10 +101,10 @@ _FONT_STYLES: dict[str, dict] = {
                    "stroke": True, "stroke_frac": 0.085, "shadow": True, "spacing": 0.34,
                    "tracking": 0, "case": None,
                    "fill": (255, 205, 20), "stroke_color": (12, 10, 8)},
-    "royal":      {"path": "fonts/AlfaSlabOne.ttf", "var": None, "size_mult": 0.86,
-                   "stroke": True, "stroke_frac": 0.080, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None,
-                   "fill": (18, 32, 96), "gradient_stroke": "gold", "frames": 24, "fps": 12},
+    "royal":      {"path": "fonts/PlayfairDisplay.ttf", "var": "Bold", "size_mult": 0.88,
+                   "stroke": True, "stroke_frac": 0.038, "shadow": True, "spacing": 0.44,
+                   "tracking": 1, "case": None,
+                   "fill": (16, 30, 92), "gradient_stroke": "gold", "frames": 40, "fps": 8},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
                    "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.26,
@@ -268,10 +268,13 @@ def render_caption_png(
         ring = ImageChops.subtract(outer, inner)
         gold = _gold_layer(width, height, phase).convert("RGBA")
         gold.putalpha(ring)
-        if spec["shadow"]:                      # lift the whole plate off the footage
-            sh = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-            sh.putalpha(outer.point(lambda v: int(v * 0.55)))
-            img.alpha_composite(sh, (max(2, size // 22), max(2, size // 22)))
+        if spec["shadow"]:
+            # a soft dark HALO, not an offset shadow: a deep-navy fill sits on dark footage, so
+            # the glyphs need separation from behind rather than a drop shadow beside them.
+            halo = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            blur = outer.filter(ImageFilter.GaussianBlur(max(4, size // 8)))
+            halo.putalpha(blur.point(lambda v: min(255, int(v * 1.9))))
+            img.alpha_composite(halo)
         img.alpha_composite(gold)
         with Pilmoji(img, source=_AppleThenNotoSource) as pilmoji:
             for i, line in enumerate(lines):
