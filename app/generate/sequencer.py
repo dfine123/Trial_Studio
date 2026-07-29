@@ -226,7 +226,16 @@ def select_segments(
             sim = max((_cos(clip_emb.get(cid) or [], v) for ucid, v in used_vecs if ucid != cid),
                       default=0.0)
             if coherent:
-                base -= 8.0 * sim          # recreations: one literal scene, monotonic pull
+                # Recreations hold ONE scene — but "one scene" is not "one shot". A monotonic
+                # pull made the most identical clip the cheapest, so a recreation could run the
+                # same angle three times (operator, 2026-07-22: three POV clips are fine, the
+                # exact same thing is not). Same scene is rewarded; the same SHOT is not.
+                if sim >= _NEAR_DUP:
+                    base += 5.0            # same angle again — not intentional, just repetition
+                elif sim >= _FAMILY_SIM:
+                    base -= 8.0            # same scene, a different look at it
+                else:
+                    base += 2.0            # outside the scene
             elif sim >= _NEAR_DUP:
                 # A BAND, not a slope (2026-07-22): "belongs together" and "redundant" are
                 # different things, and a monotonic bonus can't tell them apart — it actively
@@ -236,7 +245,7 @@ def select_segments(
                 base -= 4.0                # same world, different shot — what a reel wants
             else:
                 base += 2.5                # unrelated world — the jarring mash-up
-        if prev is not None and not coherent:
+        if prev is not None:
             # CONTINUITY with the shot before it: a cut reads as intentional when the world
             # holds across it. These axes are indexed per clip and were never used in selection.
             pcid = prev["clip_id"]
@@ -246,10 +255,13 @@ def select_segments(
             la, lb = s.get("luminance"), prev.get("luminance")
             if la is not None and lb is not None:
                 base += 8.0 * max(0.0, abs(la - lb) - 0.20)       # dark clip into a bright one
-            m, pm = meta.get(cid) or {}, meta.get(pcid) or {}
-            if (m.get("setting") and m.get("setting") == pm.get("setting")
-                    and m.get("camera_movement") == pm.get("camera_movement")):
-                base += 3.0                                       # same place, same camera
+            if not coherent:
+                # (skipped for recreations: one setting is exactly what they're for — there the
+                # near-duplicate check is what separates "another angle" from "the same shot")
+                m, pm = meta.get(cid) or {}, meta.get(pcid) or {}
+                if (m.get("setting") and m.get("setting") == pm.get("setting")
+                        and m.get("camera_movement") == pm.get("camera_movement")):
+                    base += 3.0                                   # same place, same camera
         return base
 
     chosen: list[dict] = []
@@ -297,10 +309,15 @@ def select_segments(
                 v = clip_emb.get(seg["clip_id"]) or []
                 return max((_cos(v, uv) for _, uv in used_vecs), default=0.0) >= _FAMILY_SIM
             fam_fresh = [s for s in fresh if _fam(s)]
+            # …and inside the family, a shot that isn't a near-duplicate of one already playing
+            fam_distinct = [s for s in fam_fresh
+                            if max((_cos(clip_emb.get(s["clip_id"]) or [], v)
+                                    for ucid, v in used_vecs if ucid != s["clip_id"]),
+                                   default=0.0) < _NEAR_DUP] if (used_vecs and clip_emb) else fam_fresh
             fam_used = [s for s in pool if s["clip_id"] != prev_clip
                         and s["clip_id"] in clip_used and _fam(s)]
-            cands = fam_fresh or fam_used or [s for s in (fresh or pool)
-                                              if s["clip_id"] != prev_clip] or pool
+            cands = fam_distinct or fam_fresh or fam_used or [s for s in (fresh or pool)
+                                                              if s["clip_id"] != prev_clip] or pool
         else:
             # (2026-07-22) the old anti-lookalike + same-subject EXCLUSIONS forced every slot
             # into a different visual family — the "completely unrelated clips" failure. Same
