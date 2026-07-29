@@ -89,8 +89,13 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
         s.commit()
         if not claimed:
             return {"busy": True, "error": "a sync is already running for this connection"}
+        # "already imported" is scoped to the PROFILE, not this one connection: connecting a
+        # second folder that overlaps the first (a shared file living in both, or a parent
+        # folder that contains an already-synced subfolder) must add only what's NEW — a
+        # per-connection ledger would re-download and re-index the same footage under a fresh
+        # clip id, putting duplicate shots in the library. Existing clips are never touched.
         seen = {f.provider_file_id for f in
-                s.query(models.SyncedFile).filter_by(connection_id=connection_id).all()}
+                s.query(models.SyncedFile).filter_by(user_id=user_id).all()}
 
     summary = {"new": 0, "clips": 0, "rejected": 0, "failed": 0, "skipped_large": 0, "remaining": 0}
     try:
