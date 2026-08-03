@@ -56,7 +56,7 @@ def _log_clip_usage(clip_ids: list[str]) -> None:
         os.replace(tmp, _CLIP_USAGE_PATH)
 
 
-def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 3) -> dict[str, int]:
+def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 2) -> dict[str, int]:
     """Rotation is a NUDGE, not a recency filter.
 
     The ledger is cumulative and unbounded, so on a mature library the spread itself becomes the
@@ -64,7 +64,11 @@ def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 3) 
     further ahead of the whole catalogue than any caption-fit difference can bridge, and the
     selector effectively sees ONLY the newest clips until they catch up — the "it's only using
     the 10-15 most recent" the operator reported. Normalising against the pool's own floor and
-    capping the spread keeps the nudge without letting it become a filter."""
+    capping the spread keeps the nudge without letting it become a filter. Sized deliberately
+    small (cap 2 x weight 0.8 = at most ~1.6 cost points, about one rank position): the operator's
+    rule is that every reel should use the BEST-FITTING clips for the caption, so rotation only
+    ever breaks a tie between clips the ranker already considers equivalent — it must never
+    displace a better-fitting clip in the name of variety."""
     if not pool_ids:
         return {}
     floor = min(usage.get(c, 0) for c in pool_ids)
@@ -400,7 +404,10 @@ def generate_reel(
                              clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
                              coherent=coherent_clips,
                              # tighter sampling everywhere: coherence is the default now
-                             temperature=0.8 if coherent_clips else 1.2)
+                             # cooler sampling: the ranker's best fit should usually WIN, with
+                             # variation coming from real caption-to-caption differences rather
+                             # than dice among the top few
+                             temperature=0.8 if coherent_clips else 0.7)
     _log_clip_usage([c["clip_id"] for c in chosen])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:

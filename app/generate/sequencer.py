@@ -217,7 +217,7 @@ def select_segments(
         cid = s["clip_id"]
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
-                + 2.5 * usage.get(cid, 0)                          # rotate across reels — variety lives HERE
+                + 0.8 * usage.get(cid, 0)                          # rotation: a TIEBREAK only
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
         if used_vecs and clip_emb:
