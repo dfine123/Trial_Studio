@@ -2017,13 +2017,11 @@ def api_clip_pool(request: Request):
         by_clip.setdefault(s["clip_id"], []).append(s.get("usability_score") or 0.0)
     passes_022 = sum(1 for v in by_clip.values() if max(v) >= 0.22)
     passes_008 = sum(1 for v in by_clip.values() if max(v) >= 0.08)
-    usage = {}
-    try:
-        with open(profiles.voice_file("clip_usage.json"), encoding="utf-8") as f:
-            usage = json.load(f)
-    except Exception:  # noqa: BLE001
-        pass
-    used = sorted(usage.items(), key=lambda kv: -kv[1])[:20]
+    from app.generate.generator import _load_clip_usage
+    usage = _load_clip_usage()                      # GLOBAL ledger (var/clip_usage.json)
+    mine = {c: usage.get(c, 0) for c in by_clip}    # counts for THIS profile's clips
+    counts = sorted(mine.values())
+    used = sorted(mine.items(), key=lambda kv: -kv[1])[:10]
     return {
         "clips_with_segments": len(by_clip),
         "segments": len(segs),
@@ -2031,7 +2029,11 @@ def api_clip_pool(request: Request):
         "clips_without_embedding": len(by_clip) - len(clip_emb),
         "clips_passing_quality_floor_0.22": passes_022,
         "clips_passing_relaxed_floor_0.08": passes_008,
-        "usage_entries": len(usage),
+        "usage_ledger_total_entries": len(usage),
+        "my_clips_never_used": sum(1 for v in counts if v == 0),
+        "my_clips_used_once_or_more": sum(1 for v in counts if v > 0),
+        "max_uses": counts[-1] if counts else 0,
+        "median_uses": counts[len(counts) // 2] if counts else 0,
         "top_used": [{"clip": k[:8], "times": v} for k, v in used],
     }
 
