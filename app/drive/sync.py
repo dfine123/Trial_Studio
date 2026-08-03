@@ -70,6 +70,34 @@ def _folder_for(user_id: uuid.UUID, name: str | None) -> uuid.UUID | None:
         return f.id
 
 
+def _prune_removed(connection_id, present_ids: set[str], log=print) -> int:
+    """Delete clips whose Drive file is gone from the connected folder. Only touches files THIS
+    connection imported (its own ledger rows) — never clips added by hand or by another folder."""
+    from app import models
+    removed = 0
+    with SessionLocal() as s:
+        rows = s.query(models.SyncedFile).filter_by(connection_id=connection_id).all()
+        gone = [f for f in rows if f.provider_file_id not in present_ids]
+        for f in gone:
+            for cid in (f.clip_ids or []):
+                c = s.get(models.Clip, uuid.UUID(cid)) if isinstance(cid, str) else None
+                if c is None:
+                    continue
+                path = c.r2_key
+                s.delete(c)
+                removed += 1
+                if path and os.path.isabs(path) and os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+            s.delete(f)          # forget the ledger row too, so re-adding the file re-imports it
+        if gone:
+            s.commit()
+            log(f"[drive] pruned {removed} clip(s) from {len(gone)} file(s) removed in Drive")
+    return removed
+
+
 def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, log=print) -> dict:
     """Pull up to `max_files` NEW videos through the standard upload->index pipeline. Idempotent via
     the ledger; refuses to run concurrently with itself; always leaves status non-'syncing'."""
@@ -97,9 +125,16 @@ def sync_connection(connection_id, max_files: int | None = DEFAULT_MAX_FILES, lo
         seen = {f.provider_file_id for f in
                 s.query(models.SyncedFile).filter_by(user_id=user_id).all()}
 
-    summary = {"new": 0, "clips": 0, "rejected": 0, "failed": 0, "skipped_large": 0, "remaining": 0}
+    summary = {"new": 0, "clips": 0, "rejected": 0, "failed": 0, "skipped_large": 0,
+               "remaining": 0, "pruned": 0}
     try:
         vids = gdrive.list_videos(folder_id, root_name=folder_name)
+        # MIRROR REMOVALS (2026-07-22): a clip pulled out of the Drive folder used to live on in
+        # the library forever — sync only ever added. Files this connection imported that are no
+        # longer in the folder are dropped, along with their clips. Guarded: only runs when the
+        # listing actually returned files, so an empty/failed listing can never wipe a library.
+        if vids:
+            summary["pruned"] = _prune_removed(connection_id, {v["id"] for v in vids}, log=log)
         pending = [v for v in vids if v["id"] not in seen]
 
         def _shortest_first(v: dict) -> tuple:

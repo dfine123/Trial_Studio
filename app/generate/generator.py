@@ -56,6 +56,21 @@ def _log_clip_usage(clip_ids: list[str]) -> None:
         os.replace(tmp, _CLIP_USAGE_PATH)
 
 
+def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 3) -> dict[str, int]:
+    """Rotation is a NUDGE, not a recency filter.
+
+    The ledger is cumulative and unbounded, so on a mature library the spread itself becomes the
+    dominant term: at a median of 27 uses (2.5 x 27 = ~68 cost points) a freshly-synced clip sits
+    further ahead of the whole catalogue than any caption-fit difference can bridge, and the
+    selector effectively sees ONLY the newest clips until they catch up — the "it's only using
+    the 10-15 most recent" the operator reported. Normalising against the pool's own floor and
+    capping the spread keeps the nudge without letting it become a filter."""
+    if not pool_ids:
+        return {}
+    floor = min(usage.get(c, 0) for c in pool_ids)
+    return {c: min(cap, max(0, usage.get(c, 0) - floor)) for c in pool_ids}
+
+
 def _probe_duration(path: str) -> float:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -373,7 +388,7 @@ def generate_reel(
     # without this, reels in one batch can't see each other's picks and a small library collapses
     # onto the same hero clips every reel. Batch-mates' picks weigh ~3x the cross-reel term
     # (0.45/use in cost units vs 1.5x stored usage) — strong spread pressure, never exclusion.
-    usage = _load_clip_usage()
+    usage = _rotation_pressure(_load_clip_usage(), {s['clip_id'] for s in segs})
     if batch_clip_used:
         with _USAGE_IO_LOCK:
             snapshot = dict(batch_clip_used)
@@ -493,7 +508,7 @@ def generate_dynamic_reel(
         if u > clip_quality.get(s0["clip_id"], 0.0):
             clip_quality[s0["clip_id"]] = u
     clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
-    usage = _load_clip_usage()
+    usage = _rotation_pressure(_load_clip_usage(), {s['clip_id'] for s in segs})
     arc = "  →  ".join(sp["text"].replace("\n", " ") for sp in spans)
 
     chosen_all: list[dict] = []
