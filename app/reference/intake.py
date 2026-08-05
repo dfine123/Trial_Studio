@@ -369,7 +369,8 @@ def personalize_caption_parts(parts: list[str], pid) -> list[str]:
         return list(parts)
 
 
-def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
+def recreate_for_profile(pid, spans: list[dict], audio_path: str,
+                         exclude_clip_ids: list[str] | None = None) -> dict:
     """Render the recreation from THIS profile's clips with the reference audio, then upload to
     the profile's Drive 'references' subfolder. Runs profile-scoped via the request ContextVar so
     the operator's active studio profile is never disturbed.
@@ -383,6 +384,15 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
     token = profiles.set_request_uid(pid)
     try:
         os.makedirs(_WORK, exist_ok=True)
+        # REROLL support: the Telegram button re-renders the same reference with DIFFERENT
+        # footage by restricting selection to everything this profile has NOT just used. Falls
+        # back to the full library when too little is left to build a reel from.
+        allowed = None
+        if exclude_clip_ids:
+            from app.generate.generator import _load_segments
+            segs0, *_ = _load_segments()
+            rest = sorted({s0["clip_id"] for s0 in segs0} - set(exclude_clip_ids))
+            allowed = rest if len(rest) >= 3 else None
         out_path = os.path.join(_WORK, f"recreation_{uuid.uuid4().hex[:10]}.mp4")
         parts = personalize_caption_parts([sp["text"] for sp in spans], pid)
         if len(spans) == 1:
@@ -393,13 +403,14 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
                 # recreations read as ONE scene — same car(s), same setting (operator rule);
                 # the variety machinery is for original reels, not recreations
                 coherent_clips=True,
+                clip_ids=allowed,
             )
             final_caption = parts[0]
         else:
             final_spans = [{**sp, "text": p} for sp, p in zip(spans, parts)]
             res = generate_dynamic_reel(
                 audio_path=audio_path, spans=final_spans, out_path=out_path,
-                work_dir=_WORK,
+                work_dir=_WORK, clip_ids=allowed,
             )
             final_caption = "  /  ".join(parts)
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
@@ -411,7 +422,7 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str) -> dict:
         profiles.reset_request_uid(token)
 
 
-def process_reel_link(url: str, notify=lambda s: None) -> list[dict]:
+def process_reel_link(url: str, notify=lambda s: None, on_result=None) -> list[dict]:
     """The full intake: download → audio + caption → recreate for every reference-active profile.
     notify(text) receives human-readable progress (the Telegram bot forwards it). Every stage
     ALSO prints to stdout — the debug endpoint's HTTP response dies at the Railway edge on long
@@ -445,7 +456,10 @@ def process_reel_link(url: str, notify=lambda s: None) -> list[dict]:
             results.append({"profile": t["name"], **r})
             for c in (r.get("clips") or []):
                 print(f"[ref]   clip: {(c.get('summary') or '')[:110]}", flush=True)
-            notify(f"✅ {t['name']} — done" + (f"\n{r['link']}" if r.get("link") else ""))
+            if on_result:   # the bot renders its own message (with the reroll button)
+                on_result({"profile": t["name"], "pid": t["id"], **r}, spans, audio)
+            else:
+                notify(f"✅ {t['name']} — done" + (f"\n{r['link']}" if r.get("link") else ""))
         except Exception as ex:  # noqa: BLE001
             results.append({"profile": t["name"], "ok": False, "error": str(ex)[:200]})
             notify(f"❌ {t['name']} — {str(ex)[:160]}")

@@ -7,8 +7,10 @@ ignored silently. Credentials live in Railway env vars — the repo is public, n
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
+import uuid
 
 import httpx
 
@@ -22,12 +24,84 @@ def _api(token: str, method: str, **params):
     return data.get("result")
 
 
-def _send(token: str, chat_id: int, text: str) -> None:
+def _send(token: str, chat_id: int, text: str, buttons: list | None = None) -> None:
     try:
-        _api(token, "sendMessage", chat_id=chat_id, text=text[:4000],
-             disable_web_page_preview=True)
+        params = {"chat_id": chat_id, "text": text[:4000], "disable_web_page_preview": True}
+        if buttons:
+            params["reply_markup"] = {"inline_keyboard": buttons}
+        _api(token, "sendMessage", **params)
     except Exception as ex:  # noqa: BLE001
         print(f"[tg] send failed: {ex}", flush=True)
+
+
+# REROLL STATE (2026-07-22): each delivered recreation gets a button that re-renders the SAME
+# reference with different footage. Telegram callback_data is capped at 64 bytes, so the button
+# carries a short token and the context lives here. In-memory by design — a bot restart just
+# means the operator resends the link; nothing is lost but the shortcut.
+_REGEN: dict[str, dict] = {}
+_REGEN_MAX = 200
+
+
+def _remember(ctx: dict) -> str:
+    tok = uuid.uuid4().hex[:10]
+    _REGEN[tok] = ctx
+    while len(_REGEN) > _REGEN_MAX:      # bounded: drop the oldest shortcut
+        _REGEN.pop(next(iter(_REGEN)), None)
+    return tok
+
+
+def _result_message(token: str, chat_id: int, res: dict, spans: list, audio: str) -> None:
+    """One delivery message per profile, with its own reroll button."""
+    name = res.get("profile", "?")
+    if not res.get("ok"):
+        _send(token, chat_id, f"❌ {name} — {str(res.get('error'))[:160]}")
+        return
+    used = [c.get("clip_id") for c in (res.get("clips") or []) if c.get("clip_id")]
+    tok = _remember({"pid": res.get("pid"), "name": name, "spans": spans, "audio": audio,
+                     "used": list(used), "chat_id": chat_id})
+    body = f"✅ {name} — done" + (f"\n{res['link']}" if res.get("link") else "")
+    _send(token, chat_id, body,
+          buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{tok}"}]])
+
+
+def _handle_callback(token: str, cq: dict) -> None:
+    """The reroll button: re-render the same reference for the same profile, excluding the
+    footage the previous render used, and deliver it with a fresh button (reroll again)."""
+    data = (cq.get("data") or "")
+    chat_id = ((cq.get("message") or {}).get("chat") or {}).get("id")
+    try:                                   # always clear the button's spinner
+        _api(token, "answerCallbackQuery", callback_query_id=cq.get("id"),
+             text="rerolling with different clips…")
+    except Exception:  # noqa: BLE001
+        pass
+    if not data.startswith("rg:"):
+        return
+    ctx = _REGEN.get(data[3:])
+    if not ctx:
+        _send(token, chat_id, "that reroll expired (the bot restarted) — resend the reel link")
+        return
+    if not os.path.exists(ctx.get("audio") or ""):
+        # the reference audio lives in tmp/ and does not survive a redeploy
+        _send(token, chat_id, "the reference audio for that one is gone (redeploy) — resend the link")
+        return
+
+    def work() -> None:
+        from app.reference.intake import recreate_for_profile
+        try:
+            res = recreate_for_profile(ctx["pid"], ctx["spans"], ctx["audio"],
+                                       exclude_clip_ids=ctx["used"])
+            used = [c.get("clip_id") for c in (res.get("clips") or []) if c.get("clip_id")]
+            # exclude everything seen so far, so each reroll keeps finding new footage
+            nxt = _remember({**ctx, "used": list({*ctx["used"], *used})})
+            body = f"🎬 {ctx['name']} — new clips" + (f"\n{res['link']}" if res.get("link") else "")
+            _send(token, chat_id, body,
+                  buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{nxt}"}]])
+        except Exception as ex:  # noqa: BLE001
+            import traceback
+            print(f"[tg] reroll failed: {ex}\n{traceback.format_exc()}", flush=True)
+            _send(token, chat_id, f"reroll failed: {str(ex)[:300]}")
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def _handle(token: str, msg: dict) -> None:
@@ -51,7 +125,9 @@ def _handle(token: str, msg: dict) -> None:
 
     def work() -> None:
         try:
-            results = process_reel_link(url, notify)
+            results = process_reel_link(
+                url, notify,
+                on_result=lambda res, spans, audio: _result_message(token, chat_id, res, spans, audio))
             ok = sum(1 for r in results if r.get("ok"))
             if results:
                 _send(token, chat_id, f"done — {ok}/{len(results)} recreations in Drive")
@@ -69,9 +145,14 @@ def _loop(token: str, allowed_id: int) -> None:
     while True:
         try:
             updates = _api(token, "getUpdates", offset=offset, timeout=50,
-                           allowed_updates=["message"])
+                           allowed_updates=["message", "callback_query"])
             for u in updates or []:
                 offset = max(offset, int(u.get("update_id", 0)) + 1)
+                cq = u.get("callback_query")
+                if cq:
+                    if ((cq.get("from") or {}).get("id")) == allowed_id:
+                        _handle_callback(token, cq)
+                    continue
                 msg = u.get("message") or {}
                 if ((msg.get("from") or {}).get("id")) != allowed_id:
                     # operator-only: no reply, but log the id so a mis-set

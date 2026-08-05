@@ -484,7 +484,7 @@ def generate_dynamic_reel(
         sp["start"], sp["end"] = float(sp["start"]), min(float(sp["end"]), reel_dur)
     spans[-1]["end"] = reel_dur
 
-    segs, clip_dur, clip_meta, clip_emb = _load_segments()
+    segs, clip_dur, clip_meta, clip_emb = _load_segments(clip_ids=clip_ids)
     if not segs:
         raise RuntimeError("no indexed segments available to build a reel")
 
