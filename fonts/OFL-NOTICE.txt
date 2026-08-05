@@ -9,6 +9,7 @@ Bundled caption fonts — all licensed under the SIL Open Font License 1.1
 - AlfaSlabOne.ttf — Copyright 2011 The Alfa Slab One Project Authors (https://github.com/googlefonts/alfa-slab-one)
 - RobotoSlab.ttf — Copyright 2015 The Roboto Slab Project Authors (Apache License 2.0, https://github.com/googlefonts/robotoslab)
 - ArchivoExp.ttf — Copyright 2019 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
-- TenorSans.ttf, Italiana.ttf, JuliusSansOne.ttf, Jost.ttf, CormorantGaramond.ttf, Prata.ttf,
-  Marcellus.ttf, PoiretOne.ttf, BodoniModa.ttf, Questrial.ttf — SIL Open Font License 1.1,
-  respective project authors via https://github.com/google/fonts
+
+Fontshare (Indian Type Foundry) — ITF Free Font Licence, free for personal and commercial use:
+  ClashDisplay, CabinetGrotesk, Satoshi, Switzer, Excon, Tanker, Panchang, Zodiak, Nippo,
+  GeneralSans — https://www.fontshare.com
