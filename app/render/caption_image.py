@@ -105,37 +105,38 @@ _FONT_STYLES: dict[str, dict] = {
                    "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.40,
                    "tracking": 1, "case": None, "adaptive_fill": True,
                    "gradient_stroke": "gold", "frames": 40, "fps": 8},
-    # ── BRAND SET (2026-07-22): clean, bold, modern faces for the cinematic/client work.
-    # Every one carries a real outline + lift so it holds over busy footage.
-    "anton":      {"path": "fonts/Anton.ttf", "var": None, "size_mult": 0.96,
-                   "stroke": True, "stroke_frac": 0.052, "shadow": True, "spacing": 0.30,
+    # ── BRAND SET v2 (2026-07-22): ten DIFFERENT silhouettes, not ten weights of the same
+    # idea — editorial serifs, tall condensed, wide, slab, streetwear. Each is clean on its own
+    # terms rather than decorated.
+    "instrument": {"path": "fonts/InstrumentSerif.ttf", "var": None, "size_mult": 1.04,
+                   "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.40,
                    "tracking": 0, "case": None},
-    "archivo":    {"path": "fonts/ArchivoBlack.ttf", "var": None, "size_mult": 0.84,
+    "fraunces":   {"path": "fonts/Fraunces.ttf", "var": "Black", "size_mult": 0.86,
+                   "stroke": True, "stroke_frac": 0.046, "shadow": True, "spacing": 0.38,
+                   "tracking": 0, "case": None},
+    "bigshoulder": {"path": "fonts/BigShoulders.ttf", "var": "Black", "size_mult": 1.16,
+                    "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.26,
+                    "tracking": 1, "case": None},
+    "antonio":    {"path": "fonts/Antonio.ttf", "var": "Bold", "size_mult": 1.06,
+                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.28,
+                   "tracking": 0, "case": None},
+    "krona":      {"path": "fonts/KronaOne.ttf", "var": None, "size_mult": 0.72,
+                   "stroke": True, "stroke_frac": 0.046, "shadow": True, "spacing": 0.44,
+                   "tracking": 0, "case": None},
+    "expanded":   {"path": "fonts/ArchivoExp.ttf", "axes": [800, 125], "var": None,
+                   "size_mult": 0.76, "stroke": True, "stroke_frac": 0.048, "shadow": True,
+                   "spacing": 0.42, "tracking": 0, "case": None},
+    "kanit":      {"path": "fonts/Kanit.ttf", "var": None, "size_mult": 0.94,
+                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.32,
+                   "tracking": 0, "case": None},
+    "zilla":      {"path": "fonts/ZillaSlab.ttf", "var": None, "size_mult": 0.94,
+                   "stroke": True, "stroke_frac": 0.048, "shadow": True, "spacing": 0.34,
+                   "tracking": 0, "case": None},
+    "spartan":    {"path": "fonts/LeagueSpartan.ttf", "var": "Black", "size_mult": 0.88,
                    "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
                    "tracking": 0, "case": None},
-    "syne":       {"path": "fonts/Syne.ttf", "var": "ExtraBold", "size_mult": 0.86,
-                   "stroke": True, "stroke_frac": 0.046, "shadow": True, "spacing": 0.36,
-                   "tracking": 1, "case": None},
-    "grotesk":    {"path": "fonts/SpaceGrotesk.ttf", "var": "Bold", "size_mult": 0.90,
-                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None},
-    "outfit":     {"path": "fonts/Outfit.ttf", "var": "Black", "size_mult": 0.88,
-                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None},
-    "jakarta":    {"path": "fonts/PlusJakartaSans.ttf", "var": "ExtraBold", "size_mult": 0.88,
-                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None},
-    "manrope":    {"path": "fonts/Manrope.ttf", "var": "ExtraBold", "size_mult": 0.88,
-                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None},
-    "sora":       {"path": "fonts/Sora.ttf", "var": "ExtraBold", "size_mult": 0.86,
-                   "stroke": True, "stroke_frac": 0.048, "shadow": True, "spacing": 0.36,
-                   "tracking": 0, "case": None},
-    "bricolage":  {"path": "fonts/BricolageGrotesque.ttf", "var": "ExtraBold", "size_mult": 0.88,
-                   "stroke": True, "stroke_frac": 0.050, "shadow": True, "spacing": 0.34,
-                   "tracking": 0, "case": None},
-    "unbounded":  {"path": "fonts/Unbounded.ttf", "var": "Bold", "size_mult": 0.74,
-                   "stroke": True, "stroke_frac": 0.046, "shadow": True, "spacing": 0.42,
+    "familjen":   {"path": "fonts/FamiljenGrotesk.ttf", "var": "Bold", "size_mult": 0.94,
+                   "stroke": True, "stroke_frac": 0.048, "shadow": True, "spacing": 0.34,
                    "tracking": 0, "case": None},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
@@ -220,7 +221,12 @@ def _load_font(size: int, weight: int = 800, style: str = "base") -> ImageFont.F
     weight = spec.get("weight") or weight
     if spec["path"]:
         font = ImageFont.truetype(spec["path"], size)
-        if spec["var"]:
+        if spec.get("axes"):        # explicit axis values (e.g. weight + width)
+            try:
+                font.set_variation_by_axes(list(spec["axes"]))
+            except Exception:  # noqa: BLE001
+                pass
+        elif spec["var"]:
             try:
                 font.set_variation_by_name(spec["var"])
             except Exception:  # noqa: BLE001 — static font or missing named instance
