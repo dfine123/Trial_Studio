@@ -108,44 +108,44 @@ _FONT_STYLES: dict[str, dict] = {
     # ── LOCKUP SET v2 (2026-07-22): framing is now FIXED — caps, one tracking value, restrained
     # scale, generous leading (operator: stop moving the spacing, change the face). The typeface
     # is the only variable, so these can be compared honestly against each other.
-    "schibsted": {"path": "fonts/SchibstedGrotesk.ttf", "var": "Black", "size_mult": 0.58,
+    "schibsted": {"path": "fonts/SchibstedGrotesk.ttf", "var": "Black", "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "montserrat_lock": {"path": "fonts/Montserrat.ttf", "var": "ExtraBold", "size_mult": 0.58,
+    "montserrat_lock": {"path": "fonts/Montserrat.ttf", "var": "ExtraBold", "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "satoshi": {"path": "fonts/Satoshi.ttf", "var": None, "size_mult": 0.6,
+    "satoshi": {"path": "fonts/Satoshi.ttf", "var": None, "size_mult": 0.72,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "technor": {"path": "fonts/Technor.ttf", "var": None, "size_mult": 0.58,
+    "technor": {"path": "fonts/Technor.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "excon": {"path": "fonts/Excon.ttf", "var": None, "size_mult": 0.58,
+    "excon": {"path": "fonts/Excon.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "nippo": {"path": "fonts/Nippo.ttf", "var": None, "size_mult": 0.6,
+    "nippo": {"path": "fonts/Nippo.ttf", "var": None, "size_mult": 0.72,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "panchang": {"path": "fonts/Panchang.ttf", "var": None, "size_mult": 0.58,
+    "panchang": {"path": "fonts/Panchang.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "tanker": {"path": "fonts/Tanker.ttf", "var": None, "size_mult": 0.52,
+    "tanker": {"path": "fonts/Tanker.ttf", "var": None, "size_mult": 0.624,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "bespoke": {"path": "fonts/BespokeSans.ttf", "var": None, "size_mult": 0.58,
+    "bespoke": {"path": "fonts/BespokeSans.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "zodiak": {"path": "fonts/Zodiak.ttf", "var": None, "size_mult": 0.58,
+    "zodiak": {"path": "fonts/Zodiak.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "khand": {"path": "fonts/Khand.ttf", "var": None, "size_mult": 0.74,
+    "khand": {"path": "fonts/Khand.ttf", "var": None, "size_mult": 0.888,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "melodrama": {"path": "fonts/Melodrama.ttf", "var": None, "size_mult": 0.64,
+    "melodrama": {"path": "fonts/Melodrama.ttf", "var": None, "size_mult": 0.768,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "boska": {"path": "fonts/Boska.ttf", "var": None, "size_mult": 0.62,
+    "boska": {"path": "fonts/Boska.ttf", "var": None, "size_mult": 0.744,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "chillax": {"path": "fonts/Chillax.ttf", "var": None, "size_mult": 0.6,
+    "chillax": {"path": "fonts/Chillax.ttf", "var": None, "size_mult": 0.72,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "gabarito": {"path": "fonts/Gabarito.ttf", "var": "Black", "size_mult": 0.58,
+    "gabarito": {"path": "fonts/Gabarito.ttf", "var": "Black", "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "clash": {"path": "fonts/ClashDisplay.ttf", "var": None, "size_mult": 0.6,
+    "clash": {"path": "fonts/ClashDisplay.ttf", "var": None, "size_mult": 0.72,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "cabinet": {"path": "fonts/CabinetGrotesk.ttf", "var": None, "size_mult": 0.58,
+    "cabinet": {"path": "fonts/CabinetGrotesk.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
-    "switzer": {"path": "fonts/Switzer.ttf", "var": None, "size_mult": 0.58,
+    "switzer": {"path": "fonts/Switzer.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     "expanded":   {"path": "fonts/ArchivoExp.ttf", "axes": [700, 125], "var": None,
-                   "size_mult": 0.54, "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
+                   "size_mult": 0.648, "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
     "poster":     {"path": "fonts/BebasNeue-Regular.ttf", "var": None, "size_mult": 1.12,
                    "stroke": True, "stroke_frac": 0.040, "shadow": True, "spacing": 0.26,
@@ -286,6 +286,7 @@ def render_caption_png(
     font_style: str = "base",
     phase: float = 0.0,
     dark_bg: bool = True,
+    ink: tuple | None = None,
 ) -> str:
     spec = _FONT_STYLES.get(font_style) or _FONT_STYLES["base"]
     width = width or settings.reel_width
@@ -318,7 +319,11 @@ def render_caption_png(
     total_h = len(lines) * line_h + max(0, len(lines) - 1) * spacing
     top = height * y_frac - total_h / 2.0
 
-    if spec.get("adaptive_fill"):
+    if ink and not spec.get("fill") and not spec.get("gradient_stroke"):
+        # INK: a colour derived from the footage behind the caption (see generator._caption_ink).
+        # Styles with their own brand colour (punch's gold) or a gradient stroke keep theirs.
+        fill_rgb = tuple(ink)
+    elif spec.get("adaptive_fill"):
         # the face follows the footage: white type on dark clips, near-black on bright ones
         fill_rgb = (255, 255, 255) if dark_bg else (16, 16, 18)
     else:
@@ -326,6 +331,7 @@ def render_caption_png(
     fill_col = (*fill_rgb, 255)
     stroke_col = (*tuple(spec.get("stroke_color") or (0, 0, 0)), 255)
     halo_rgb = (0, 0, 0) if sum(fill_rgb) > 380 else (255, 255, 255)   # halo opposes the fill
+    shadow_rgb = halo_rgb
 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     if spec.get("gradient_stroke"):
@@ -381,16 +387,17 @@ def render_caption_png(
                     for ch in line:
                         pos = (int(x) + (off if pass_shadow else 0), int(cy) + (off if pass_shadow else 0))
                         pilmoji.text(pos, ch, font=font,
-                                     fill=(0, 0, 0, 150) if pass_shadow else fill_col,
+                                     fill=(*shadow_rgb, 150) if pass_shadow else fill_col,
                                      anchor="lm",
                                      stroke_width=0 if pass_shadow else stroke,
                                      stroke_fill=stroke_col)
                         x += probe.textlength(ch, font=font) + tpx
                 continue
             if spec["shadow"]:
-                # soft drop shadow instead of the hard meme outline — the tasteful styles
+                # soft drop shadow instead of the hard meme outline — the tasteful styles.
+                # It OPPOSES the fill: a dark shadow under dark ink only muddies the letterforms.
                 pilmoji.text((width // 2 + off, int(cy) + off), line, font=font,
-                             fill=(0, 0, 0, 150), anchor="mm", emoji_scale_factor=1.15)
+                             fill=(*shadow_rgb, 150), anchor="mm", emoji_scale_factor=1.15)
             pilmoji.text(
                 (width // 2, int(cy)),
                 line,

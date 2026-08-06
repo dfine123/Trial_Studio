@@ -19,6 +19,8 @@ import subprocess
 import threading
 import uuid
 
+from PIL import Image
+
 from sqlalchemy import select
 
 from app.audio import profile
@@ -73,6 +75,75 @@ def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 2) 
         return {}
     floor = min(usage.get(c, 0) for c in pool_ids)
     return {c: min(cap, max(0, usage.get(c, 0) - floor)) for c in pool_ids}
+
+
+def _caption_ink(shots: list[dict], y_frac: float = 0.30) -> tuple | None:
+    """The caption's colour, read off the footage it will sit on.
+
+    White type on bright footage is the operator's complaint; plain black is the cheap answer.
+    So: sample the band each shot shows BEHIND the caption, and when that band is bright, ink the
+    type in a deep tone of the footage's OWN hue — a pool clip gives deep navy, sand gives deep
+    bronze, greenery gives deep forest — saturated but very dark, so it reads deliberate rather
+    than coloured-in. Neutral (grey/concrete/white) footage gets a deep charcoal rather than pure
+    black, which is the more expensive-looking neutral. Returns None to keep white.
+    """
+    import colorsys
+    import numpy as np
+    band = []
+    for sh in shots[:4]:
+        t = float(sh.get("src_start") or 0.0) + float(sh.get("duration") or 1.0) / 2.0
+        import tempfile
+        fd, out = tempfile.mkstemp(suffix=".jpg", prefix="ink_")
+        os.close(fd)          # a guaranteed-writable path: relying on tmp/ existing made every
+                              # sample fail silently and fall back to white
+        try:
+            r = subprocess.run(["ffmpeg", "-y", "-ss", f"{t:.3f}", "-i", sh["src_path"],
+                                "-frames:v", "1", "-vf", "scale=64:-1", out],
+                               capture_output=True, timeout=20)
+            if r.returncode != 0 or not os.path.exists(out):
+                continue
+            im = Image.open(out).convert("RGB")
+            w, h = im.size
+            top = max(0, int(h * (y_frac - 0.12)))
+            bot = min(h, int(h * (y_frac + 0.16)))
+            band.append(np.asarray(im.crop((0, top, w, max(top + 1, bot)))).astype(float) / 255.0)
+        except Exception:  # noqa: BLE001 — sampling is best-effort; white is the safe default
+            continue
+        finally:
+            if os.path.exists(out):
+                try:
+                    os.remove(out)
+                except OSError:
+                    pass
+    if not band:
+        return None
+    px = np.concatenate([b.reshape(-1, 3) for b in band], axis=0)
+    lum = float((px * (0.2126, 0.7152, 0.0722)).sum(axis=1).mean())
+    if lum < 0.52:
+        return None                                    # dark enough — white stays the best answer
+    # The MEAN colour of a frame is almost always desaturated (opposing colours cancel), so a
+    # mean-based test can never find the clip's actual colour. Look at the band's genuinely
+    # saturated pixels instead, and only take a hue when enough of the plate really carries it.
+    hsv = np.concatenate([np.asarray(Image.fromarray((b * 255).astype("uint8")).convert("HSV"))
+                          .reshape(-1, 3) for b in band], axis=0).astype(float)
+    hue, sat, val = hsv[:, 0] / 255.0, hsv[:, 1] / 255.0, hsv[:, 2] / 255.0
+    import colorsys
+    strong = (sat > 0.25) & (val > 0.25)
+    # dominant hue, weighted by saturation — measured on the strong pixels when the plate has
+    # them, otherwise on the whole band so even a washed-out plate still yields a direction
+    src = strong if strong.mean() >= 0.04 else np.ones_like(strong, dtype=bool)
+    hist, edges = np.histogram(hue[src], bins=24, range=(0.0, 1.0), weights=sat[src] + 1e-6)
+    i = int(hist.argmax())
+    h_dom = float((edges[i] + edges[i + 1]) / 2.0)
+    if strong.mean() < 0.12:
+        # NOT just black: a near-black carrying the footage's own temperature — cool plates get
+        # a blue-black, warm plates a brown-black. Reads considered; pure #000 reads cheap.
+        rr, gg, bb = colorsys.hsv_to_rgb(h_dom, 0.22, 0.11)
+        return (int(rr * 255), int(gg * 255), int(bb * 255))
+    # the plate genuinely carries a colour: ink in a deep, saturated tone of it — a dark tone
+    # reads deliberate where a mid-tone reads coloured-in. Brighter plates get a darker ink.
+    rr, gg, bb = colorsys.hsv_to_rgb(h_dom, 0.72, 0.30 if lum < 0.72 else 0.24)
+    return (int(rr * 255), int(gg * 255), int(bb * 255))
 
 
 def _probe_duration(path: str) -> float:
@@ -428,6 +499,7 @@ def generate_reel(
         # reels clobber each other's caption mid-compose (and animated styles write 24 frames,
         # widening the window). Derived from out_path, which is unique per reel.
         png_path = work_png or (os.path.splitext(out_path)[0] + "_cap.png")
+        ink = _caption_ink(shots)
         # adaptive styles follow the footage: mean luminance of the segments actually chosen
         # (already indexed per segment — no extra decode) decides white vs near-black type.
         lum_by_seg = {s["id"]: s.get("luminance") for s in segs}
@@ -435,7 +507,7 @@ def generate_reel(
         lum_vals = [v for v in lum_vals if v is not None]
         dark_bg = (sum(lum_vals) / len(lum_vals)) < 0.45 if lum_vals else True
         cap_png, cap_fps = render_caption_frames(caption_text, png_path, font_style=font_style,
-                                                 dark_bg=dark_bg)
+                                                 dark_bg=dark_bg, ink=ink)
     compose_reel(shots, cap_png, audio_path, out_path, reel_dur, caption_fps=cap_fps)
 
     # distinct clips actually used + the chosen caption's provenance — for the production-grading record
@@ -555,9 +627,12 @@ def generate_dynamic_reel(
 
     os.makedirs(work_dir, exist_ok=True)
     caption_windows = []
+    dyn_ink = _caption_ink([{"src_path": c.get("src_path"), "src_start": c.get("src_start"),
+                             "duration": c.get("duration")} for c in video_chunks
+                            if c.get("src_path")])
     for k, sp in enumerate(spans):
         png = os.path.join(work_dir, f"dyncap_{uuid.uuid4().hex[:8]}_{k}.png")
-        render_caption_png(sp["text"], png, font_style=font_style)
+        render_caption_png(sp["text"], png, font_style=font_style, ink=dyn_ink)
         caption_windows.append({"caption_png": png, "t_in": sp["start"], "t_out": sp["end"]})
 
     compose_template_reel(video_chunks, caption_windows, audio_path, out_path, reel_dur)
