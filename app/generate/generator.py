@@ -394,6 +394,57 @@ def _target_duration(caption: str) -> float:
     return max(_DUR_MIN, min(_DUR_MAX, 1.8 + words / 3.0))
 
 
+_DIRECT_SYS = """You are cutting a short 9:16 reel. You are given the CAPTION, the OPENING SHOT already
+chosen for it, and a numbered list of the remaining clips available.
+
+Choose the shots that come AFTER the opening one, in order. You are building ONE piece of video, not
+picking clips that each independently match the caption:
+
+- CONTINUE THE OPENING SHOT'S WORLD. If the library holds other angles or moments of the same scene,
+  subject and setting as the opening shot, those are almost always the right answer — a second angle
+  of the same desk beats a different room, even when that different room also relates to the caption.
+- Never repeat the same framing twice; a second angle is not the same shot again.
+- Everything must still serve the caption. If continuing the scene would betray the caption, take the
+  shot that serves the caption and reads closest to the opening one.
+- Keep the look continuous: don't cut from night to day, or a dark interior to a bright exterior,
+  unless the caption's turn calls for exactly that contrast.
+
+Return ONLY JSON, no prose: {"sequence": [clip indices, in play order, best first]}"""
+
+
+def _direct_sequence(caption: str, anchor: dict, candidates: list, n_needed: int) -> list:
+    """Order the shots that FOLLOW the opening one, as a cut rather than N independent matches.
+
+    The caption-fit ranker scores every clip against the caption on its own, so nothing in the
+    pipeline ever asked "what continues this shot?" — which is how an opening shot at the desk was
+    followed by a different room that merely also related to the caption (operator, 2026-07-22).
+    This asks that question directly. Returns [] on any failure, and the caller then keeps its
+    existing fit order — a bad call can cost the improvement, never the reel."""
+    if not candidates or n_needed <= 0:
+        return []
+    lines = []
+    for i, (_cid, m) in enumerate(candidates):
+        summ = (m.get("summary") or "").strip().replace("\n", " ")[:150]
+        setting = (m.get("setting") or "").strip()[:50]
+        tod = (m.get("time_of_day") or "").strip()
+        extra = f"  | setting: {setting}" if setting else ""
+        extra += f"  | {tod}" if tod and tod != "unknown" else ""
+        lines.append(f"[{i}] {summ}{extra}")
+    a_sum = (anchor.get("summary") or "").strip().replace("\n", " ")[:200]
+    a_set = (anchor.get("setting") or "").strip()[:60]
+    user = (f"CAPTION:\n{caption}\n\nOPENING SHOT (already chosen):\n{a_sum}"
+            + (f"\n  setting: {a_set}" if a_set else "")
+            + "\n\nREMAINING CLIPS:\n" + "\n".join(lines)
+            + f"\n\nChoose the next {n_needed} shot(s), in play order.")
+    try:
+        out = complete_json(_DIRECT_SYS, user, effort="low", max_tokens=600, tag="clip-direct")
+        s, e = out.find("{"), out.rfind("}")
+        seq = json.loads(out[s:e + 1]).get("sequence", []) if s != -1 else []
+        return [candidates[i][0] for i in seq if isinstance(i, int) and 0 <= i < len(candidates)]
+    except Exception:  # noqa: BLE001 — directing is best-effort; fit order remains the fallback
+        return []
+
+
 def generate_reel(
     audio_path: str,
     niche: str,
@@ -470,15 +521,32 @@ def generate_reel(
         usage = dict(usage)
         for cid, cnt in snapshot.items():
             usage[cid] = usage.get(cid, 0) + 3 * cnt
-    chosen = select_segments(slots, segs, caption_vibe_tags=caption_vibe,
-                             fit_rank=fit_rank, usage=usage, clip_emb=clip_emb,
-                             clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
-                             coherent=coherent_clips,
-                             # tighter sampling everywhere: coherence is the default now
-                             # cooler sampling: the ranker's best fit should usually WIN, with
-                             # variation coming from real caption-to-caption differences rather
-                             # than dice among the top few
-                             temperature=0.8 if coherent_clips else 0.7)
+    _sel = dict(caption_vibe_tags=caption_vibe, usage=usage, clip_emb=clip_emb,
+                clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
+                coherent=coherent_clips,
+                # cooler sampling: the ranker's best fit should usually WIN, with variation
+                # coming from real caption-to-caption differences rather than dice among the few
+                temperature=0.8 if coherent_clips else 0.7)
+    chosen = select_segments(slots, segs, fit_rank=fit_rank, **_sel)
+    if len(slots) > 1 and caption_text:
+        # DIRECTOR PASS: lock the opening shot (best caption fit), then choose what FOLLOWS it as
+        # a cut — continuing that shot's scene where the library allows — instead of letting each
+        # later slot independently re-match the caption.
+        opening = chosen[:1]
+        anchor_cid = opening[0]["clip_id"]
+        pool = [(cid, clip_meta[cid]) for cid in ranked
+                if cid != anchor_cid and cid in clip_meta][:30]
+        order = _direct_sequence(caption_text, clip_meta.get(anchor_cid) or {}, pool,
+                                 len(slots) - 1)
+        if order:
+            directed = {cid: i for i, cid in enumerate(order)}
+            rest_rank = {cid: directed.get(cid, len(order) + fit_rank.get(cid, 0))
+                         for cid in fit_rank}
+            rest_segs = [s for s in segs if s["clip_id"] != anchor_cid] or segs
+            rest = select_segments(slots[1:], rest_segs, fit_rank=rest_rank,
+                                   prev_seg_in=opening[0], **_sel)
+            if len(rest) == len(slots) - 1:
+                chosen = opening + rest
     _log_clip_usage([c["clip_id"] for c in chosen])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:
