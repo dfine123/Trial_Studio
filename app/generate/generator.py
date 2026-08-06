@@ -464,6 +464,8 @@ def generate_dynamic_reel(
     out_path: str,
     *,
     work_dir: str = "tmp/reference",
+    clip_ids: list[str] | None = None,
+    font_style: str = "base",
 ) -> dict:
     """A DYNAMIC-caption recreation: the caption changes partway through (setup → payoff), so the
     reel follows the REFERENCE's own timeline instead of the caption-scaled 5-9s formula.
@@ -555,7 +557,7 @@ def generate_dynamic_reel(
     caption_windows = []
     for k, sp in enumerate(spans):
         png = os.path.join(work_dir, f"dyncap_{uuid.uuid4().hex[:8]}_{k}.png")
-        render_caption_png(sp["text"], png)
+        render_caption_png(sp["text"], png, font_style=font_style)
         caption_windows.append({"caption_png": png, "t_in": sp["start"], "t_out": sp["end"]})
 
     compose_template_reel(video_chunks, caption_windows, audio_path, out_path, reel_dur)

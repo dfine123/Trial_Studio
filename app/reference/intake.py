@@ -404,13 +404,14 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
                 # the variety machinery is for original reels, not recreations
                 coherent_clips=True,
                 clip_ids=allowed,
+                font_style=_REFERENCE_FONT,
             )
             final_caption = parts[0]
         else:
             final_spans = [{**sp, "text": p} for sp, p in zip(spans, parts)]
             res = generate_dynamic_reel(
                 audio_path=audio_path, spans=final_spans, out_path=out_path,
-                work_dir=_WORK, clip_ids=allowed,
+                work_dir=_WORK, clip_ids=allowed, font_style=_REFERENCE_FONT,
             )
             final_caption = "  /  ".join(parts)
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
@@ -420,6 +421,9 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
                 "spans": res.get("spans")}
     finally:
         profiles.reset_request_uid(token)
+
+
+_REFERENCE_FONT = "satoshi"   # CopyCat recreations render in Satoshi (operator, 2026-07-22)
 
 
 def process_reel_link(url: str, notify=lambda s: None, on_result=None) -> list[dict]:
