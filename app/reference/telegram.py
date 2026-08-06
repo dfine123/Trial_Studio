@@ -61,21 +61,25 @@ def _result_message(token: str, chat_id: int, res: dict, spans: list, audio: str
                      "used": list(used), "chat_id": chat_id})
     body = f"✅ {name} — done" + (f"\n{res['link']}" if res.get("link") else "")
     _send(token, chat_id, body,
-          buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{tok}"}]])
+          buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{tok}"},
+                    {"text": "🅣 tiktok slim", "callback_data": f"fs:{tok}"}]])
 
 
 def _handle_callback(token: str, cq: dict) -> None:
-    """The reroll button: re-render the same reference for the same profile, excluding the
-    footage the previous render used, and deliver it with a fresh button (reroll again)."""
+    """The delivery buttons. "rg:" re-renders the same reference with different footage; "fs:"
+    re-renders it in the TikTok slim caption style, keeping the same footage the operator just
+    saw (a font swap, not a new cut)."""
     data = (cq.get("data") or "")
     chat_id = ((cq.get("message") or {}).get("chat") or {}).get("id")
     try:                                   # always clear the button's spinner
         _api(token, "answerCallbackQuery", callback_query_id=cq.get("id"),
-             text="rerolling with different clips…")
+             text=("re-rendering in tiktok slim…" if data.startswith("fs:")
+                   else "rerolling with different clips…"))
     except Exception:  # noqa: BLE001
         pass
-    if not data.startswith("rg:"):
+    if not (data.startswith("rg:") or data.startswith("fs:")):
         return
+    restyle = data.startswith("fs:")
     ctx = _REGEN.get(data[3:])
     if not ctx:
         _send(token, chat_id, "that reroll expired (the bot restarted) — resend the reel link")
@@ -88,14 +92,24 @@ def _handle_callback(token: str, cq: dict) -> None:
     def work() -> None:
         from app.reference.intake import recreate_for_profile
         try:
-            res = recreate_for_profile(ctx["pid"], ctx["spans"], ctx["audio"],
-                                       exclude_clip_ids=ctx["used"])
-            used = [c.get("clip_id") for c in (res.get("clips") or []) if c.get("clip_id")]
-            # exclude everything seen so far, so each reroll keeps finding new footage
-            nxt = _remember({**ctx, "used": list({*ctx["used"], *used})})
-            body = f"🎬 {ctx['name']} — new clips" + (f"\n{res['link']}" if res.get("link") else "")
+            if restyle:
+                # SAME cut, different caption style: reuse the clips this render already used
+                res = recreate_for_profile(ctx["pid"], ctx["spans"], ctx["audio"],
+                                           font_style="slim",
+                                           only_clip_ids=ctx.get("used") or None)
+                nxt = _remember(ctx)
+                body = f"🅣 {ctx['name']} — tiktok slim"
+            else:
+                res = recreate_for_profile(ctx["pid"], ctx["spans"], ctx["audio"],
+                                           exclude_clip_ids=ctx["used"])
+                used = [c.get("clip_id") for c in (res.get("clips") or []) if c.get("clip_id")]
+                # exclude everything seen so far, so each reroll keeps finding new footage
+                nxt = _remember({**ctx, "used": list({*ctx["used"], *used})})
+                body = f"🎬 {ctx['name']} — new clips"
+            body += (f"\n{res['link']}" if res.get("link") else "")
             _send(token, chat_id, body,
-                  buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{nxt}"}]])
+                  buttons=[[{"text": "🎬 different clips", "callback_data": f"rg:{nxt}"},
+                            {"text": "🅣 tiktok slim", "callback_data": f"fs:{nxt}"}]])
         except Exception as ex:  # noqa: BLE001
             import traceback
             print(f"[tg] reroll failed: {ex}\n{traceback.format_exc()}", flush=True)

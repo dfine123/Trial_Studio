@@ -370,7 +370,9 @@ def personalize_caption_parts(parts: list[str], pid) -> list[str]:
 
 
 def recreate_for_profile(pid, spans: list[dict], audio_path: str,
-                         exclude_clip_ids: list[str] | None = None) -> dict:
+                         exclude_clip_ids: list[str] | None = None,
+                         font_style: str | None = None,
+                         only_clip_ids: list[str] | None = None) -> dict:
     """Render the recreation from THIS profile's clips with the reference audio, then upload to
     the profile's Drive 'references' subfolder. Runs profile-scoped via the request ContextVar so
     the operator's active studio profile is never disturbed.
@@ -388,7 +390,11 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
         # footage by restricting selection to everything this profile has NOT just used. Falls
         # back to the full library when too little is left to build a reel from.
         allowed = None
-        if exclude_clip_ids:
+        if only_clip_ids:
+            # RESTYLE support: re-render the SAME cut in a different caption style, so selection
+            # is pinned to the footage that render already used — a font swap, not a new video.
+            allowed = list(only_clip_ids)
+        elif exclude_clip_ids:
             from app.generate.generator import _load_segments
             segs0, *_ = _load_segments()
             rest = sorted({s0["clip_id"] for s0 in segs0} - set(exclude_clip_ids))
@@ -404,14 +410,14 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
                 # the variety machinery is for original reels, not recreations
                 coherent_clips=True,
                 clip_ids=allowed,
-                font_style=_REFERENCE_FONT,
+                font_style=(font_style or _REFERENCE_FONT),
             )
             final_caption = parts[0]
         else:
             final_spans = [{**sp, "text": p} for sp, p in zip(spans, parts)]
             res = generate_dynamic_reel(
                 audio_path=audio_path, spans=final_spans, out_path=out_path,
-                work_dir=_WORK, clip_ids=allowed, font_style=_REFERENCE_FONT,
+                work_dir=_WORK, clip_ids=allowed, font_style=(font_style or _REFERENCE_FONT),
             )
             final_caption = "  /  ".join(parts)
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
