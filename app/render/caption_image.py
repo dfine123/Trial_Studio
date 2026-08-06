@@ -144,6 +144,13 @@ _FONT_STYLES: dict[str, dict] = {
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     "switzer": {"path": "fonts/Switzer.ttf", "var": None, "size_mult": 0.696,
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
+    # operator-supplied face, under evaluation for the CopyCat caption (2026-07-22)
+    "altehaas": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.72,
+                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
+    "altehaas_sc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.78,
+                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
+    "altehaas_lc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.80,
+                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.48, "tracking": 0, "case": None},
     "expanded":   {"path": "fonts/ArchivoExp.ttf", "axes": [700, 125], "var": None,
                    "size_mult": 0.648, "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
@@ -203,11 +210,27 @@ def _sphere_warp(img: Image.Image, strength: float = 0.30) -> Image.Image:
     return out.resize((img.width, img.height), Image.LANCZOS)
 
 
+def _sentence_case(text: str) -> str:
+    """Normal capitalisation: the first letter of each sentence, plus the standalone pronoun I.
+
+    The captions are WRITTEN lowercase on purpose, so this is a rendering choice per style —
+    never a change to the caption itself. Deliberate lowercase inside a sentence (brand names,
+    the voice's own styling) is left alone; only sentence openings and bare "i" are touched.
+    """
+    import re as _re
+    out = _re.sub(r"(^|[.!?]\s+|\n\s*)([a-z])",
+                  lambda m: m.group(1) + m.group(2).upper(), text)
+    return _re.sub(r"\bi\b", "I", out)
+
+
 def _style_line(line: str, spec: dict) -> str:
     """Case transform only — tracking is applied at measure/draw time (per-char advances),
     never by injecting whitespace (hair spaces are whitespace: they shatter word wrap)."""
-    if spec.get("case") == "upper":
+    case = spec.get("case")
+    if case == "upper":
         line = line.upper()
+    elif case == "sentence":
+        line = _sentence_case(line)
     return line
 
 

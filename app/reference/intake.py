@@ -429,7 +429,7 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
         profiles.reset_request_uid(token)
 
 
-_REFERENCE_FONT = "satoshi"   # CopyCat recreations render in Satoshi (operator, 2026-07-22)
+_REFERENCE_FONT = "altehaas_sc"   # CopyCat renders in Alte Haas Grotesk, sentence case (operator)
 
 
 def process_reel_link(url: str, notify=lambda s: None, on_result=None) -> list[dict]:
