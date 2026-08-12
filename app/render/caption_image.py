@@ -146,11 +146,11 @@ _FONT_STYLES: dict[str, dict] = {
                    "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     # operator-supplied face, under evaluation for the CopyCat caption (2026-07-22)
     "altehaas": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.72,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
+                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     "altehaas_sc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.78,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
+                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
     "altehaas_lc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.80,
-                   "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.48, "tracking": 0, "case": None},
+                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.48, "tracking": 0, "case": None},
     "expanded":   {"path": "fonts/ArchivoExp.ttf", "axes": [700, 125], "var": None,
                    "size_mult": 0.648, "stroke": False, "stroke_frac": None, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
     # condensed poster caps — only works WITH a stroke (operator call): thin outline + shadow
@@ -342,7 +342,9 @@ def render_caption_png(
     total_h = len(lines) * line_h + max(0, len(lines) - 1) * spacing
     top = height * y_frac - total_h / 2.0
 
-    if ink and not spec.get("fill") and not spec.get("gradient_stroke"):
+    if ink and not spec.get("fill") and not spec.get("gradient_stroke") and not spec.get("stroke"):
+        # (a stroked style needs no ink: the outline carries legibility on any plate, so the type
+        # stays white throughout instead of shifting colour clip to clip)
         # INK: a colour derived from the footage behind the caption (see generator._caption_ink).
         # Styles with their own brand colour (punch's gold) or a gradient stroke keep theirs.
         fill_rgb = tuple(ink)
