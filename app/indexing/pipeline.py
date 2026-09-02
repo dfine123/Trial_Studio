@@ -268,7 +268,8 @@ def run_pipeline(clip_id: str, source_path: str | None = None) -> str:
             session.commit()
             _t(f"[idx] {clip_id} TL indexed video_id={task.video_id} — analyzing…", flush=True)
 
-            analysis = twelvelabs.analyze_clip(c, task.video_id, real_duration=real_dur)
+            analysis = twelvelabs.analyze_clip(c, task.video_id, real_duration=real_dur,
+                                               video_path=tl_source)
             embedding = None
             if settings.enable_marengo_embedding:
                 try:

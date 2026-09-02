@@ -149,8 +149,21 @@ def _parse_json(text: str) -> dict:
     return {"summary": text[:1000], "moments": []}
 
 
+def _analyze_asset(c: TwelveLabs, video_path: str):
+    """Upload the file as a TwelveLabs ASSET and return its id.
+
+    pegasus1.5 does not accept an index video_id ("video_id is not supported for pegasus1.5,
+    use video object (url, asset_id, or base64_string) instead") — analysis is now independent
+    of the search index, so the clip is handed to /analyze directly."""
+    with open(video_path, "rb") as fh:
+        asset = c.assets.create(method="direct", file=fh,
+                                filename=os.path.basename(video_path))
+    return getattr(asset, "id", None) or getattr(asset, "asset_id", None)
+
+
 def analyze_clip(
-    c: TwelveLabs, video_id: str, max_tokens: int = 1400, real_duration: float | None = None
+    c: TwelveLabs, video_id: str | None = None, max_tokens: int = 1400,
+    real_duration: float | None = None, video_path: str | None = None
 ) -> dict:
     prompt = _PEGASUS_PROMPT
     if real_duration:
@@ -159,14 +172,26 @@ def analyze_clip(
             f"the remainder is a frozen hold of the last frame. Describe ONLY the first "
             f"{real_duration:.1f}s and keep every moment timestamp within it."
         )
-    res = c.analyze(
-        video_id=video_id,
-        model_name=settings.tl_pegasus_model,
-        prompt=prompt,
-        temperature=0.2,
-        max_tokens=max_tokens,
-    )
-    return _parse_json(getattr(res, "data", "") or "")
+    kw = {"model_name": settings.tl_pegasus_model, "prompt": prompt,
+          "temperature": 0.2, "max_tokens": max_tokens}
+    asset_id = None
+    if video_path and os.path.exists(video_path):
+        try:
+            asset_id = _analyze_asset(c, video_path)
+        except Exception as exc:  # noqa: BLE001 — fall back to the legacy video_id path
+            print(f"[tl] asset upload failed ({str(exc)[:160]}) — trying video_id", flush=True)
+    try:
+        if asset_id:
+            res = c.analyze(video={"type": "asset_id", "asset_id": asset_id}, **kw)
+        else:
+            res = c.analyze(video_id=video_id, **kw)
+        return _parse_json(getattr(res, "data", "") or "")
+    finally:
+        if asset_id:      # the analysis is stored in our own database; the asset is scratch
+            try:
+                c.assets.delete(asset_id)
+            except Exception:  # noqa: BLE001
+                pass
 
 
 # ── Marengo per-clip embedding (best-effort) ─────────────────

@@ -2056,15 +2056,16 @@ def api_tl_index(request: Request):
             if row is None:
                 out["analyze"] = "no clip has a twelvelabs_video_id yet"
             else:
+                # exercise the REAL analyze path (asset upload -> pegasus1.5)
+                path = row.r2_key if (row.r2_key and os.path.exists(row.r2_key)) else None
                 try:
-                    res = c.analyze(video_id=row.twelvelabs_video_id,
-                                    model_name=settings.tl_pegasus_model,
-                                    prompt="Reply with the single word: ok",
-                                    temperature=0.2, max_tokens=20)
-                    out["analyze"] = {"ok": True, "video_id": row.twelvelabs_video_id,
-                                      "data": str(getattr(res, "data", ""))[:120]}
+                    got = tl.analyze_clip(c, row.twelvelabs_video_id, max_tokens=200,
+                                          video_path=path)
+                    out["analyze"] = {"ok": True, "via": "asset" if path else "video_id",
+                                      "keys": sorted(list(got))[:6]}
                 except Exception as exc:  # noqa: BLE001
-                    out["analyze"] = {"ok": False, "err": str(exc)[-500:]}
+                    out["analyze"] = {"ok": False, "via": "asset" if path else "video_id",
+                                      "err": str(exc)[-400:]}
             out["will_use"] = tl.ensure_index(c)
         else:
             out["will_use"] = tl.ensure_index(c)
