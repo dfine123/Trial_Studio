@@ -2011,7 +2011,9 @@ def api_tl_index(request: Request):
     if not _is_authed(request):
         raise HTTPException(status_code=401, detail="operator only")
     from app.indexing import twelvelabs as tl
-    out = {"configured_pegasus": settings.tl_pegasus_model,
+    import twelvelabs as _tl_pkg
+    out = {"sdk_version": getattr(_tl_pkg, "__version__", "?"),
+           "configured_pegasus": settings.tl_pegasus_model,
            "configured_marengo": settings.tl_marengo_model,
            "base_index_name": settings.twelvelabs_index_name}
     try:

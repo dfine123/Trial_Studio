@@ -25,7 +25,8 @@ librosa>=0.10,<0.11
 soundfile>=0.12,<0.14
 
 # ── Twelve Labs SDK (method surface verified against docs.twelvelabs.io) ──
-twelvelabs>=0.4
+twelvelabs==1.2.9   # PIN: an unpinned range let a build pull an SDK whose analyze() dropped
+                    # video_id, breaking indexing silently (2026-09-02)
 
 # ── Generation (Phase 1): captions + caption rendering ──────
 anthropic>=0.39
