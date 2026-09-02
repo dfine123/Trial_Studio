@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # ── App knobs ─────────────────────────────────────────────
     twelvelabs_index_name: str = "trial-studio"
     tl_marengo_model: str = "marengo3.0"          # index embedding model (2.7 retired)
-    tl_pegasus_model: str = "pegasus1.2"          # generative model for summary/tags
+    tl_pegasus_model: str = "pegasus1.5"          # generative model (1.2 sunset 2026-09-02)
     enable_marengo_embedding: bool = True         # store the per-clip Marengo vector (extra cost)
     tl_min_duration: float = 4.0                  # TL's hard minimum; freeze-pad shorter clips
     tl_pad_target: float = 4.5                    # pad sub-minimum clips up to this length

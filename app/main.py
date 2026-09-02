@@ -2004,6 +2004,32 @@ def api_ig_cookies_set(req: IgCookies, request: Request):
     return {"ok": True, "cookies": len(lines)}
 
 
+@app.get("/api/debug/tl-index")
+def api_tl_index(request: Request):
+    """Operator-only: which TwelveLabs index indexing will use, and the models it carries —
+    the check for the pegasus sunset that broke indexing."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.indexing import twelvelabs as tl
+    out = {"configured_pegasus": settings.tl_pegasus_model,
+           "configured_marengo": settings.tl_marengo_model,
+           "base_index_name": settings.twelvelabs_index_name}
+    try:
+        c = tl.client()
+        listed = []
+        for nm in (settings.twelvelabs_index_name,
+                   f"{settings.twelvelabs_index_name}-{settings.tl_pegasus_model.replace('.', '')}"):
+            for idx in c.indexes.list(index_name=nm, page_limit=10):
+                if getattr(idx, "index_name", None) == nm:
+                    listed.append({"name": nm, "id": idx.id,
+                                   "models": sorted(tl._index_models(idx))})
+        out["existing"] = listed
+        out["will_use"] = tl.ensure_index(c)
+    except Exception as exc:  # noqa: BLE001
+        out["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+    return out
+
+
 @app.get("/api/debug/clip-pool")
 def api_clip_pool(request: Request):
     """Operator-only: why the selector may be seeing fewer clips than the library holds —
