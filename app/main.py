@@ -2045,6 +2045,25 @@ def api_tl_index(request: Request):
                             trials.append({"marengo": mg, "pegasus": pg, "opts": opts,
                                            "ok": False, "err": str(exc)[-400:]})
             out["probe"] = trials
+        elif request.query_params.get("analyze"):
+            # the call that was actually failing: analyze an already-indexed video with the
+            # configured generative model
+            with SessionLocal() as s:
+                row = s.execute(select(Clip).where(Clip.twelvelabs_video_id.isnot(None))
+                                .limit(1)).scalars().first()
+            if row is None:
+                out["analyze"] = "no clip has a twelvelabs_video_id yet"
+            else:
+                try:
+                    res = c.analyze(video_id=row.twelvelabs_video_id,
+                                    model_name=settings.tl_pegasus_model,
+                                    prompt="Reply with the single word: ok",
+                                    temperature=0.2, max_tokens=20)
+                    out["analyze"] = {"ok": True, "video_id": row.twelvelabs_video_id,
+                                      "data": str(getattr(res, "data", ""))[:120]}
+                except Exception as exc:  # noqa: BLE001
+                    out["analyze"] = {"ok": False, "err": str(exc)[-500:]}
+            out["will_use"] = tl.ensure_index(c)
         else:
             out["will_use"] = tl.ensure_index(c)
     except Exception as exc:  # noqa: BLE001
