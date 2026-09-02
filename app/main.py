@@ -101,6 +101,12 @@ class ClipMove(BaseModel):
     folder_id: uuid.UUID | None = None
 
 
+class ClipBulk(BaseModel):
+    """Library multi-select: many clips, one call (delete, or move into a folder)."""
+    ids: list[uuid.UUID]
+    folder_id: uuid.UUID | None = None
+
+
 class ProfileCreate(BaseModel):
     name: str
     niche: str | None = None
@@ -565,6 +571,49 @@ def api_move_clip(clip_id: uuid.UUID, req: ClipMove):
         c.folder_id = req.folder_id
         s.commit()
     return {"ok": True}
+
+
+@app.post("/api/clips/bulk-move")
+def api_bulk_move_clips(req: ClipBulk):
+    """Move a multi-selection into a folder (or out of one with folder_id=null)."""
+    moved = 0
+    with SessionLocal() as s:
+        for cid in req.ids:
+            c = s.get(Clip, cid)
+            _demo_owns_clip(c)
+            if c is None:
+                continue
+            c.folder_id = req.folder_id
+            moved += 1
+        s.commit()
+    return {"ok": True, "moved": moved}
+
+
+@app.post("/api/clips/bulk-delete")
+def api_bulk_delete_clips(req: ClipBulk):
+    """Delete a multi-selection in ONE pass (cleaning out rejected clips) — same cleanup as
+    the single-clip delete: rows cascade to segments, files/thumbs removed best-effort."""
+    stale: list[str] = []
+    deleted = 0
+    with SessionLocal() as s:
+        for cid in req.ids:
+            c = s.get(Clip, cid)
+            _demo_owns_clip(c)
+            if c is None:
+                continue
+            stale.append(os.path.join("var", "thumbs", f"{cid}.jpg"))
+            if c.r2_key and os.path.isabs(c.r2_key):
+                stale.append(c.r2_key)
+            s.delete(c)
+            deleted += 1
+        s.commit()
+    for p in stale:
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    return {"ok": True, "deleted": deleted}
 
 
 @app.delete("/api/clips/{clip_id}")

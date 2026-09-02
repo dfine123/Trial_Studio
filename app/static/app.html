@@ -257,6 +257,23 @@
     font-weight:600; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
   .thumb .prog { position:absolute; bottom:0; left:0; right:0; margin:0; border-radius:0; z-index:2; }
   .cdel { background:none; border:0; color:var(--faint); font-size:16px; line-height:1; cursor:pointer; transition:color var(--t), background var(--t), transform var(--t); }
+  /* library multi-select — bulk cleanup of rejected clips */
+  .libbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; min-height:30px; }
+  .libbar .lb-count { color:var(--faint); font-size:12px; margin-right:auto; }
+  .libbar .lb-actions { display:none; align-items:center; gap:8px; }
+  .libbar.on .lb-actions { display:flex; }
+  .libbar .btn[disabled] { opacity:.42; pointer-events:none; }
+  .thumb .cpick { position:absolute; top:7px; right:7px; z-index:3; display:none; align-items:center; justify-content:center;
+    width:23px; height:23px; padding:0; color:transparent; background:rgba(6,7,10,.55);
+    border:1.5px solid rgba(255,255,255,.5); border-radius:7px; cursor:pointer;
+    transition:color var(--t), background var(--t), border-color var(--t), transform var(--t); }
+  .thumb .cpick:hover { border-color:#fff; transform:scale(1.08); }
+  .grid.selecting .cpick { display:flex; }
+  .grid.selecting .cdel { display:none; }
+  .grid.selecting .clip { cursor:pointer; }
+  .grid.selecting .clip .move { pointer-events:none; opacity:.45; }
+  .clip.picked { border-color:var(--acc); box-shadow:var(--glow-ring); }
+  .clip.picked .cpick { color:#fff; background:var(--acc); border-color:var(--acc); }
   .clip-body { padding:12px 14px 14px; }
   .clip .sum { font-size:12.5px; color:var(--ink-soft); line-height:1.5; max-height:56px; overflow:hidden; }
   .chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
@@ -403,6 +420,16 @@
             <span class="uz-sub">mp4 / mov — they index automatically</span>
           </div>
           <input type="file" id="file" accept="video/*" multiple style="display:none" />
+          <div class="libbar" id="libbar">
+            <span class="lb-count" id="selcount"></span>
+            <div class="lb-actions">
+              <button class="btn btn-ghost btn-sm" id="selrejected">Select rejected</button>
+              <button class="btn btn-ghost btn-sm" id="selall">Select all</button>
+              <button class="btn btn-soft btn-sm needsel" id="selfolder">＋ Folder with selected</button>
+              <button class="btn btn-danger btn-sm needsel" id="seldel">Delete selected</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="seltoggle">Select</button>
+          </div>
           <div class="grid" id="cliplib"></div>
         </div>
       </div>
@@ -418,6 +445,7 @@ let libLoaded = false, gradeLoaded = false, reelsLoaded = false, labLoaded = fal
 let FOLDERS = [], selectedFolder = null;
 const IC_FOLDER = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h3.6l1.8 2h9.6A1.5 1.5 0 0121 9.5v8A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg>`;
 const IC_ALL = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>`;
+const IC_CHECK = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>`;
 const IC_FILM = `<svg class="thumb-fb" viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18M3 14.5h18M7.5 5v14M16.5 5v14"/></svg>`;
 
 // ---------- toasts ----------
@@ -631,6 +659,7 @@ async function deleteFolder(id) {
 }
 function selectFolder(id) {
   selectedFolder = id;
+  picked.clear();   // a selection that scrolled out of the view is a footgun on a destructive action
   const label = id == null ? 'All clips' : (id === 'none' ? 'Unfiled' : (FOLDERS.find(f => f.id === id)||{}).name || 'folder');
   document.getElementById('uptarget').textContent = label;
   renderFolderTree(); loadClips();
@@ -655,15 +684,94 @@ function clipCard(c) {
   const img = realId ? `<img class="thumb-img" src="/api/clips/${c.id}/thumb" loading="lazy" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'" />` : '';
   const dur = c.duration ? `<span class="dur">${c.duration}s</span>` : '';
   const body = `${c.summary ? `<div class="sum">${(c.summary||'').slice(0,160)}</div>` : ''}${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}${c.status === 'rejected' && c.rejection_reason ? `<div class="reject">✗ ${c.rejection_reason}</div>` : ''}${mv}`;
+  const pick = realId ? `<button class="cpick" data-cpick="${c.id}" aria-label="Select clip">${IC_CHECK}</button>` : '';
   return `<div class="clip" data-id="${c.id}">
-    <div class="thumb">${IC_FILM}${img}<span class="badge ${badge}">${c.status}</span><button class="cdel" data-cdel="${c.id}" title="Delete clip">×</button>${dur}${indexing ? '<div class="prog"><i></i></div>' : ''}</div>
+    <div class="thumb">${IC_FILM}${img}<span class="badge ${badge}">${c.status}</span><button class="cdel" data-cdel="${c.id}" title="Delete clip">×</button>${pick}${dur}${indexing ? '<div class="prog"><i></i></div>' : ''}</div>
     ${body.trim() ? `<div class="clip-body">${body}</div>` : ''}
   </div>`;
 }
 function wireCards() {
   document.querySelectorAll('.move').forEach(sel => sel.onchange = () => moveClip(sel.dataset.clip, sel.value || null));
   document.querySelectorAll('.cdel').forEach(b => b.onclick = () => deleteClip(b.dataset.cdel));
+  document.querySelectorAll('.cpick').forEach(b => b.onclick = (e) => { e.stopPropagation(); togglePick(b.dataset.cpick); });
+  document.querySelectorAll('#cliplib .clip').forEach(el => el.onclick = (e) => {
+    if (!selectMode || e.target.closest('.move') || e.target.closest('.cdel')) return;
+    if (!el.dataset.id || el.dataset.id.startsWith('tmp-')) return;
+    togglePick(el.dataset.id);
+  });
+  syncPicked();
 }
+
+// ---------- library multi-select (bulk cleanup) ----------
+const picked = new Set();
+let selectMode = false;
+function pickableIds(filter) {
+  return [...document.querySelectorAll('#cliplib .clip')]
+    .filter(el => el.dataset.id && !el.dataset.id.startsWith('tmp-') && (!filter || filter(el)))
+    .map(el => el.dataset.id);
+}
+function syncPicked() {
+  document.querySelectorAll('#cliplib .clip').forEach(el => el.classList.toggle('picked', picked.has(el.dataset.id)));
+  const n = picked.size;
+  const cnt = document.getElementById('selcount');
+  if (cnt) cnt.textContent = selectMode ? (n ? `${n} selected` : 'tap clips to select') : '';
+  document.querySelectorAll('.libbar .needsel').forEach(b => b.disabled = !n);
+}
+function togglePick(id) { picked.has(id) ? picked.delete(id) : picked.add(id); syncPicked(); }
+function setSelectMode(on) {
+  selectMode = on;
+  if (!on) picked.clear();
+  document.getElementById('cliplib').classList.toggle('selecting', on);
+  document.getElementById('libbar').classList.toggle('on', on);
+  const t = document.getElementById('seltoggle');
+  t.textContent = on ? 'Done' : 'Select';
+  t.classList.toggle('btn-ghost', !on); t.classList.toggle('btn-soft', on);
+  syncPicked();
+}
+async function deletePicked() {
+  const ids = [...picked];
+  if (!ids.length) return;
+  const ok = await modal({ title:`Delete ${ids.length} clip${ids.length > 1 ? 's' : ''}?`,
+    body:'This removes them from your library permanently.', confirmText:'Delete', danger:true });
+  if (!ok) return;
+  ids.forEach(id => { const el = document.querySelector(`.clip[data-id="${id}"]`); if (el) { el.style.opacity = '0'; el.style.transform = 'scale(.94)'; } });
+  let d;
+  try {
+    const r = await fetch('/api/clips/bulk-delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ ids }) });
+    if (!r.ok) throw new Error(r.status);
+    d = await r.json();
+  } catch (_) { toast('Delete failed', 'err'); loadClips(); return; }   // nothing gone -> put the cards back
+  picked.clear();
+  const n = d.deleted ?? ids.length;
+  setTimeout(() => { loadFolders(); loadClips(); loadStats(); }, 160);
+  toast(`${n} clip${n === 1 ? '' : 's'} deleted`);
+}
+async function folderFromPicked() {
+  const ids = [...picked];
+  if (!ids.length) return;
+  const name = await modal({ title:`New folder with ${ids.length} clip${ids.length > 1 ? 's' : ''}`,
+    input:{ placeholder:'Folder name' }, confirmText:'Create' });
+  if (!name) return;
+  const parent = (selectedFolder && selectedFolder !== 'none') ? selectedFolder : null;
+  try {
+    const f = await (await fetch('/api/folders', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ name, parent_id: parent }) })).json();
+    if (!f || !f.id) throw new Error('folder create failed');   // never move with a missing id — that unfiles them
+    const mv = await fetch('/api/clips/bulk-move', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ ids, folder_id: f.id }) });
+    if (!mv.ok) throw new Error(mv.status);
+    picked.clear();
+    await loadFolders(); loadClips();
+    toast(`${ids.length} clip${ids.length > 1 ? 's' : ''} moved into ${f.name}`);
+  } catch (_) { toast('Could not create the folder', 'err'); loadFolders(); loadClips(); }
+}
+document.getElementById('seltoggle').onclick = () => setSelectMode(!selectMode);
+document.getElementById('selall').onclick = () => { pickableIds().forEach(id => picked.add(id)); syncPicked(); };
+document.getElementById('selrejected').onclick = () => {
+  pickableIds(el => !!el.querySelector('.badge.b-bad')).forEach(id => picked.add(id)); syncPicked();
+};
+document.getElementById('seldel').onclick = deletePicked;
+document.getElementById('selfolder').onclick = folderFromPicked;
 async function deleteClip(id) {
   const ok = await modal({ title:'Delete clip?', body:'This removes it from your library permanently.', confirmText:'Delete', danger:true });
   if (!ok) return;
