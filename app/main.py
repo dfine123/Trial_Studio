@@ -2059,8 +2059,7 @@ def api_tl_index(request: Request):
                 # exercise the REAL analyze path (asset upload -> pegasus1.5)
                 path = row.r2_key if (row.r2_key and os.path.exists(row.r2_key)) else None
                 try:
-                    got = tl.analyze_clip(c, row.twelvelabs_video_id, max_tokens=200,
-                                          video_path=path)
+                    got = tl.analyze_clip(c, row.twelvelabs_video_id, video_path=path)
                     out["analyze"] = {"ok": True, "via": "asset" if path else "video_id",
                                       "keys": sorted(list(got))[:6]}
                 except Exception as exc:  # noqa: BLE001
