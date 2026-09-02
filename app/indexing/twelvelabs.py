@@ -158,7 +158,25 @@ def _analyze_asset(c: TwelveLabs, video_path: str):
     with open(video_path, "rb") as fh:
         asset = c.assets.create(method="direct", file=fh,
                                 filename=os.path.basename(video_path))
-    return getattr(asset, "id", None) or getattr(asset, "asset_id", None)
+    asset_id = getattr(asset, "id", None) or getattr(asset, "asset_id", None)
+    if not asset_id:
+        raise TwelveLabsError("assets.create returned no id")
+    # an asset is processed after upload; analysing too early returns asset_not_ready
+    deadline = time.time() + 300.0
+    delay = 2.0
+    while time.time() < deadline:
+        status = ""
+        try:
+            status = str(getattr(c.assets.retrieve(asset_id), "status", "") or "").lower()
+        except Exception:  # noqa: BLE001 — transient read; keep polling
+            pass
+        if status in ("ready", "available", "completed", "done"):
+            return asset_id
+        if status in ("failed", "error"):
+            raise TwelveLabsError(f"asset {asset_id} failed to process")
+        time.sleep(delay)
+        delay = min(delay * 1.4, 10.0)
+    raise TwelveLabsError(f"asset {asset_id} not ready after 300s")
 
 
 def analyze_clip(
