@@ -2024,9 +2024,31 @@ def api_tl_index(request: Request):
                     listed.append({"name": nm, "id": idx.id,
                                    "models": sorted(tl._index_models(idx))})
         out["existing"] = listed
-        out["will_use"] = tl.ensure_index(c)
+        if request.query_params.get("probe"):
+            # find a model combination the account can actually create
+            trials = []
+            for mg in ("marengo3.0", "marengo2.7"):
+                for pg in ("pegasus1.5", "pegasus1.2"):
+                    for opts in (["visual", "audio"], ["visual"]):
+                        nm = f"probe-{mg}-{pg}-{'-'.join(opts)}".replace(".", "")[:40]
+                        try:
+                            r = c.indexes.create(index_name=nm, models=[
+                                {"model_name": mg, "model_options": opts},
+                                {"model_name": pg, "model_options": opts}])
+                            trials.append({"marengo": mg, "pegasus": pg, "opts": opts,
+                                           "ok": True, "id": r.id})
+                            try:
+                                c.indexes.delete(r.id)
+                            except Exception:  # noqa: BLE001
+                                pass
+                        except Exception as exc:  # noqa: BLE001
+                            trials.append({"marengo": mg, "pegasus": pg, "opts": opts,
+                                           "ok": False, "err": str(exc)[-400:]})
+            out["probe"] = trials
+        else:
+            out["will_use"] = tl.ensure_index(c)
     except Exception as exc:  # noqa: BLE001
-        out["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+        out["error"] = f"{type(exc).__name__}: {str(exc)[-900:]}"
     return out
 
 
