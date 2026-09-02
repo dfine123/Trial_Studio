@@ -38,65 +38,35 @@ def client() -> TwelveLabs:
 
 
 # ── Index ────────────────────────────────────────────────────
-def _index_models(idx) -> set[str]:
-    """The model names enabled on an existing index (SDK returns objects or dicts)."""
-    out: set[str] = set()
-    for m in (getattr(idx, "models", None) or []):
-        n = getattr(m, "model_name", None)
-        if n is None and isinstance(m, dict):
-            n = m.get("model_name")
-        if n:
-            out.add(str(n))
-    return out
-
-
 def ensure_index(c: TwelveLabs, name: str | None = None) -> str:
-    """Return the id of the named index, creating it (Marengo + Pegasus) if absent.
+    """Return the id of the named search index, creating it if absent.
 
-    An index carries the models it was CREATED with, so when TwelveLabs sunsets a generative
-    model (pegasus1.2, 2026-09-02) the long-lived index keeps pointing at a dead one and every
-    analyze call 400s. If the existing index does not carry the configured Pegasus model we move
-    to a name versioned by that model instead — self-healing, and it leaves already-indexed
-    clips untouched (their summaries and embeddings live in our own database, not in the index)."""
+    TwelveLabs split the two jobs (2026-09): an INDEX now carries the search/embedding model
+    only — "pegasus1.5 analyzes video directly on POST /analyze and needs no index; for search
+    indexing, use marengo3.0" (their own 400 body). Passing any Pegasus model here is rejected,
+    which is what broke indexing after pegasus1.2 was sunset."""
     name = name or settings.twelvelabs_index_name
-    want = settings.tl_pegasus_model
     try:
         for idx in c.indexes.list(index_name=name, page_limit=10):
             if getattr(idx, "index_name", None) == name:
-                models = _index_models(idx)
-                if not models or want in models:
-                    return idx.id
-                name = f"{name}-{want.replace('.', '')}"
-                break
+                return idx.id
     except Exception:  # noqa: BLE001 — listing is a convenience; fall through to create
         pass
-    try:                       # the versioned index may already exist from an earlier run
-        for idx in c.indexes.list(index_name=name, page_limit=10):
-            if getattr(idx, "index_name", None) == name:
-                return idx.id
-    except Exception:  # noqa: BLE001
-        pass
 
-    marengo_candidates = [settings.tl_marengo_model, "marengo3.0", "marengo2.7"]
-    pegasus_candidates = [settings.tl_pegasus_model, "pegasus1.5"]
     last_err: Exception | None = None
-    seen: set[tuple[str, str]] = set()
-    for marengo in marengo_candidates:
-        for pegasus in pegasus_candidates:
-            if (marengo, pegasus) in seen:
-                continue
-            seen.add((marengo, pegasus))
-            try:
-                resp = c.indexes.create(
-                    index_name=name,
-                    models=[
-                        {"model_name": marengo, "model_options": ["visual", "audio"]},
-                        {"model_name": pegasus, "model_options": ["visual", "audio"]},
-                    ],
-                )
-                return resp.id
-            except Exception as exc:  # noqa: BLE001
-                last_err = exc
+    seen: set[str] = set()
+    for marengo in [settings.tl_marengo_model, "marengo3.0", "marengo2.7"]:
+        if marengo in seen:
+            continue
+        seen.add(marengo)
+        try:
+            resp = c.indexes.create(
+                index_name=name,
+                models=[{"model_name": marengo, "model_options": ["visual", "audio"]}],
+            )
+            return resp.id
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
     raise TwelveLabsError(f"could not create index {name!r}: {last_err}")
 
 

@@ -2022,7 +2022,7 @@ def api_tl_index(request: Request):
             for idx in c.indexes.list(index_name=nm, page_limit=10):
                 if getattr(idx, "index_name", None) == nm:
                     listed.append({"name": nm, "id": idx.id,
-                                   "models": sorted(tl._index_models(idx))})
+                                   "models": "n/a"})
         out["existing"] = listed
         if request.query_params.get("probe"):
             # find a model combination the account can actually create
