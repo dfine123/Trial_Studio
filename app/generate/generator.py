@@ -33,6 +33,9 @@ from app.render.compositor import compose_reel, compose_template_reel
 
 
 _CLIP_USAGE_PATH = "var/clip_usage.json"
+_OPENER_PATH = "var/clip_openers.json"       # {profile_id: [most-recent-first opening clip ids]}
+_OPENER_MEMORY = 6                           # how many reels back an opener is still "just used"
+_OPENER_PENALTY = 6.0                        # cost for the LAST opener, decaying to ~1 across the window
 _USAGE_IO_LOCK = threading.Lock()   # parallel batch renders: guards the usage-file read-modify-write
                                     # AND the shared in-batch clip ledger
 
@@ -56,6 +59,51 @@ def _log_clip_usage(clip_ids: list[str]) -> None:
         with open(tmp, "w") as fh:
             json.dump(usage, fh)
         os.replace(tmp, _CLIP_USAGE_PATH)
+
+
+def _recent_openers() -> list[str]:
+    """The clips that OPENED this profile's last few reels, most recent first."""
+    from app import profiles
+    try:
+        with open(_OPENER_PATH) as fh:
+            return (json.load(fh).get(str(profiles.active_id())) or [])[:_OPENER_MEMORY]
+    except Exception:  # noqa: BLE001 — a missing/corrupt ledger just means no penalty
+        return []
+
+
+def _log_opener(clip_id: str) -> None:
+    from app import profiles
+    with _USAGE_IO_LOCK:
+        try:
+            with open(_OPENER_PATH) as fh:
+                data = json.load(fh)
+        except Exception:  # noqa: BLE001
+            data = {}
+        key = str(profiles.active_id())
+        data[key] = ([clip_id] + [c for c in (data.get(key) or []) if c != clip_id])[:24]
+        os.makedirs(os.path.dirname(_OPENER_PATH) or ".", exist_ok=True)
+        tmp = _OPENER_PATH + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(data, fh)
+        os.replace(tmp, _OPENER_PATH)
+
+
+def _opener_penalty() -> dict[str, float]:
+    """THE OPENING SHOT IS WHERE REPETITION IS MOST VISIBLE (operator, 2026-09-04: CopyCat opened
+    five reels in a row on the same clip).
+
+    Slot 1 is the one slot with no variety machinery at all: nothing is playing yet, so the
+    coherence/continuity/near-duplicate terms are all inert and the cost is essentially the
+    ranker's fit position. The coherent ranker is asked for the strongest clip FAMILY, and for a
+    given library that family is the same one caption after caption — so `ranked[0]` barely moves
+    and cross-reel rotation (capped at ~1.6 points, maxed out after two uses) can't shift it.
+
+    This is a targeted cost on the clips that opened the RECENT reels, big enough to actually
+    displace a repeat opener and decaying across the window so a clip comes back naturally. It
+    applies to the FIRST slot only — the rest of the reel still follows the opening shot's scene.
+    """
+    return {cid: _OPENER_PENALTY * (1.0 - i / _OPENER_MEMORY)
+            for i, cid in enumerate(_recent_openers())}
 
 
 def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 2) -> dict[str, int]:
@@ -543,7 +591,7 @@ def generate_reel(
             usage[cid] = usage.get(cid, 0) + 3 * cnt
     _sel = dict(caption_vibe_tags=caption_vibe, usage=usage, clip_emb=clip_emb,
                 clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
-                coherent=coherent_clips,
+                coherent=coherent_clips, opener_penalty=_opener_penalty(),
                 # cooler sampling: the ranker's best fit should usually WIN, with variation
                 # coming from real caption-to-caption differences rather than dice among the few
                 temperature=0.8 if coherent_clips else 0.7)
@@ -568,6 +616,8 @@ def generate_reel(
             if len(rest) == len(slots) - 1:
                 chosen = opening + rest
     _log_clip_usage([c["clip_id"] for c in chosen])
+    if chosen:
+        _log_opener(chosen[0]["clip_id"])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:
             for c in chosen:
@@ -697,6 +747,8 @@ def generate_dynamic_reel(
         chosen = select_segments(sp_slots, sp_segs, fit_rank=fit_rank, usage=usage,
                                  clip_emb=clip_emb, clip_dur=clip_dur, clip_text=clip_text,
                                  clip_meta=clip_meta,
+                                 # only the FIRST span opens the reel
+                                 opener_penalty=_opener_penalty() if not chosen_all else None,
                                  # the world holds across the caption change even though the
                                  # mood shifts — seed continuity from the previous span's last shot
                                  prev_seg_in=(chosen_all[-1] if chosen_all else None),
@@ -706,6 +758,8 @@ def generate_dynamic_reel(
         used_ids.update(c["clip_id"] for c in chosen)
         chosen_all.extend(chosen)
     _log_clip_usage([c["clip_id"] for c in chosen_all])
+    if chosen_all:
+        _log_opener(chosen_all[0]["clip_id"])
 
     sources = _resolve_sources(chosen_all, clip_dur)
     video_chunks = [

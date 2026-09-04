@@ -186,6 +186,7 @@ def select_segments(
     clip_meta: dict[str, dict] | None = None,
     coherent: bool = False,
     prev_seg_in: dict | None = None,
+    opener_penalty: dict[str, float] | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -231,10 +232,17 @@ def select_segments(
         v = (meta.get(cid) or {}).get("time_of_day") or ""
         return v if v not in ("unknown", "") else ""
 
+    openers = opener_penalty or {}
+
     def cost(s: dict, clip_used: dict[str, int], used_vecs: list[tuple[str, list]],
              prev: dict | None = None) -> float:
         cid = s["clip_id"]
+        # OPENING SHOT ONLY (nothing playing yet, no shot before it): every other slot has the
+        # coherence + continuity terms doing the work; this one had only the fit rank, so the
+        # same clip opened reel after reel. See generator._opener_penalty.
+        opener = openers.get(cid, 0.0) if (not used_vecs and prev is None) else 0.0
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
+                + opener                                           # opened a recent reel
                 + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
                 + 0.8 * usage.get(cid, 0)                          # rotation: a TIEBREAK only
                 - _freshness(cid)                                  # newly uploaded, decaying

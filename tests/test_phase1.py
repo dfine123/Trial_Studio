@@ -1177,6 +1177,64 @@ def fit_ranker_seats_the_newest_clips():
     assert len(set(out)) == 160
 
 
+@test
+def opener_rotates_across_reels():
+    """CopyCat opened five reels in a row on the same clip: slot 1 has no coherence/continuity
+    terms, so the ranker's #1 won every time. The recent-opener cost must move the opening shot
+    while leaving the REST of the reel to the fit ranker."""
+    import random as _random
+    from app.generate.sequencer import Slot, select_segments
+    clips = [f"c{i}" for i in range(6)]
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in clips]
+    fit = {c: i for i, c in enumerate(clips)}          # c0 is always the ranker's best fit
+    dur = {c: 8.0 for c in clips}
+
+    def opens(pen, seed):
+        _random.seed(seed)
+        return select_segments([Slot(0, 0.0, 2.0)], segs, fit_rank=fit, clip_dur=dur,
+                               temperature=0.8, opener_penalty=pen)[0]["clip_id"]
+
+    # WITHOUT the penalty the best fit opens nearly every reel — the reported failure
+    base = [opens(None, s) for s in range(12)]
+    assert base.count("c0") >= 9, base
+    # WITH c0 as the last opener it is displaced every time; a clip 4 reels back is not
+    pen = {"c0": 6.0}
+    assert [opens(pen, s) for s in range(12)].count("c0") == 0
+    faded = {"c0": 6.0 * (1 - 4 / 6)}                  # four reels ago: ~2.0, a nudge not a ban
+    assert [opens(faded, s) for s in range(12)].count("c0") > 0
+
+    # the penalty is OPENING-ONLY: with a shot already playing it must not apply
+    _random.seed(1)
+    later = select_segments([Slot(0, 0.0, 2.0)], segs, fit_rank=fit, clip_dur=dur,
+                            temperature=0.8, opener_penalty={"c0": 6.0},
+                            prev_seg_in={"clip_id": "c5", "luminance": 0.5})
+    _random.seed(1)
+    plain = select_segments([Slot(0, 0.0, 2.0)], segs, fit_rank=fit, clip_dur=dur,
+                            temperature=0.8, prev_seg_in={"clip_id": "c5", "luminance": 0.5})
+    assert later[0]["clip_id"] == plain[0]["clip_id"], "opener cost leaked into a later slot"
+
+
+@test
+def opener_ledger_is_per_profile_and_decays():
+    """The ledger keeps the most-recent openers first, never duplicates a clip, and turns into a
+    decaying cost with the last opener worth the most."""
+    from app import profiles
+    from app.generate import generator as gen
+    with tempfile.TemporaryDirectory() as td:
+        with patched(gen, _OPENER_PATH=os.path.join(td, "openers.json")), \
+             patched(profiles, active_id=lambda: "profile-1"):
+            for cid in ("a", "b", "c", "a"):           # 'a' opens again: it moves to the front
+                gen._log_opener(cid)
+            recent = gen._recent_openers()
+            assert recent[:3] == ["a", "c", "b"], recent
+            assert recent.count("a") == 1
+            pen = gen._opener_penalty()
+            assert pen["a"] > pen["c"] > pen["b"] > 0, pen
+            assert pen["a"] == gen._OPENER_PENALTY
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:
