@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import random
+import time
 from dataclasses import dataclass
 
 from app.config import settings
@@ -164,6 +165,8 @@ def _same_subject(a: set[str], b: set[str], thr: float = 0.5) -> bool:
 
 
 _FAMILY_SIM = 0.45   # cosine at/above which two clips read as the SAME scene family (recreations)
+_FRESH_DAYS = 21.0        # a clip is "new" for three weeks, linearly decaying
+_FRESH_BONUS = 3.0        # head start at upload, in fit-rank positions (0.8/use rotation scale)
 _NEAR_DUP = 0.82     # at/above this two clips read as the same shot — redundant, not coherent
 _SAME_WORLD = 0.35   # at/above this they read as the same world/aesthetic — the sweet spot
 _LUM_JUMP = 0.35     # brightness delta between consecutive shots that reads as a broken cut
@@ -208,6 +211,22 @@ def select_segments(
 
     meta = clip_meta or {}
 
+    # FRESHNESS (2026-09-04, operator: newly uploaded footage must actually get used). Rotation
+    # only stops a clip being over-picked; it gives a brand-new clip no pull of its own, so good
+    # new footage could sit at zero uses behind clips with hundreds of reels of momentum. This is
+    # a bounded head start that DECAYS to nothing over _FRESH_DAYS — worth a few fit positions on
+    # a clip that already fits, never enough to seat one that doesn't.
+    _now = time.time()
+
+    def _freshness(cid: str) -> float:
+        ts = (meta.get(cid) or {}).get("created_ts")
+        if not ts:
+            return 0.0
+        age_days = max(0.0, (_now - float(ts)) / 86400.0)
+        if age_days >= _FRESH_DAYS:
+            return 0.0
+        return _FRESH_BONUS * (1.0 - age_days / _FRESH_DAYS)
+
     def _tod(cid: str) -> str:
         v = (meta.get(cid) or {}).get("time_of_day") or ""
         return v if v not in ("unknown", "") else ""
@@ -218,6 +237,7 @@ def select_segments(
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
                 + 0.8 * usage.get(cid, 0)                          # rotation: a TIEBREAK only
+                - _freshness(cid)                                  # newly uploaded, decaying
                 - 0.7 * vibe_score(s)                              # audio-vibe bonus
                 - 0.5 * (s.get("usability_score") or 0.0))         # clip-quality bonus
         if used_vecs and clip_emb:

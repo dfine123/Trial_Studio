@@ -1114,6 +1114,69 @@ def autosync_off_when_disabled():
         assert drive_sync.start_autosync() is False
 
 
+@test
+def fresh_clips_get_a_decaying_head_start():
+    """A newly uploaded clip beats an equally-fitting veteran, the edge DECAYS to nothing over
+    three weeks, and it can never seat a clip the caption doesn't fit."""
+    import random as _random
+    import time as _time
+    from app.generate.sequencer import Slot, select_segments
+    now = _time.time()
+    day = 86400.0
+    meta = {
+        "old":   {"created_ts": now - 200 * day},
+        "new":   {"created_ts": now - 1 * day},
+        "stale": {"created_ts": now - 30 * day},     # past the 21-day window: no bonus left
+    }
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in meta]
+    slots = [Slot(0, 0.0, 2.0)]
+    dur = {c: 8.0 for c in meta}
+
+    def pick(fit, seed=3):
+        """Selection over EXACTLY the clips named in `fit` (an unranked clip would ride in on
+        worst_fit + its own freshness and muddy what is being measured)."""
+        pool = [x for x in segs if x["clip_id"] in fit]
+        _random.seed(seed)
+        return select_segments(slots, pool, fit_rank=fit, clip_dur=dur, clip_meta=meta,
+                               temperature=0.05)[0]["clip_id"]
+
+    # equal fit -> the new clip wins on freshness alone
+    assert pick({"old": 0, "new": 0, "stale": 0}) == "new"
+    # 30 days old is past the window: no bonus left, so it can't beat the veteran it ties with
+    assert pick({"old": 0, "stale": 0}) == "old"
+    # FIT STILL LEADS: a 3.0 head start cannot buy more than a few positions
+    assert pick({"old": 0, "new": 8}) == "old"
+
+
+@test
+def fit_ranker_seats_the_newest_clips():
+    """The quality-capped listing must never hide fresh footage: with a library well over the
+    cap, every one of the newest clips is still offered to the ranker."""
+    import time as _time
+    from app.generate import generator as gen
+    now = _time.time()
+    # 300 clips: the newest 50 are the WORST quality, so a quality-only cap would drop them all
+    meta, quality = {}, {}
+    for i in range(300):
+        cid = f"c{i:03}"
+        fresh = i >= 250
+        # distinct timestamps: ties in "newest" would make the reserve's cut arbitrary
+        meta[cid] = {"summary": f"clip {i}", "vibe_tags": [], "setting": "", "time_of_day": "",
+                     "created_ts": now - (400 * 86400.0) + i * 3600.0}
+        quality[cid] = 0.01 if fresh else 0.9   # newest = worst quality, so a quality cap drops them
+    def _boom(*a, **k):
+        raise RuntimeError("ranker offline")   # forces the quality-order fallback over `items`
+    with patched(gen, complete_json=_boom):
+        out = gen._match_clips_to_caption("caption", meta, clip_quality=quality, max_clips=160)
+    assert len(out) == 160, len(out)
+    newest = {f"c{i:03}" for i in range(260, 300)}      # the _RECENT_RESERVE = 40 newest
+    assert newest <= set(out), sorted(newest - set(out))
+    # and the cap is still honoured — the reserve displaces older clips, it doesn't add slots
+    assert len(set(out)) == 160
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

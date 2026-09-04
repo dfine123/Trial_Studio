@@ -238,6 +238,9 @@ def _load_segments(clip_ids: list[str] | None = None):
             "summary": clip.summary, "setting": clip.setting,
             "vibe_tags": clip.vibe_tags or [], "time_of_day": clip.time_of_day,
             "camera_movement": clip.camera_movement,
+            # epoch seconds, not a datetime — this dict is JSON-dumped on several paths.
+            # Consumed by the fit-ranker's recent reserve and the selector's freshness bonus.
+            "created_ts": clip.created_at.timestamp() if clip.created_at else None,
         }
         if clip.embedding:
             clip_emb[cid] = clip.embedding
@@ -282,6 +285,9 @@ _MATCH_COHERENT_SYS = """You match b-roll CLIPS to a CAPTION for a 9:16 reel tha
 Return ONLY JSON, no prose: {"ranked": [clip indices, best-fit FIRST, every index included]}"""
 
 
+_RECENT_RESERVE = 40      # newest clips guaranteed a seat in the fit-ranker listing
+
+
 def _match_clips_to_caption(caption_text: str, clip_meta: dict,
                             clip_quality: dict[str, float] | None = None,
                             max_clips: int = 160, coherent: bool = False,
@@ -302,7 +308,21 @@ def _match_clips_to_caption(caption_text: str, clip_meta: dict,
     items = sorted(clip_meta.items(), key=lambda kv: (-q.get(kv[0], 0.0), kv[0]))
     if len(items) <= 1:
         return [cid for cid, _ in items]
-    items = items[:max_clips]
+    if len(items) > max_clips:
+        # RECENT RESERVE (2026-09-04): a quality-only cap hides a creator's NEWEST footage behind
+        # a backlog of older clips — the ranker never sees it, so no reel can use it however well
+        # it fits. The newest _RECENT_RESERVE clips are seated first, the rest of the cap fills on
+        # quality as before. The final order stays (quality desc, id) so the listing keeps riding
+        # the prompt cache; it only re-writes when new clips actually arrive.
+        recent = sorted(clip_meta.items(),
+                        key=lambda kv: -((kv[1] or {}).get("created_ts") or 0.0))
+        seated = {cid for cid, _ in recent[:_RECENT_RESERVE]}
+        head = [kv for kv in items if kv[0] in seated]
+        rest = [kv for kv in items if kv[0] not in seated]
+        items = sorted(head + rest[: max(0, max_clips - len(head))],
+                       key=lambda kv: (-q.get(kv[0], 0.0), kv[0]))
+    else:
+        items = items[:max_clips]
     lines = []
     for i, (_cid, m) in enumerate(items):
         summ = (m.get("summary") or "").strip().replace("\n", " ")[:160]
