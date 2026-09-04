@@ -1235,6 +1235,72 @@ def opener_ledger_is_per_profile_and_decays():
             assert pen["a"] == gen._OPENER_PENALTY
 
 
+@test
+def opener_is_barred_not_merely_penalised():
+    """The decaying cost was still out-argued by the coherent ranker's stable #1. A clip that
+    opened any of the last few reels cannot open the next one at all — unless barring it would
+    leave too little to choose from."""
+    import random as _random
+    from app.generate.sequencer import Slot, select_segments
+    clips = [f"c{i}" for i in range(6)]
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in clips]
+    fit = {c: i for i, c in enumerate(clips)}          # c0 is always the ranker's #1
+    dur = {c: 8.0 for c in clips}
+
+    def opens(block, pool=None, seed=0):
+        _random.seed(seed)
+        return select_segments([Slot(0, 0.0, 2.0)], pool or segs, fit_rank=fit, clip_dur=dur,
+                               temperature=0.8, opener_block=block)[0]["clip_id"]
+
+    # 20 reels running, the last five openers barred: the #1 clip never opens
+    assert {opens({"c0", "c1"}, seed=s) for s in range(20)}.isdisjoint({"c0", "c1"})
+    # a two-clip library still renders — the bar is dropped rather than emptying the pool
+    tiny = [x for x in segs if x["clip_id"] in ("c0", "c1")]
+    assert opens({"c0", "c1"}, pool=tiny) in ("c0", "c1")
+
+
+@test
+def recent_reels_window_forgets():
+    """Pressure lands on what is being over-played RIGHT NOW: a clip in the last few reels pays,
+    and stops paying once it rolls out of the window (the cumulative ledger could never do this —
+    it capped out after two uses and never forgot)."""
+    from app.generate import generator as gen
+    window = [["a", "b"], ["a", "c"], ["a", "d"]]      # 'a' in all three recent reels
+    pen = gen._recent_use_penalty(window)
+    assert pen["a"] == 3 * gen._RECENT_WEIGHT
+    assert pen["b"] == gen._RECENT_WEIGHT
+    assert "z" not in pen                              # never played recently -> no cost at all
+    # the penalty must be big enough to beat the fit gap it has to overcome
+    assert gen._RECENT_WEIGHT >= 2.0
+    # a clip repeated within ONE reel is counted once (per-reel presence, not shot count)
+    assert gen._recent_use_penalty([["a", "a", "a"]])["a"] == gen._RECENT_WEIGHT
+
+
+@test
+def recent_penalty_moves_the_pick_but_fit_still_leads():
+    """The window penalty displaces an over-played clip, and a clip that hasn't played wins —
+    but a genuinely bad fit still never plays."""
+    import random as _random
+    from app.generate.sequencer import Slot, select_segments
+    clips = [f"c{i}" for i in range(6)]
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in clips]
+    dur = {c: 8.0 for c in clips}
+    fit = {c: i for i, c in enumerate(clips)}
+    # c0 played in the last 3 reels, c1 in the last 2 -> c2 (never recent) should take over
+    pen = {"c0": 7.5, "c1": 5.0}
+    _random.seed(0)
+    picks = [select_segments([Slot(0, 0.0, 2.0)], segs, fit_rank=fit, clip_dur=dur,
+                             temperature=0.8, recent_penalty=pen)[0]["clip_id"]
+             for _ in range(15)]
+    assert picks.count("c2") > picks.count("c0"), picks
+    # a clip the ranker put 5 positions down does NOT win just for being unplayed
+    assert "c5" not in picks[:5] or picks.count("c5") < picks.count("c2")
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

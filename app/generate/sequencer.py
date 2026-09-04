@@ -187,6 +187,8 @@ def select_segments(
     coherent: bool = False,
     prev_seg_in: dict | None = None,
     opener_penalty: dict[str, float] | None = None,
+    opener_block: set[str] | None = None,
+    recent_penalty: dict[str, float] | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -233,6 +235,8 @@ def select_segments(
         return v if v not in ("unknown", "") else ""
 
     openers = opener_penalty or {}
+    recent = recent_penalty or {}
+    blocked = opener_block or set()
 
     def cost(s: dict, clip_used: dict[str, int], used_vecs: list[tuple[str, list]],
              prev: dict | None = None) -> float:
@@ -243,6 +247,7 @@ def select_segments(
         opener = openers.get(cid, 0.0) if (not used_vecs and prev is None) else 0.0
         base = (fit_rank.get(cid, worst_fit)                       # caption fit LEADS (0 = best)
                 + opener                                           # opened a recent reel
+                + recent.get(cid, 0.0)                             # played in the last few reels
                 + (8.0 if coherent else 4.0) * clip_used.get(cid, 0)   # distinct shots within a reel
                 + 0.8 * usage.get(cid, 0)                          # rotation: a TIEBREAK only
                 - _freshness(cid)                                  # newly uploaded, decaying
@@ -381,6 +386,15 @@ def select_segments(
             clean = [s for s in cands if not _dup(s) and not _breaks(s)]
             cands = clean or cands
         cands = cands or [s for s in pool if s["clip_id"] != prev_clip] or pool
+        # OPENING SHOT: a clip that opened a recent reel is BARRED, not merely penalised — the
+        # coherent ranker names the same best-fitting family every time, so a scalar cost kept
+        # losing to it. Honoured only while real alternatives remain, so a tiny library still
+        # renders (the operator's rule: pressure never becomes exclusion when it would empty
+        # the pool).
+        if blocked and not chosen and prev_seg is None:
+            open_cands = [s for s in cands if s["clip_id"] not in blocked]
+            if len(open_cands) >= 3:
+                cands = open_cands
         scored = sorted(((cost(s, clip_used, used_vecs, prev_seg), s) for s in cands),
                         key=lambda cs: cs[0])
         scored = scored[:6]   # sample within the top fits only — a bad fit never plays

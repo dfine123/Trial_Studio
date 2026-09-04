@@ -36,6 +36,10 @@ _CLIP_USAGE_PATH = "var/clip_usage.json"
 _OPENER_PATH = "var/clip_openers.json"       # {profile_id: [most-recent-first opening clip ids]}
 _OPENER_MEMORY = 6                           # how many reels back an opener is still "just used"
 _OPENER_PENALTY = 6.0                        # cost for the LAST opener, decaying to ~1 across the window
+_RECENT_PATH = "var/clip_recent.json"        # {profile_id: [[clip ids of the last reel], [the one before], …]}
+_RECENT_REELS = 8                            # window of reels the selector remembers
+_RECENT_WEIGHT = 2.5                         # cost per recent reel a clip appeared in
+_OPENER_BLOCK = 5                            # a clip that opened any of the last N reels cannot open again
 _USAGE_IO_LOCK = threading.Lock()   # parallel batch renders: guards the usage-file read-modify-write
                                     # AND the shared in-batch clip ledger
 
@@ -104,6 +108,63 @@ def _opener_penalty() -> dict[str, float]:
     """
     return {cid: _OPENER_PENALTY * (1.0 - i / _OPENER_MEMORY)
             for i, cid in enumerate(_recent_openers())}
+
+
+def _opener_block() -> set[str]:
+    """Clips that opened any of the last _OPENER_BLOCK reels — BARRED from opening the next one.
+
+    The decaying cost alone was still out-argued: the coherent ranker names the same strongest
+    family caption after caption, so its #1 came back on top even carrying the penalty. An
+    opening shot repeating five reels running is the single most visible failure in the output,
+    so this one is a hard constraint rather than a nudge — the selector only honours it while
+    real alternatives remain (see sequencer.select_segments).
+    """
+    return set(_recent_openers()[:_OPENER_BLOCK])
+
+
+def _recent_reels() -> list[list[str]]:
+    """The clip sets of this profile's last _RECENT_REELS reels, most recent first."""
+    from app import profiles
+    try:
+        with open(_RECENT_PATH) as fh:
+            return (json.load(fh).get(str(profiles.active_id())) or [])[:_RECENT_REELS]
+    except Exception:  # noqa: BLE001 — missing/corrupt ledger just means no pressure
+        return []
+
+
+def _log_reel_picks(clip_ids: list[str]) -> None:
+    """Append one reel's clips to the rolling window (the ledger the selector actually reasons on)."""
+    from app import profiles
+    with _USAGE_IO_LOCK:
+        try:
+            with open(_RECENT_PATH) as fh:
+                data = json.load(fh)
+        except Exception:  # noqa: BLE001
+            data = {}
+        key = str(profiles.active_id())
+        data[key] = ([list(dict.fromkeys(clip_ids))] + (data.get(key) or []))[:_RECENT_REELS]
+        os.makedirs(os.path.dirname(_RECENT_PATH) or ".", exist_ok=True)
+        tmp = _RECENT_PATH + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(data, fh)
+        os.replace(tmp, _RECENT_PATH)
+
+
+def _recent_use_penalty(window: list[list[str]] | None = None) -> dict[str, float]:
+    """A clip that played in the LAST FEW REELS steps aside for one that hasn't.
+
+    The cumulative `usage` ledger could never do this job: it counts a clip's whole lifetime, is
+    normalised against the pool floor and capped at ~1.6 cost points — maxed out after two uses,
+    so a clip in its 130th reel was penalised exactly as much as one in its third, and neither
+    penalty was big enough to beat a single rank position. This window is the opposite shape:
+    it forgets, so pressure lands ONLY on what is actually being over-played right now, and it
+    is big enough (2.5 per recent reel) to move a repeat off the top.
+    """
+    counts: dict[str, float] = {}
+    for reel in (_recent_reels() if window is None else window):
+        for cid in set(reel):
+            counts[cid] = counts.get(cid, 0.0) + _RECENT_WEIGHT
+    return counts
 
 
 def _rotation_pressure(usage: dict[str, int], pool_ids: set[str], cap: int = 2) -> dict[str, int]:
@@ -592,6 +653,7 @@ def generate_reel(
     _sel = dict(caption_vibe_tags=caption_vibe, usage=usage, clip_emb=clip_emb,
                 clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
                 coherent=coherent_clips, opener_penalty=_opener_penalty(),
+                opener_block=_opener_block(), recent_penalty=_recent_use_penalty(),
                 # cooler sampling: the ranker's best fit should usually WIN, with variation
                 # coming from real caption-to-caption differences rather than dice among the few
                 temperature=0.8 if coherent_clips else 0.7)
@@ -618,6 +680,7 @@ def generate_reel(
     _log_clip_usage([c["clip_id"] for c in chosen])
     if chosen:
         _log_opener(chosen[0]["clip_id"])
+        _log_reel_picks([c["clip_id"] for c in chosen])
     if batch_clip_used is not None:
         with _USAGE_IO_LOCK:
             for c in chosen:
@@ -749,6 +812,8 @@ def generate_dynamic_reel(
                                  clip_meta=clip_meta,
                                  # only the FIRST span opens the reel
                                  opener_penalty=_opener_penalty() if not chosen_all else None,
+                                 opener_block=_opener_block() if not chosen_all else None,
+                                 recent_penalty=_recent_use_penalty(),
                                  # the world holds across the caption change even though the
                                  # mood shifts — seed continuity from the previous span's last shot
                                  prev_seg_in=(chosen_all[-1] if chosen_all else None),
@@ -760,6 +825,7 @@ def generate_dynamic_reel(
     _log_clip_usage([c["clip_id"] for c in chosen_all])
     if chosen_all:
         _log_opener(chosen_all[0]["clip_id"])
+        _log_reel_picks([c["clip_id"] for c in chosen_all])
 
     sources = _resolve_sources(chosen_all, clip_dur)
     video_chunks = [
