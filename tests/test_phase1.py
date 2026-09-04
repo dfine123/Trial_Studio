@@ -1060,6 +1060,60 @@ def wall_deck_cycles_full_pool():
         assert sorted(_deal(["a", "b"], 5, f)) == ["a", "b"]
 
 
+@test
+def autosync_drains_backlog_then_stops():
+    """The poller keeps pulling a folder while files are still queued behind it, stops as soon as
+    nothing is, and never exceeds its pass budget (so one cycle can't run away with the box)."""
+    from app.drive import sync as drive_sync
+
+    class _Conn:
+        def __init__(self, i): self.id = i
+
+    class _Q:
+        def filter_by(self, **kw): return self
+        def all(self): return [_Conn("aaaaaaaa-1"), _Conn("bbbbbbbb-2")]
+
+    class _S:
+        def query(self, *a, **k): return _Q()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    calls = []
+
+    def fake_sync(cid, log=print, **kw):
+        calls.append(cid)
+        n = sum(1 for c in calls if c == cid)
+        # connection 1 has a backlog that outlasts the budget; connection 2 clears on pass 1
+        if str(cid).startswith("a"):
+            return {"new": 50, "clips": 50, "remaining": 200}
+        return {"new": 3, "clips": 3, "remaining": 0}
+
+    with patched(drive_sync, SessionLocal=lambda: _S(), sync_connection=fake_sync):
+        totals = drive_sync.autosync_once(passes=3, log=lambda m: None)
+    assert calls.count("aaaaaaaa-1") == 3, calls          # pass budget respected
+    assert calls.count("bbbbbbbb-2") == 1, calls          # nothing queued -> stop early
+    assert totals["clips"] == 153, totals
+
+    # a busy connection (a manual sync already holds the claim) is left alone, not hammered
+    calls.clear()
+    with patched(drive_sync, SessionLocal=lambda: _S(),
+                 sync_connection=lambda cid, log=print, **kw: {"busy": True}):
+        drive_sync.autosync_once(passes=3, log=lambda m: None)
+    assert len(calls) == 0 and True
+
+
+@test
+def autosync_off_when_disabled():
+    """drive_autosync_minutes=0 means manual-only; demo mode never starts a poller."""
+    from app.config import settings as cfg
+    from app.drive import sync as drive_sync
+    with patched(drive_sync, _AUTOSYNC_STARTED=False), patched(cfg, drive_autosync_minutes=0.0):
+        assert drive_sync.start_autosync() is False
+    with patched(drive_sync, _AUTOSYNC_STARTED=False), patched(cfg, demo_mode=True,
+                                                              drive_autosync_minutes=20.0):
+        assert drive_sync.start_autosync() is False
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

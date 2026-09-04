@@ -4,6 +4,7 @@
   sync_connection() list new videos -> download -> the EXACT upload pipeline (Clip row + run_pipeline
                     under the indexing semaphore) -> SyncedFile ledger
   status()          per-connection counts + the service-account email to share folders with
+  start_autosync()  background poller so an upload reaches the library without anyone clicking Sync
 
 Read-only on the Drive side; incremental + idempotent via the SyncedFile ledger. Each Drive subfolder
 maps to a ClipFolder of the same name, so the creator's own organization carries over.
@@ -250,3 +251,62 @@ def status(user_id: uuid.UUID) -> dict:
             })
     return {"connections": out, "service_account": settings.google_sa_email,
             "configured": settings.google_sa_info is not None}
+
+
+# ── AUTOSYNC (2026-09-04) ────────────────────────────────────────────────────────────────────
+# A sync only ever ran when someone clicked "Sync now" (or hit the API). So a creator could drop
+# their best new footage in the shared folder and it would sit there — the library, and every reel
+# generated from it, kept using the old pool until the operator happened to kick a sync by hand.
+# This poller closes that gap: every connected folder is pulled on an interval. Manual kicks still
+# work exactly as before — the per-connection 'syncing' claim keeps the two from overlapping.
+_AUTOSYNC_STARTED = False
+
+
+def autosync_once(passes: int = 1, log=print) -> dict:
+    """ONE poll cycle: every connected folder, up to `passes` sync passes each (a folder with a
+    backlog drains over several). Stops a folder early once nothing is queued behind it."""
+    totals = {"connections": 0, "passes": 0, "clips": 0}
+    with SessionLocal() as s:
+        ids = [c.id for c in s.query(models.DriveConnection).filter_by(status="connected").all()]
+    for cid in ids:
+        totals["connections"] += 1
+        for _ in range(max(1, passes)):
+            res = sync_connection(cid, log=log)
+            totals["passes"] += 1
+            if res.get("busy") or res.get("error"):
+                break
+            totals["clips"] += res.get("clips", 0)
+            if res.get("new"):
+                log(f"[drive] autosync {str(cid)[:8]}: +{res.get('clips', 0)} clip(s), "
+                    f"{res.get('remaining', 0)} still queued")
+            if not res.get("remaining"):
+                break
+    return totals
+
+
+def _autosync_loop(period_s: float, passes: int, log=print) -> None:
+    import time
+    time.sleep(45)                       # let boot settle before touching Drive
+    while True:
+        try:
+            autosync_once(passes, log=log)
+        except Exception as exc:  # noqa: BLE001 — the poller must never die
+            log(f"[drive] autosync error: {exc}")
+        time.sleep(period_s)
+
+
+def start_autosync() -> bool:
+    """Start the poller once. Off in demo mode or when drive_autosync_minutes <= 0."""
+    global _AUTOSYNC_STARTED
+    if _AUTOSYNC_STARTED or settings.demo_mode:
+        return False
+    minutes = settings.drive_autosync_minutes
+    if not minutes or minutes <= 0:
+        return False
+    import threading
+    _AUTOSYNC_STARTED = True
+    threading.Thread(target=_autosync_loop,
+                     args=(max(60.0, minutes * 60), max(1, settings.drive_autosync_passes),
+                           lambda m: print(m, flush=True)),
+                     daemon=True).start()
+    return True

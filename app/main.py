@@ -160,6 +160,12 @@ async def lifespan(app: FastAPI):
             demo.boot()
         except Exception as exc:  # noqa: BLE001 — boot must not block; /health still comes up
             print(f"[demo] boot seed failed: {exc}", flush=True)
+    try:    # pull connected Drive folders on an interval — uploads reach the library on their own
+        from app.drive.sync import start_autosync
+        if start_autosync():
+            print(f"[drive] autosync every {settings.drive_autosync_minutes:.0f} min", flush=True)
+    except Exception as exc:  # noqa: BLE001 — the poller must never block boot
+        print(f"[drive] autosync start failed: {exc}", flush=True)
     try:    # Telegram reference-intake bot (operator-only; no-op unless env creds are set)
         from app.reference.telegram import start_bot_if_configured
         if start_bot_if_configured():
@@ -1635,6 +1641,94 @@ def api_drive_status():
     return drive_sync.status(profiles.active_id())
 
 
+@app.get("/api/debug/drive-audit")
+def api_debug_drive_audit(limit: int = 25):
+    """WHY AREN'T NEW CLIPS SHOWING UP? Compares the LIVE Drive listing against the sync ledger for
+    every connection on the active profile and classifies each file:
+      synced/rejected/failed  — the ledger's own verdict (failed rows are NEVER retried by a sync)
+      over_cap                — longer than SYNC_MAX_CLIP_SECONDS: excluded from `pending` and never
+                                ledgered, so it is invisible in /api/drive/status. The usual reason a
+                                freshly-uploaded good clip never reaches the library.
+      pending                 — within the cap, unledgered: the next sync will pick it up.
+    Read-only."""
+    from app.drive import gdrive
+    from app.drive import sync as drive_sync   # noqa: F401 — same settings/cap semantics
+    act = profiles.active_id()
+    cap_s = settings.sync_max_clip_seconds
+    out = []
+    with SessionLocal() as s:
+        conns = s.query(models.DriveConnection).filter_by(user_id=act).all()
+        for conn in conns:
+            ledger = {f.provider_file_id: f for f in
+                      s.query(models.SyncedFile).filter_by(connection_id=conn.id).all()}
+            try:
+                vids = gdrive.list_videos(conn.folder_id, root_name=conn.folder_name)
+            except Exception as exc:  # noqa: BLE001 — report, never raise
+                out.append({"connection_id": str(conn.id), "folder_name": conn.folder_name,
+                            "error": str(exc)[:300]})
+                continue
+
+            def _dur(v: dict) -> float:
+                try:
+                    return int((v.get("videoMediaMetadata") or {}).get("durationMillis") or 0) / 1000.0
+                except (TypeError, ValueError):
+                    return 0.0
+
+            def _over_cap(v: dict) -> bool:
+                if not cap_s or cap_s <= 0:
+                    return False
+                d = _dur(v)
+                if d:
+                    return d > cap_s
+                return int(v.get("size") or 0) > 25 * 1024 * 1024   # no metadata: the sync's own proxy
+
+            rows, counts, reasons = [], {}, {}
+            for v in vids:
+                led = ledger.get(v["id"])
+                state = led.status if led else ("over_cap" if _over_cap(v) else "pending")
+                counts[state] = counts.get(state, 0) + 1
+                if led is not None and led.status in ("failed", "rejected") and led.reason:
+                    key = (led.reason or "")[:90]
+                    reasons[key] = reasons.get(key, 0) + 1
+                rows.append({"name": v.get("name"), "modified": v.get("modifiedTime"),
+                             "duration": round(_dur(v), 1) or None,
+                             "mb": round(int(v.get("size") or 0) / 1048576, 1) or None,
+                             "state": state, "reason": (led.reason or None) if led else None})
+            rows.sort(key=lambda r: r["modified"] or "", reverse=True)
+            out.append({
+                "connection_id": str(conn.id), "folder_name": conn.folder_name,
+                "cap_seconds": cap_s, "files_in_drive": len(vids), "ledger_rows": len(ledger),
+                "by_state": counts,
+                "not_in_library": counts.get("over_cap", 0) + counts.get("pending", 0)
+                                  + counts.get("failed", 0) + counts.get("rejected", 0),
+                "failure_reasons": sorted(reasons.items(), key=lambda kv: -kv[1])[:10],
+                "newest": rows[:limit],
+            })
+    return {"profile": str(act), "connections": out}
+
+
+@app.post("/api/drive/retry-failed/{connection_id}")
+def api_drive_retry_failed(connection_id: uuid.UUID, include_rejected: bool = False):
+    """Clear the ledger rows that BLOCK a re-attempt. A sync never retries a file it already
+    ledgered, so a transient download/index error strands that clip forever. Dropping the row puts
+    the file back in `pending`; kick a sync afterwards. Files over the duration cap were never
+    ledgered — raise SYNC_MAX_CLIP_SECONDS for those instead."""
+    states = ["failed"] + (["rejected"] if include_rejected else [])
+    with SessionLocal() as s:
+        conn = s.get(models.DriveConnection, connection_id)
+        if conn is None or conn.user_id != profiles.active_id():
+            raise HTTPException(status_code=404, detail="connection not found for this profile")
+        rows = (s.query(models.SyncedFile)
+                .filter(models.SyncedFile.connection_id == connection_id,
+                        models.SyncedFile.status.in_(states)).all())
+        names = [r.name for r in rows[:20]]
+        for r in rows:
+            s.delete(r)
+        s.commit()
+    return {"ok": True, "cleared": len(rows), "states": states, "sample": names,
+            "next": f"POST /api/drive/sync/{connection_id}"}
+
+
 @app.post("/api/drive/sync/{connection_id}")
 def api_drive_sync(connection_id: uuid.UUID):
     """Kick a sync for one connection in the background (download -> index each new video)."""
@@ -2153,7 +2247,26 @@ def api_clip_pool(request: Request):
         "max_uses": counts[-1] if counts else 0,
         "median_uses": counts[len(counts) // 2] if counts else 0,
         "top_used": [{"clip": k[:8], "times": v} for k, v in used],
+        # ARE THE NEWEST CLIPS ACTUALLY REACHING THE OUTPUT? (2026-09-04) — freshly-synced footage
+        # that indexes fine can still sit at zero uses; this is the per-clip read for the newest
+        # arrivals, newest first, so "my new clips never show up" is answerable with numbers.
+        "newest_clips": _newest_clip_usage(usage, by_clip),
     }
+
+
+def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
+    """The n most recently created clips on the active profile with their pool + usage state."""
+    with SessionLocal() as s:
+        rows = s.execute(select(Clip.id, Clip.created_at, Clip.status, Clip.duration)
+                         .where(Clip.user_id == profiles.active_id())
+                         .order_by(Clip.created_at.desc()).limit(n)).all()
+    return [{"clip": str(cid)[:8],
+             "created": ca.isoformat() if ca else None,
+             "status": st,
+             "duration": round(d, 1) if d else None,
+             "in_pool": str(cid) in by_clip,
+             "uses": usage.get(str(cid), 0)}
+            for cid, ca, st, d in rows]
 
 
 @app.get("/api/debug/wall-deck")
