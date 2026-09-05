@@ -1301,6 +1301,38 @@ def recent_penalty_moves_the_pick_but_fit_still_leads():
     assert "c5" not in picks[:5] or picks.count("c5") < picks.count("c2")
 
 
+@test
+def recent_only_pool_restricts_and_floors():
+    """Recent-only mode narrows the selectable pool to clips uploaded inside the window, keeps a
+    floor so a quiet profile still renders, and is OFF-able without a deploy."""
+    import datetime as _dt
+    from app.generate import generator as gen
+
+    class _Clip:
+        def __init__(self, i, age_days):
+            self.id = f"c{i}"
+            self.created_at = _dt.datetime(2026, 9, 4, tzinfo=_dt.timezone.utc) - _dt.timedelta(days=age_days)
+
+    # 5 clips uploaded today, 20 that are months old
+    rows = [(f"seg{i}", _Clip(i, 0 if i < 5 else 90)) for i in range(25)]
+
+    with tempfile.TemporaryDirectory() as td:
+        with patched(gen, _POOL_POLICY_PATH=os.path.join(td, "policy.json")):
+            # OFF by default -> nothing is narrowed
+            assert len(gen._recent_clip_filter(rows)) == 25
+            # ON with a floor BELOW the window size -> only the fresh clips survive
+            gen.set_pool_policy(recent_only=True, days=7.0, min_clips=3)
+            kept = {c.id for _s, c in gen._recent_clip_filter(rows)}
+            assert kept == {f"c{i}" for i in range(5)}, kept
+            # the floor widens the window rather than starving the reel
+            gen.set_pool_policy(min_clips=12)
+            assert len(gen._recent_clip_filter(rows)) == 12
+            # and it can be switched back off with no deploy
+            gen.set_pool_policy(recent_only=False)
+            assert len(gen._recent_clip_filter(rows)) == 25
+            assert gen.pool_policy()["days"] == 7.0        # other fields survive a toggle
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

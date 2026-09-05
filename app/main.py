@@ -101,6 +101,13 @@ class ClipMove(BaseModel):
     folder_id: uuid.UUID | None = None
 
 
+class PoolPolicy(BaseModel):
+    """Restrict generation to recently uploaded clips (operator switch, no deploy needed)."""
+    recent_only: bool | None = None
+    days: float | None = None
+    min_clips: int | None = None
+
+
 class ClipBulk(BaseModel):
     """Library multi-select: many clips, one call (delete, or move into a folder)."""
     ids: list[uuid.UUID]
@@ -2267,6 +2274,28 @@ def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
              "in_pool": str(cid) in by_clip,
              "uses": usage.get(str(cid), 0)}
             for cid, ca, st, d in rows]
+
+
+@app.get("/api/debug/clip-pool-policy")
+def api_get_clip_pool_policy(request: Request):
+    """Is the selectable clip pool restricted to recently uploaded footage, and what does that
+    leave to choose from right now?"""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_segments, pool_policy
+    segs, _dur, meta, _emb = _load_segments()
+    return {"policy": pool_policy(), "selectable_clips": len(meta), "selectable_segments": len(segs)}
+
+
+@app.post("/api/debug/clip-pool-policy")
+def api_set_clip_pool_policy(req: PoolPolicy, request: Request):
+    """Turn recent-only mode on/off (and tune the window) with no deploy."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_segments, set_pool_policy
+    policy = set_pool_policy(recent_only=req.recent_only, days=req.days, min_clips=req.min_clips)
+    segs, _dur, meta, _emb = _load_segments()
+    return {"policy": policy, "selectable_clips": len(meta), "selectable_segments": len(segs)}
 
 
 @app.get("/api/debug/wall-deck")

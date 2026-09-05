@@ -36,6 +36,8 @@ _CLIP_USAGE_PATH = "var/clip_usage.json"
 _OPENER_PATH = "var/clip_openers.json"       # {profile_id: [most-recent-first opening clip ids]}
 _OPENER_MEMORY = 6                           # how many reels back an opener is still "just used"
 _OPENER_PENALTY = 6.0                        # cost for the LAST opener, decaying to ~1 across the window
+_POOL_POLICY_PATH = "var/clip_pool_policy.json"   # operator switch: restrict the pool to new footage
+_POOL_DEFAULTS = {"recent_only": False, "days": 7.0, "min_clips": 12}
 _RECENT_PATH = "var/clip_recent.json"        # {profile_id: [[clip ids of the last reel], [the one before], …]}
 _RECENT_REELS = 8                            # window of reels the selector remembers
 _RECENT_WEIGHT = 2.5                         # cost per recent reel a clip appeared in
@@ -120,6 +122,59 @@ def _opener_block() -> set[str]:
     real alternatives remain (see sequencer.select_segments).
     """
     return set(_recent_openers()[:_OPENER_BLOCK])
+
+
+def pool_policy() -> dict:
+    """RECENT-ONLY MODE (operator, 2026-09-04: "make the recently uploaded clips the only ones it
+    can choose from, until I tell you not to").
+
+    A hard restriction of the selectable pool to clips uploaded inside `days`, applied at
+    _load_segments — the one choke point every path runs through — so the fit ranker, the
+    director pass and the selector all see ONLY that footage. `min_clips` is a floor: if the
+    window holds fewer than that, the newest `min_clips` are used instead, so a profile that
+    hasn't had an upload in a while still renders. Lives in a file, not env, so it can be turned
+    off without a deploy: POST /api/debug/clip-pool-policy {"recent_only": false}."""
+    policy = dict(_POOL_DEFAULTS)
+    try:
+        with open(_POOL_POLICY_PATH) as fh:
+            policy.update({k: v for k, v in json.load(fh).items() if k in _POOL_DEFAULTS})
+    except Exception:  # noqa: BLE001 — missing/corrupt -> defaults
+        pass
+    return policy
+
+
+def set_pool_policy(**kw) -> dict:
+    policy = pool_policy()
+    policy.update({k: v for k, v in kw.items() if k in _POOL_DEFAULTS and v is not None})
+    with _USAGE_IO_LOCK:
+        os.makedirs(os.path.dirname(_POOL_POLICY_PATH) or ".", exist_ok=True)
+        tmp = _POOL_POLICY_PATH + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(policy, fh)
+        os.replace(tmp, _POOL_POLICY_PATH)
+    return policy
+
+
+def _recent_clip_filter(rows: list) -> list:
+    """Keep only rows whose clip was uploaded recently. Falls back to the newest `min_clips`
+    clips when the window is too thin, and returns everything when the policy is off."""
+    policy = pool_policy()
+    if not policy.get("recent_only"):
+        return rows
+    import datetime as _dt
+    created = {}
+    for _seg, clip in rows:
+        if clip.created_at is not None:
+            created[clip.id] = clip.created_at
+    if not created:
+        return rows
+    newest = sorted(created, key=lambda cid: created[cid], reverse=True)
+    cutoff = max(created.values()) - _dt.timedelta(days=float(policy.get("days") or 7.0))
+    keep = {cid for cid, ts in created.items() if ts >= cutoff}
+    if len(keep) < int(policy.get("min_clips") or 12):
+        keep = set(newest[: int(policy.get("min_clips") or 12)])
+    kept = [(seg, clip) for seg, clip in rows if clip.id in keep]
+    return kept or rows
 
 
 def _recent_reels() -> list[list[str]]:
@@ -332,6 +387,12 @@ def _load_segments(clip_ids: list[str] | None = None):
         if clip_ids:
             q = q.where(Clip.id.in_(clip_ids))
         rows = s.execute(q).all()
+        # RECENT-ONLY MODE: the single choke point every generation path runs through, so the
+        # restriction reaches the fit ranker, the director pass and the selector alike. An
+        # EXPLICIT clip_ids request (a restyle of an existing reel) is never narrowed — the
+        # caller already named the footage.
+        if not clip_ids:
+            rows = _recent_clip_filter(rows)
     segs, clip_dur, clip_meta, clip_emb = [], {}, {}, {}
     for seg, clip in rows:
         cid = str(clip.id)
