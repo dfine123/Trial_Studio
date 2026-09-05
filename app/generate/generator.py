@@ -171,6 +171,11 @@ def _recent_clip_filter(rows: list) -> list:
     newest = sorted(created, key=lambda cid: created[cid], reverse=True)
     cutoff = max(created.values()) - _dt.timedelta(days=float(policy.get("days") or 7.0))
     keep = {cid for cid, ts in created.items() if ts >= cutoff}
+    if not keep:
+        # NOTHING was uploaded inside the window. "Use the new footage" has no meaning for a
+        # profile that has none, and narrowing it to an arbitrary newest-N would quietly degrade
+        # a creator the operator wasn't talking about — so leave that library alone.
+        return rows
     if len(keep) < int(policy.get("min_clips") or 12):
         keep = set(newest[: int(policy.get("min_clips") or 12)])
     kept = [(seg, clip) for seg, clip in rows if clip.id in keep]

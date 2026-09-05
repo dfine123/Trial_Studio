@@ -1327,6 +1327,11 @@ def recent_only_pool_restricts_and_floors():
             # the floor widens the window rather than starving the reel
             gen.set_pool_policy(min_clips=12)
             assert len(gen._recent_clip_filter(rows)) == 12
+            # a profile with NO upload inside the window is left alone entirely, rather than
+            # being narrowed to an arbitrary newest-N it never asked for
+            gen.set_pool_policy(recent_only=True, days=7.0, min_clips=12)
+            old_only = [(f"seg{i}", _Clip(i, 90)) for i in range(25)]
+            assert len(gen._recent_clip_filter(old_only)) == 25
             # and it can be switched back off with no deploy
             gen.set_pool_policy(recent_only=False)
             assert len(gen._recent_clip_filter(rows)) == 25
