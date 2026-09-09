@@ -106,6 +106,8 @@ class PoolPolicy(BaseModel):
     recent_only: bool | None = None
     days: float | None = None
     min_clips: int | None = None
+    fresh_bonus: float | None = None      # head start a new clip carries, in fit-rank positions
+    fresh_days: float | None = None       # how long that head start takes to decay to zero
 
 
 class ClipBulk(BaseModel):
@@ -2293,7 +2295,8 @@ def api_set_clip_pool_policy(req: PoolPolicy, request: Request):
     if not _is_authed(request):
         raise HTTPException(status_code=401, detail="operator only")
     from app.generate.generator import _load_segments, set_pool_policy
-    policy = set_pool_policy(recent_only=req.recent_only, days=req.days, min_clips=req.min_clips)
+    policy = set_pool_policy(recent_only=req.recent_only, days=req.days, min_clips=req.min_clips,
+                             fresh_bonus=req.fresh_bonus, fresh_days=req.fresh_days)
     segs, _dur, meta, _emb = _load_segments()
     return {"policy": policy, "selectable_clips": len(meta), "selectable_segments": len(segs)}
 
