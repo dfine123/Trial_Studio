@@ -37,7 +37,12 @@ _OPENER_PATH = "var/clip_openers.json"       # {profile_id: [most-recent-first o
 _OPENER_MEMORY = 6                           # how many reels back an opener is still "just used"
 _OPENER_PENALTY = 6.0                        # cost for the LAST opener, decaying to ~1 across the window
 _POOL_POLICY_PATH = "var/clip_pool_policy.json"   # operator switch: restrict the pool to new footage
-_POOL_DEFAULTS = {"recent_only": False, "days": 7.0, "min_clips": 12}
+# `recent_only` is the HARD form (new clips are the only ones selectable); `fresh_bonus` /
+# `fresh_days` are the SOFT form — how big a head start a new clip carries and how long it lasts.
+# Both live in the policy file so the operator's standing preference survives restarts and can be
+# retuned without a deploy.
+_POOL_DEFAULTS = {"recent_only": False, "days": 7.0, "min_clips": 12,
+                  "fresh_bonus": 3.0, "fresh_days": 21.0}
 _RECENT_PATH = "var/clip_recent.json"        # {profile_id: [[clip ids of the last reel], [the one before], …]}
 _RECENT_REELS = 8                            # window of reels the selector remembers
 _RECENT_WEIGHT = 2.5                         # cost per recent reel a clip appeared in
@@ -710,6 +715,7 @@ def generate_reel(
     # onto the same hero clips every reel. Batch-mates' picks weigh ~3x the cross-reel term
     # (0.45/use in cost units vs 1.5x stored usage) — strong spread pressure, never exclusion.
     usage = _rotation_pressure(_load_clip_usage(), {s['clip_id'] for s in segs})
+    _pp = pool_policy()
     if batch_clip_used:
         with _USAGE_IO_LOCK:
             snapshot = dict(batch_clip_used)
@@ -720,6 +726,7 @@ def generate_reel(
                 clip_dur=clip_dur, clip_text=clip_text, clip_meta=clip_meta,
                 coherent=coherent_clips, opener_penalty=_opener_penalty(),
                 opener_block=_opener_block(), recent_penalty=_recent_use_penalty(),
+                fresh_bonus=_pp.get("fresh_bonus"), fresh_days=_pp.get("fresh_days"),
                 # cooler sampling: the ranker's best fit should usually WIN, with variation
                 # coming from real caption-to-caption differences rather than dice among the few
                 temperature=0.8 if coherent_clips else 0.7)
@@ -857,6 +864,7 @@ def generate_dynamic_reel(
             clip_quality[s0["clip_id"]] = u
     clip_text = {cid: (m.get("summary") or "") for cid, m in clip_meta.items()}
     usage = _rotation_pressure(_load_clip_usage(), {s['clip_id'] for s in segs})
+    _dyn_pp = pool_policy()
     arc = "  →  ".join(sp["text"].replace("\n", " ") for sp in spans)
 
     chosen_all: list[dict] = []
@@ -880,6 +888,8 @@ def generate_dynamic_reel(
                                  opener_penalty=_opener_penalty() if not chosen_all else None,
                                  opener_block=_opener_block() if not chosen_all else None,
                                  recent_penalty=_recent_use_penalty(),
+                                 fresh_bonus=_dyn_pp.get("fresh_bonus"),
+                                 fresh_days=_dyn_pp.get("fresh_days"),
                                  # the world holds across the caption change even though the
                                  # mood shifts — seed continuity from the previous span's last shot
                                  prev_seg_in=(chosen_all[-1] if chosen_all else None),

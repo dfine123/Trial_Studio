@@ -1338,6 +1338,37 @@ def recent_only_pool_restricts_and_floors():
             assert gen.pool_policy()["days"] == 7.0        # other fields survive a toggle
 
 
+@test
+def fresh_boost_is_tunable_and_bounded():
+    """The new-clip head start is a POLICY value (retunable with no deploy), and raising it
+    prioritises new footage without ever becoming exclusion — a clearly better fit still wins."""
+    import random as _random
+    import time as _time
+    from app.generate.sequencer import Slot, select_segments
+    now, day = _time.time(), 86400.0
+    meta = {"old": {"created_ts": now - 200 * day}, "new": {"created_ts": now - 1 * day}}
+    segs = [{"id": f"s{c}", "clip_id": c, "start_ts": 0.0, "end_ts": 6.0, "duration": 6.0,
+             "usability_score": 0.9, "luminance": 0.5, "is_hero": False, "vibe_tags": []}
+            for c in meta]
+    dur = {c: 8.0 for c in meta}
+
+    def picks(fit, bonus, n=15):
+        out = []
+        for seed in range(n):
+            _random.seed(seed)
+            out.append(select_segments([Slot(0, 0.0, 2.0)], segs, fit_rank=fit, clip_dur=dur,
+                                       clip_meta=meta, temperature=0.8,
+                                       fresh_bonus=bonus, fresh_days=21.0)[0]["clip_id"])
+        return out
+
+    # the veteran is 4 positions better: the default 3.0 leaves it winning
+    assert picks({"old": 0, "new": 4}, 3.0).count("old") > 7
+    # a bigger boost flips that same matchup toward the new clip — this is "prioritise"
+    assert picks({"old": 0, "new": 4}, 8.0).count("new") > 7
+    # but it is still a preference, not a filter: a 20-position gap is not bought
+    assert picks({"old": 0, "new": 20}, 8.0).count("old") == 15
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

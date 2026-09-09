@@ -189,6 +189,8 @@ def select_segments(
     opener_penalty: dict[str, float] | None = None,
     opener_block: set[str] | None = None,
     recent_penalty: dict[str, float] | None = None,
+    fresh_bonus: float | None = None,
+    fresh_days: float | None = None,
 ) -> list[dict]:
     """Assign a segment to each slot. CAPTION-FIT LEADS, VARIANCE IS SAMPLED. Each clip gets a COST =
     its caption-fit position (`fit_rank`, 0 = best) + a STRONG within-reel reuse penalty (distinct shots)
@@ -220,15 +222,17 @@ def select_segments(
     # a bounded head start that DECAYS to nothing over _FRESH_DAYS — worth a few fit positions on
     # a clip that already fits, never enough to seat one that doesn't.
     _now = time.time()
+    _f_bonus = _FRESH_BONUS if fresh_bonus is None else float(fresh_bonus)
+    _f_days = _FRESH_DAYS if fresh_days is None else max(0.5, float(fresh_days))
 
     def _freshness(cid: str) -> float:
         ts = (meta.get(cid) or {}).get("created_ts")
         if not ts:
             return 0.0
         age_days = max(0.0, (_now - float(ts)) / 86400.0)
-        if age_days >= _FRESH_DAYS:
+        if age_days >= _f_days:
             return 0.0
-        return _FRESH_BONUS * (1.0 - age_days / _FRESH_DAYS)
+        return _f_bonus * (1.0 - age_days / _f_days)
 
     def _tod(cid: str) -> str:
         v = (meta.get(cid) or {}).get("time_of_day") or ""
