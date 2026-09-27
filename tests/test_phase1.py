@@ -1369,6 +1369,52 @@ def fresh_boost_is_tunable_and_bounded():
     assert picks({"old": 0, "new": 20}, 8.0).count("old") == 15
 
 
+@test
+def oversized_clips_upload_a_proxy():
+    """Camera masters (288-352MB for 15-20s) were failing the TwelveLabs asset upload, and the
+    video_id fallback then masked it with an error pegasus1.5 always returns. Anything over the
+    threshold now uploads a small 720p stand-in; smaller files are untouched; ffmpeg trouble
+    falls open to the original."""
+    import subprocess
+    from app.config import settings as cfg
+    from app.indexing import twelvelabs as tl
+
+    with tempfile.TemporaryDirectory() as td:
+        # a real, decodable file that is genuinely large (noise defeats the encoder)
+        big = os.path.join(td, "master.mp4")
+        subprocess.run(["ffmpeg", "-y", "-f", "lavfi",
+                        "-i", "nullsrc=s=540x960:d=2:r=30,geq=random(1)*255:128:128,format=yuv420p",
+                        "-c:v", "libx264", "-preset", "ultrafast", "-qp", "0", big],
+                       capture_output=True, timeout=300)
+        assert os.path.exists(big)
+        src_mb = os.path.getsize(big) / 1048576
+
+        # under the threshold -> untouched (None means "upload the original")
+        with patched(cfg, tl_asset_proxy_mb=src_mb + 100):
+            assert tl._upload_proxy(big) is None
+
+        # over the threshold -> a materially smaller, still-decodable mp4
+        with patched(cfg, tl_asset_proxy_mb=0.001):
+            proxy = tl._upload_proxy(big)
+            assert proxy and os.path.exists(proxy), "no proxy produced"
+            try:
+                out_mb = os.path.getsize(proxy) / 1048576
+                assert out_mb < src_mb / 2, f"proxy not smaller: {src_mb:.1f} -> {out_mb:.1f}"
+                probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                                        "-show_entries", "stream=codec_name", "-of", "csv=p=0",
+                                        proxy], capture_output=True, text=True, timeout=60)
+                assert "h264" in probe.stdout, probe.stdout
+            finally:
+                os.remove(proxy)
+
+        # an undecodable file must not break indexing — fall open to the original
+        junk = os.path.join(td, "junk.mp4")
+        with open(junk, "wb") as fh:
+            fh.write(b"\0" * 200_000)
+        with patched(cfg, tl_asset_proxy_mb=0.001):
+            assert tl._upload_proxy(junk) is None
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

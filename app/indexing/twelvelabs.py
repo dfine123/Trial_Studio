@@ -149,15 +149,66 @@ def _parse_json(text: str) -> dict:
     return {"summary": text[:1000], "moments": []}
 
 
+def _upload_proxy(video_path: str) -> str | None:
+    """A small, visually-equivalent stand-in for a huge camera master, or None to use the original.
+
+    Pegasus only has to WATCH the clip, but a phone/camera master is enormous for its length —
+    Brandon's failures ran 288-352MB for 15-20 seconds (~18 MB/s). Those uploads died on the
+    asset endpoint while every clip under ~200MB went through, and the error was then masked by
+    a fallback to video_id that pegasus1.5 always rejects. Handing the API a 720p CRF-30 copy
+    (a few MB) removes the size cliff entirely and makes every large clip upload faster.
+    Fail-open: any ffmpeg trouble returns None and the original file is uploaded as before.
+    """
+    import subprocess
+    import tempfile
+    try:
+        if os.path.getsize(video_path) <= settings.tl_asset_proxy_mb * 1024 * 1024:
+            return None
+    except OSError:
+        return None
+    fd, out = tempfile.mkstemp(prefix="tlproxy_", suffix=".mp4")
+    os.close(fd)
+    cmd = ["ffmpeg", "-y", "-i", video_path,
+           # long side 1280, even dimensions, aspect preserved; audio is irrelevant to analysis
+           "-vf", "scale='if(gt(iw,ih),1280,-2)':'if(gt(iw,ih),-2,1280)'",
+           "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-an",
+           "-movflags", "+faststart", out]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=300)
+        if r.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+            raise RuntimeError((r.stderr or b"")[-300:].decode("utf-8", "replace"))
+    except Exception as exc:  # noqa: BLE001 — never block indexing on the proxy
+        print(f"[tl] proxy transcode failed ({str(exc)[:160]}) — uploading the original", flush=True)
+        if os.path.exists(out):
+            try:
+                os.remove(out)
+            except OSError:
+                pass
+        return None
+    src_mb = os.path.getsize(video_path) / 1048576
+    out_mb = os.path.getsize(out) / 1048576
+    print(f"[tl] proxy {src_mb:.0f}MB -> {out_mb:.1f}MB for upload", flush=True)
+    return out
+
+
 def _analyze_asset(c: TwelveLabs, video_path: str):
     """Upload the file as a TwelveLabs ASSET and return its id.
 
     pegasus1.5 does not accept an index video_id ("video_id is not supported for pegasus1.5,
     use video object (url, asset_id, or base64_string) instead") — analysis is now independent
     of the search index, so the clip is handed to /analyze directly."""
-    with open(video_path, "rb") as fh:
-        asset = c.assets.create(method="direct", file=fh,
-                                filename=os.path.basename(video_path))
+    proxy = _upload_proxy(video_path)
+    upload_path = proxy or video_path
+    try:
+        with open(upload_path, "rb") as fh:
+            asset = c.assets.create(method="direct", file=fh,
+                                    filename=os.path.basename(video_path))
+    finally:
+        if proxy and os.path.exists(proxy):
+            try:
+                os.remove(proxy)
+            except OSError:
+                pass
     asset_id = getattr(asset, "id", None) or getattr(asset, "asset_id", None)
     if not asset_id:
         raise TwelveLabsError("assets.create returned no id")
@@ -197,7 +248,15 @@ def analyze_clip(
         try:
             asset_id = _analyze_asset(c, video_path)
         except Exception as exc:  # noqa: BLE001 — fall back to the legacy video_id path
-            print(f"[tl] asset upload failed ({str(exc)[:160]}) — trying video_id", flush=True)
+            # the SDK's str() leads with a header dump, so a 160-char slice was all headers and
+            # the real cause never reached the logs. pegasus1.5 rejects video_id outright, so
+            # this fallback only ever produces a second, more confusing error — say so.
+            msg = str(exc)
+            i = msg.find("body:")
+            detail = msg[i:i + 300] if i != -1 else msg[:300]
+            print(f"[tl] asset upload failed: {detail}", flush=True)
+            print("[tl] falling back to video_id (pegasus1.5 will reject it — the asset upload "
+                  "above is the real failure)", flush=True)
     try:
         if asset_id:
             res = c.analyze(video={"type": "asset_id", "asset_id": asset_id}, **kw)
