@@ -2286,7 +2286,39 @@ def api_get_clip_pool_policy(request: Request):
         raise HTTPException(status_code=401, detail="operator only")
     from app.generate.generator import _load_segments, pool_policy
     segs, _dur, meta, _emb = _load_segments()
-    return {"policy": pool_policy(), "selectable_clips": len(meta), "selectable_segments": len(segs)}
+    return {"policy": pool_policy(), "selectable_clips": len(meta),
+            "selectable_segments": len(segs), "freshness": _freshness_report(meta)}
+
+
+def _freshness_report(meta: dict) -> dict:
+    """Is the new-clip head start actually reaching the selector RIGHT NOW?
+
+    Scored with sequencer.freshness_bonus — the same function select_segments uses — so this
+    answers "are the newest clips being weighted" with the selector's own numbers rather than a
+    re-implementation that could quietly disagree with it. `missing_created_ts` is the failure
+    mode to watch: a clip with no upload date earns no boost and says nothing about it."""
+    import time as _t
+
+    from app.generate.generator import pool_policy
+    from app.generate.sequencer import freshness_bonus
+    policy = pool_policy()
+    now = _t.time()
+    scored, missing = [], 0
+    for cid, m in meta.items():
+        ts = (m or {}).get("created_ts")
+        if not ts:
+            missing += 1
+            continue
+        scored.append((freshness_bonus(ts, now, policy.get("fresh_bonus"), policy.get("fresh_days")),
+                       (now - float(ts)) / 86400.0, cid))
+    scored.sort(reverse=True)
+    return {
+        "bonus_at_upload": policy.get("fresh_bonus"), "decays_over_days": policy.get("fresh_days"),
+        "clips_missing_created_ts": missing,
+        "clips_currently_boosted": sum(1 for b, _a, _c in scored if b > 0),
+        "top_boosted": [{"clip": c[:8], "age_days": round(a, 1), "boost": round(b, 2)}
+                        for b, a, c in scored[:8]],
+    }
 
 
 @app.post("/api/debug/clip-pool-policy")

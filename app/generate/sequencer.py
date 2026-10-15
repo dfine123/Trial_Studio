@@ -167,6 +167,22 @@ def _same_subject(a: set[str], b: set[str], thr: float = 0.5) -> bool:
 _FAMILY_SIM = 0.45   # cosine at/above which two clips read as the SAME scene family (recreations)
 _FRESH_DAYS = 21.0        # a clip is "new" for three weeks, linearly decaying
 _FRESH_BONUS = 3.0        # head start at upload, in fit-rank positions (0.8/use rotation scale)
+
+
+def freshness_bonus(created_ts: float | None, now: float,
+                    bonus: float | None = None, days: float | None = None) -> float:
+    """How big a head start a clip's upload date earns it, in fit-rank positions.
+
+    THE one definition — select_segments scores with it and /api/debug/clip-pool-policy reports
+    with it, so the diagnostic can never drift from what the selector actually does."""
+    if not created_ts:
+        return 0.0            # a clip with no upload date earns nothing, silently — hence the diagnostic
+    b = _FRESH_BONUS if bonus is None else float(bonus)
+    d = _FRESH_DAYS if days is None else max(0.5, float(days))
+    age_days = max(0.0, (now - float(created_ts)) / 86400.0)
+    if age_days >= d:
+        return 0.0
+    return b * (1.0 - age_days / d)
 _NEAR_DUP = 0.82     # at/above this two clips read as the same shot — redundant, not coherent
 _SAME_WORLD = 0.35   # at/above this they read as the same world/aesthetic — the sweet spot
 _LUM_JUMP = 0.35     # brightness delta between consecutive shots that reads as a broken cut
@@ -222,17 +238,10 @@ def select_segments(
     # a bounded head start that DECAYS to nothing over _FRESH_DAYS — worth a few fit positions on
     # a clip that already fits, never enough to seat one that doesn't.
     _now = time.time()
-    _f_bonus = _FRESH_BONUS if fresh_bonus is None else float(fresh_bonus)
-    _f_days = _FRESH_DAYS if fresh_days is None else max(0.5, float(fresh_days))
 
     def _freshness(cid: str) -> float:
-        ts = (meta.get(cid) or {}).get("created_ts")
-        if not ts:
-            return 0.0
-        age_days = max(0.0, (_now - float(ts)) / 86400.0)
-        if age_days >= _f_days:
-            return 0.0
-        return _f_bonus * (1.0 - age_days / _f_days)
+        return freshness_bonus((meta.get(cid) or {}).get("created_ts"), _now,
+                               fresh_bonus, fresh_days)
 
     def _tod(cid: str) -> str:
         v = (meta.get(cid) or {}).get("time_of_day") or ""
