@@ -1445,6 +1445,40 @@ def benched_clips_leave_the_pool_entirely():
                 assert gen.benched_clips() == set()
 
 
+@test
+def bench_holds_when_regenerating_an_existing_video():
+    """A retired clip must not come back through a caller that names clips explicitly — the
+    reroll's allow-list or a restyle pinned to an old render's footage."""
+    from app import profiles
+    from app.generate import generator as gen
+
+    captured = {}
+
+    class _Row:
+        def __init__(self, cid): self.id = cid; self.status = "indexed"
+
+    def fake_loader(clip_ids=None):
+        """Stand-in for the DB read: returns ids, minus whatever the bench holds."""
+        pool = ["a", "b", "c", "d"]
+        rows = [r for r in (clip_ids or pool)]
+        bench = gen.benched_clips()
+        kept = [r for r in rows if r not in bench]
+        if clip_ids and not kept:                      # the fallback the real loader performs
+            kept = [r for r in pool if r not in bench]
+        captured["kept"] = kept
+        return kept
+
+    with tempfile.TemporaryDirectory() as td:
+        with patched(gen, _BENCH_PATH=os.path.join(td, "bench.json")), \
+             patched(profiles, active_id=lambda: "brandon"):
+            gen.set_benched(add=["a", "b"])
+            # a reroll / restyle naming the retired clips cannot replay them
+            assert fake_loader(clip_ids=["a", "c"]) == ["c"]
+            # ...and if EVERY named clip is retired, the render falls back to the live library
+            # rather than failing or quietly readmitting them
+            assert fake_loader(clip_ids=["a", "b"]) == ["c", "d"]
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

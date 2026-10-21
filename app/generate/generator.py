@@ -436,14 +436,26 @@ def _load_segments(clip_ids: list[str] | None = None):
         if clip_ids:
             q = q.where(Clip.id.in_(clip_ids))
         rows = s.execute(q).all()
-        # RECENT-ONLY MODE: the single choke point every generation path runs through, so the
-        # restriction reaches the fit ranker, the director pass and the selector alike. An
-        # EXPLICIT clip_ids request (a restyle of an existing reel) is never narrowed — the
-        # caller already named the footage.
+        # THE BENCH IS UNCONDITIONAL (operator, 2026-10-21: it must hold when regenerating an
+        # existing video too). A benched clip is retired, so it may not come back through a
+        # caller that names clips explicitly — a reroll's allow-list or a restyle pinned to an
+        # old render's footage. If honouring it would leave that explicit request with nothing
+        # to cut from, we fall back to the profile's whole (still benched) library rather than
+        # failing the render or quietly readmitting the retired clip.
+        bench = benched_clips()
+        if bench:
+            rows = [(seg, clip) for seg, clip in rows if str(clip.id) not in bench]
+            if clip_ids and not rows:
+                rows = [(seg, clip) for seg, clip in
+                        s.execute(select(Segment, Clip)
+                                  .join(Clip, Segment.clip_id == Clip.id)
+                                  .where(Clip.status == "indexed",
+                                         Clip.user_id == profiles.active_id())).all()
+                        if str(clip.id) not in bench]
+        # RECENT-ONLY MODE: an EXPLICIT clip_ids request is never narrowed by it — unlike the
+        # bench this is a preference about which footage is CURRENT, and the caller has already
+        # named the footage it wants.
         if not clip_ids:
-            bench = benched_clips()
-            if bench:
-                rows = [(seg, clip) for seg, clip in rows if str(clip.id) not in bench]
             rows = _recent_clip_filter(rows)
     segs, clip_dur, clip_meta, clip_emb = [], {}, {}, {}
     for seg, clip in rows:
