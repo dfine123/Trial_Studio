@@ -2278,6 +2278,59 @@ def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
             for cid, ca, st, d in rows]
 
 
+class ClipBench(BaseModel):
+    """Bar clips from generation (or put them back). Ids may be full uuids or 8-char prefixes."""
+    add: list[str] = []
+    remove: list[str] = []
+
+
+@app.get("/api/debug/clip-bench")
+def api_get_clip_bench(request: Request):
+    """Which clips are barred from the active profile's generation pool, and their use counts."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_clip_usage, benched_clips
+    bench, usage = benched_clips(), _load_clip_usage()
+    with SessionLocal() as s:
+        rows = s.scalars(select(Clip).where(Clip.user_id == profiles.active_id(),
+                                            Clip.id.in_([uuid.UUID(b) for b in bench]))).all() if bench else []
+    return {"benched": [{"clip": str(c.id), "uses": usage.get(str(c.id), 0),
+                         "duration": round(c.duration, 1) if c.duration else None,
+                         "summary": (c.summary or "")[:140]} for c in rows],
+            "count": len(bench)}
+
+
+@app.post("/api/debug/clip-bench")
+def api_set_clip_bench(req: ClipBench, request: Request):
+    """Bench clips (removed from the pool entirely) or un-bench them. The clips themselves are
+    never touched — footage, index and folder all stay, so this is reversible."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_segments, set_benched
+    act = profiles.active_id()
+    with SessionLocal() as s:
+        mine = [str(cid) for (cid,) in s.execute(select(Clip.id).where(Clip.user_id == act)).all()]
+
+    def _resolve(ids: list[str]) -> list[str]:
+        """Accept full uuids or the 8-char prefixes the debug endpoints print."""
+        out = []
+        for raw in ids:
+            key = (raw or "").strip().lower()
+            hits = [m for m in mine if m == key or m.startswith(key)] if key else []
+            if len(hits) == 1:
+                out.append(hits[0])
+            elif not hits:
+                raise HTTPException(status_code=404, detail=f"no clip on this profile matches {raw!r}")
+            else:
+                raise HTTPException(status_code=409, detail=f"{raw!r} matches {len(hits)} clips")
+        return out
+
+    bench = set_benched(add=_resolve(req.add), remove=_resolve(req.remove))
+    segs, _dur, meta, _emb = _load_segments()
+    return {"benched_count": len(bench), "selectable_clips": len(meta),
+            "selectable_segments": len(segs)}
+
+
 @app.get("/api/debug/clip-pool-policy")
 def api_get_clip_pool_policy(request: Request):
     """Is the selectable clip pool restricted to recently uploaded footage, and what does that

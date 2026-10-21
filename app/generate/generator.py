@@ -36,6 +36,7 @@ _CLIP_USAGE_PATH = "var/clip_usage.json"
 _OPENER_PATH = "var/clip_openers.json"       # {profile_id: [most-recent-first opening clip ids]}
 _OPENER_MEMORY = 6                           # how many reels back an opener is still "just used"
 _OPENER_PENALTY = 6.0                        # cost for the LAST opener, decaying to ~1 across the window
+_BENCH_PATH = "var/clip_bench.json"              # {profile_id: [clip ids barred from generation]}
 _POOL_POLICY_PATH = "var/clip_pool_policy.json"   # operator switch: restrict the pool to new footage
 # `recent_only` is the HARD form (new clips are the only ones selectable); `fresh_bonus` /
 # `fresh_days` are the SOFT form — how big a head start a new clip carries and how long it lasts.
@@ -127,6 +128,44 @@ def _opener_block() -> set[str]:
     real alternatives remain (see sequencer.select_segments).
     """
     return set(_recent_openers()[:_OPENER_BLOCK])
+
+
+def benched_clips() -> set[str]:
+    """Clips BARRED from generation for the active profile.
+
+    A clip can be a great fit and still be worn out: Brandon's library ran a median of 1 use per
+    clip while one shot of the same car had played 174 times. Benching takes those out of the
+    pool entirely — the selector can't weigh them, because they are never loaded. It is kept
+    separate from deletion deliberately: the footage, its index and its folder stay intact, so
+    putting a clip back is one call rather than a re-upload and re-index."""
+    from app import profiles
+    try:
+        with open(_BENCH_PATH) as fh:
+            return set(json.load(fh).get(str(profiles.active_id())) or [])
+    except Exception:  # noqa: BLE001 — missing/corrupt -> nothing benched
+        return set()
+
+
+def set_benched(add: list[str] | None = None, remove: list[str] | None = None) -> set[str]:
+    """Add/remove clips on the active profile's bench. Returns the new bench."""
+    from app import profiles
+    with _USAGE_IO_LOCK:
+        try:
+            with open(_BENCH_PATH) as fh:
+                data = json.load(fh)
+        except Exception:  # noqa: BLE001
+            data = {}
+        key = str(profiles.active_id())
+        cur = set(data.get(key) or [])
+        cur |= set(add or [])
+        cur -= set(remove or [])
+        data[key] = sorted(cur)
+        os.makedirs(os.path.dirname(_BENCH_PATH) or ".", exist_ok=True)
+        tmp = _BENCH_PATH + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(data, fh)
+        os.replace(tmp, _BENCH_PATH)
+        return cur
 
 
 def pool_policy() -> dict:
@@ -402,6 +441,9 @@ def _load_segments(clip_ids: list[str] | None = None):
         # EXPLICIT clip_ids request (a restyle of an existing reel) is never narrowed — the
         # caller already named the footage.
         if not clip_ids:
+            bench = benched_clips()
+            if bench:
+                rows = [(seg, clip) for seg, clip in rows if str(clip.id) not in bench]
             rows = _recent_clip_filter(rows)
     segs, clip_dur, clip_meta, clip_emb = [], {}, {}, {}
     for seg, clip in rows:

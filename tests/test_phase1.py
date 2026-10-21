@@ -1415,6 +1415,36 @@ def oversized_clips_upload_a_proxy():
             assert tl._upload_proxy(junk) is None
 
 
+@test
+def benched_clips_leave_the_pool_entirely():
+    """A worn-out clip is removed from the pool, not down-weighted — the selector never sees it.
+    The bench is per profile, reversible, and never touches the clip itself."""
+    from app import profiles
+    from app.generate import generator as gen
+
+    class _Clip:
+        def __init__(self, i):
+            self.id = f"c{i}"
+            import datetime as _dt
+            self.created_at = _dt.datetime(2026, 10, 21, tzinfo=_dt.timezone.utc)
+
+    rows = [(f"seg{i}", _Clip(i)) for i in range(6)]
+    with tempfile.TemporaryDirectory() as td:
+        with patched(gen, _BENCH_PATH=os.path.join(td, "bench.json")), \
+             patched(profiles, active_id=lambda: "brandon"):
+            assert gen.benched_clips() == set()
+            gen.set_benched(add=["c0", "c1"])
+            assert gen.benched_clips() == {"c0", "c1"}
+            kept = [c.id for _s, c in rows if str(c.id) not in gen.benched_clips()]
+            assert kept == ["c2", "c3", "c4", "c5"], kept
+            # reversible
+            gen.set_benched(remove=["c0"])
+            assert gen.benched_clips() == {"c1"}
+            # scoped to the profile that benched them
+            with patched(profiles, active_id=lambda: "someone-else"):
+                assert gen.benched_clips() == set()
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:
