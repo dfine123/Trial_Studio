@@ -2278,6 +2278,44 @@ def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
             for cid, ca, st, d in rows]
 
 
+def _resolve_clip_ids(ids: list[str], mine: list[str]) -> list[str]:
+    """Accept full uuids or the 8-char prefixes the debug endpoints print. Ambiguous or unknown
+    prefixes are refused rather than guessed — these drive destructive-ish operator actions."""
+    out = []
+    for raw in ids:
+        key = (raw or "").strip().lower()
+        hits = [m for m in mine if m == key or m.startswith(key)] if key else []
+        if len(hits) == 1:
+            out.append(hits[0])
+        elif not hits:
+            raise HTTPException(status_code=404, detail=f"no clip on this profile matches {raw!r}")
+        else:
+            raise HTTPException(status_code=409, detail=f"{raw!r} matches {len(hits)} clips")
+    return out
+
+
+@app.get("/api/debug/selectable")
+def api_debug_selectable(request: Request, ids: str | None = None):
+    """What the selector is ACTUALLY allowed to load for a given clip request.
+
+    This is the "can a retired clip come back when I regenerate an old reel?" check: a reroll
+    passes an allow-list and a restyle pins an old render's footage, so both name clips
+    explicitly — pass those ids here and see what survives the bench."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_segments, benched_clips
+    act = profiles.active_id()
+    with SessionLocal() as s:
+        mine = [str(cid) for (cid,) in s.execute(select(Clip.id).where(Clip.user_id == act)).all()]
+    asked = _resolve_clip_ids([i for i in (ids or "").split(",") if i.strip()], mine)
+    _segs, _dur, meta, _emb = _load_segments(clip_ids=asked or None)
+    loaded = set(meta)
+    return {"requested": [a[:8] for a in asked],
+            "loaded": sorted(a[:8] for a in asked if a in loaded) if asked else len(loaded),
+            "dropped_by_bench": sorted(a[:8] for a in asked if a not in loaded),
+            "bench": sorted(b[:8] for b in benched_clips())}
+
+
 class ClipBench(BaseModel):
     """Bar clips from generation (or put them back). Ids may be full uuids or 8-char prefixes."""
     add: list[str] = []
@@ -2311,21 +2349,8 @@ def api_set_clip_bench(req: ClipBench, request: Request):
     with SessionLocal() as s:
         mine = [str(cid) for (cid,) in s.execute(select(Clip.id).where(Clip.user_id == act)).all()]
 
-    def _resolve(ids: list[str]) -> list[str]:
-        """Accept full uuids or the 8-char prefixes the debug endpoints print."""
-        out = []
-        for raw in ids:
-            key = (raw or "").strip().lower()
-            hits = [m for m in mine if m == key or m.startswith(key)] if key else []
-            if len(hits) == 1:
-                out.append(hits[0])
-            elif not hits:
-                raise HTTPException(status_code=404, detail=f"no clip on this profile matches {raw!r}")
-            else:
-                raise HTTPException(status_code=409, detail=f"{raw!r} matches {len(hits)} clips")
-        return out
-
-    bench = set_benched(add=_resolve(req.add), remove=_resolve(req.remove))
+    bench = set_benched(add=_resolve_clip_ids(req.add, mine),
+                        remove=_resolve_clip_ids(req.remove, mine))
     segs, _dur, meta, _emb = _load_segments()
     return {"benched_count": len(bench), "selectable_clips": len(meta),
             "selectable_segments": len(segs)}
