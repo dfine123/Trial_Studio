@@ -432,7 +432,8 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
 _REFERENCE_FONT = "altehaas_sc"   # CopyCat renders in Alte Haas Grotesk, sentence case (operator)
 
 
-def process_reel_link(url: str, notify=lambda s: None, on_result=None) -> list[dict]:
+def process_reel_link(url: str, notify=lambda s: None, on_result=None,
+                      only_profile: str | None = None) -> list[dict]:
     """The full intake: download → audio + caption → recreate for every reference-active profile.
     notify(text) receives human-readable progress (the Telegram bot forwards it). Every stage
     ALSO prints to stdout — the debug endpoint's HTTP response dies at the Railway edge on long
@@ -444,6 +445,10 @@ def process_reel_link(url: str, notify=lambda s: None, on_result=None) -> list[d
         _notify(s)
 
     targets = reference_active_profiles()
+    if only_profile:
+        # a targeted re-run (regenerating one creator's past recreations) must not re-render,
+        # re-upload and re-bill every OTHER reference-active profile alongside it
+        targets = [t for t in targets if str(t["id"]) == str(only_profile)]
     if not targets:
         notify("no profiles are toggled 'reference active' in the studio — nothing to recreate")
         return []

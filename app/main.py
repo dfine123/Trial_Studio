@@ -2301,6 +2301,67 @@ def _as_profile(pid: uuid.UUID | None):
             profiles.reset_request_uid(token)
 
 
+class RegenJob(BaseModel):
+    urls: list[str]
+    profile_id: uuid.UUID
+
+
+_REGEN_JOBS: dict[str, dict] = {}
+
+
+@app.post("/api/debug/reference-regen")
+def api_reference_regen(req: RegenJob, request: Request):
+    """Re-run past CopyCat references for ONE profile, in the background, one after another.
+
+    Built to replace the recreations that used clips since retired: each URL is re-downloaded
+    and recreated against today's pool (the bench applies, so retired clips cannot return),
+    uploaded to Drive as usual, and delivered to the operator's Telegram with the normal
+    reroll / restyle buttons. Sequential on purpose — this is a bulk job, it should not crowd
+    out live CopyCat traffic or the indexing queue."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    job_id = uuid.uuid4().hex[:10]
+    job = {"total": len(req.urls), "done": 0, "ok": 0, "failed": [], "running": True}
+    _REGEN_JOBS[job_id] = job
+
+    def work() -> None:
+        from app.reference import telegram as tg
+        from app.reference.intake import process_reel_link
+        token = (settings.telegram_bot_token or "").strip()
+        chat = (settings.telegram_allowed_user_id or "").strip()
+
+        def deliver(res: dict, spans: list, audio: str) -> None:
+            if token and chat:
+                tg._result_message(token, int(chat), res, spans, audio)
+
+        for url in req.urls:
+            try:
+                out = process_reel_link(url, on_result=deliver, only_profile=str(req.profile_id))
+                if any(r.get("ok") for r in out):
+                    job["ok"] += 1
+                else:
+                    job["failed"].append({"url": url, "error": (out[0].get("error") if out else "no target")})
+            except Exception as ex:  # noqa: BLE001 — one bad reel must not stop the batch
+                job["failed"].append({"url": url, "error": str(ex)[:200]})
+                print(f"[regen] {url} failed: {ex}", flush=True)
+            job["done"] += 1
+            print(f"[regen] {job_id} {job['done']}/{job['total']} (ok {job['ok']})", flush=True)
+        job["running"] = False
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"job_id": job_id, **job}
+
+
+@app.get("/api/debug/reference-regen/{job_id}")
+def api_reference_regen_status(job_id: str, request: Request):
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    job = _REGEN_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job (a deploy clears them)")
+    return job
+
+
 @app.get("/api/clips/retire-view")
 def api_clips_retire_view(request: Request, profile_id: uuid.UUID | None = None):
     """Every indexed clip for ONE profile, most-used first, with its use count and whether it is
