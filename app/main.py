@@ -2279,6 +2279,12 @@ def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
             for cid, ca, st, d in rows]
 
 
+class ClipBench(BaseModel):
+    """Bar clips from generation (or put them back). Ids may be full uuids or 8-char prefixes."""
+    add: list[str] = []
+    remove: list[str] = []
+
+
 @contextlib.contextmanager
 def _as_profile(pid: uuid.UUID | None):
     """Run a block scoped to ANY profile, not just the active one.
@@ -2373,12 +2379,6 @@ def api_debug_selectable(request: Request, ids: str | None = None):
             "loaded": sorted(a[:8] for a in asked if a in loaded) if asked else len(loaded),
             "dropped_by_bench": sorted(a[:8] for a in asked if a not in loaded),
             "bench": sorted(b[:8] for b in benched_clips())}
-
-
-class ClipBench(BaseModel):
-    """Bar clips from generation (or put them back). Ids may be full uuids or 8-char prefixes."""
-    add: list[str] = []
-    remove: list[str] = []
 
 
 @app.get("/api/debug/clip-bench")

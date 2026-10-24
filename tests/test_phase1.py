@@ -1479,6 +1479,34 @@ def bench_holds_when_regenerating_an_existing_video():
             assert fake_loader(clip_ids=["a", "b"]) == ["c", "d"]
 
 
+@test
+def post_routes_bind_their_body_models():
+    """`from __future__ import annotations` makes every annotation a STRING, so FastAPI resolves
+    a body model at decoration time — declared before the model exists it silently became a
+    QUERY parameter and the endpoint 422'd on every call (this shipped once). Any POST route
+    whose handler takes a BaseModel must actually have a body field."""
+    import typing
+
+    from fastapi.routing import APIRoute
+    from pydantic import BaseModel
+
+    import app.main as m
+
+    bad = []
+    for r in m.app.routes:
+        if not isinstance(r, APIRoute) or "POST" not in (r.methods or set()):
+            continue
+        try:
+            hints = typing.get_type_hints(r.endpoint)
+        except Exception:  # noqa: BLE001 — unresolvable hints are their own smell, skip here
+            continue
+        takes_model = any(isinstance(h, type) and issubclass(h, BaseModel)
+                          for name, h in hints.items() if name != "return")
+        if takes_model and r.body_field is None:
+            bad.append(r.path)
+    assert not bad, f"body model not bound (declared before the model?): {bad}"
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:
