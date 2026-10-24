@@ -1,6 +1,7 @@
 """FastAPI app + routes (Phase 0): health, upload, and read endpoints."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -2276,6 +2277,64 @@ def _newest_clip_usage(usage: dict, by_clip: dict, n: int = 30) -> list[dict]:
              "in_pool": str(cid) in by_clip,
              "uses": usage.get(str(cid), 0)}
             for cid, ca, st, d in rows]
+
+
+@contextlib.contextmanager
+def _as_profile(pid: uuid.UUID | None):
+    """Run a block scoped to ANY profile, not just the active one.
+
+    The bench, the usage ledger and the clip pool all resolve through profiles.active_id(), so
+    the per-profile retire screen binds the request to the profile being viewed — the same
+    ContextVar the demo middleware uses — instead of making the operator switch profiles to
+    retire a clip."""
+    token = profiles.set_request_uid(pid) if pid is not None else None
+    try:
+        yield
+    finally:
+        if token is not None:
+            profiles.reset_request_uid(token)
+
+
+@app.get("/api/clips/retire-view")
+def api_clips_retire_view(request: Request, profile_id: uuid.UUID | None = None):
+    """Every indexed clip for ONE profile, most-used first, with its use count and whether it is
+    retired from generation. Drives the per-profile retire screen."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_clip_usage, benched_clips
+    with _as_profile(profile_id):
+        act = profiles.active_id()
+        bench, usage = benched_clips(), _load_clip_usage()
+    with SessionLocal() as s:
+        user = s.get(User, act)
+        rows = s.scalars(select(Clip).where(Clip.user_id == act,
+                                            Clip.status == "indexed")).all()
+        clips = [{"id": str(c.id), "uses": usage.get(str(c.id), 0),
+                  "duration": round(c.duration, 1) if c.duration else None,
+                  "summary": (c.summary or "")[:160],
+                  "setting": c.setting, "time_of_day": c.time_of_day,
+                  "retired": str(c.id) in bench} for c in rows]
+    clips.sort(key=lambda c: (-c["uses"], c["id"]))     # worst offenders first — the ones to prune
+    return {"profile": {"id": str(act), "name": (user.handle if user else "profile")},
+            "clips": clips,
+            "counts": {"total": len(clips), "retired": sum(1 for c in clips if c["retired"])}}
+
+
+@app.post("/api/clips/retire")
+def api_clips_retire(req: ClipBench, request: Request, profile_id: uuid.UUID | None = None):
+    """Retire clips from generation for ONE profile (or bring them back). The clips themselves
+    are never touched — footage, index and folder all stay, so this is reversible."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.generate.generator import _load_segments, set_benched
+    with _as_profile(profile_id):
+        act = profiles.active_id()
+        with SessionLocal() as s:
+            mine = [str(cid) for (cid,) in s.execute(select(Clip.id).where(Clip.user_id == act)).all()]
+        bench = set_benched(add=_resolve_clip_ids(req.add, mine),
+                            remove=_resolve_clip_ids(req.remove, mine))
+        _segs, _dur, meta, _emb = _load_segments()
+    return {"retired_count": len(bench), "selectable_clips": len(meta)}
 
 
 def _resolve_clip_ids(ids: list[str], mine: list[str]) -> list[str]:

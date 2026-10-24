@@ -257,6 +257,23 @@
     font-weight:600; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
   .thumb .prog { position:absolute; bottom:0; left:0; right:0; margin:0; border-radius:0; z-index:2; }
   .cdel { background:none; border:0; color:var(--faint); font-size:16px; line-height:1; cursor:pointer; transition:color var(--t), background var(--t), transform var(--t); }
+  /* retired clips — per-profile, remove footage from generation for good */
+  .retbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .retsel { min-width:190px; }
+  .retfilter { display:inline-flex; gap:4px; }
+  .retfilter .btn.on { color:var(--acc-bright); background:var(--acc-soft); }
+  .ret-count { color:var(--faint); font-size:12px; margin-left:auto; }
+  .retbar .btn[disabled] { opacity:.42; pointer-events:none; }
+  #retgrid .clip { cursor:pointer; }
+  #retgrid .clip.picked { border-color:var(--acc); box-shadow:var(--glow-ring); }
+  #retgrid .clip.picked .cpick { color:#fff; background:var(--acc); border-color:var(--acc); }
+  #retgrid .cpick { display:flex; }
+  .clip.out { opacity:.5; }
+  .clip.out .thumb-img { filter:grayscale(1); }
+  .uses { position:absolute; bottom:8px; left:9px; z-index:2; background:rgba(6,7,10,.74); color:#fff;
+    font-size:11px; font-weight:600; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
+  .uses.hot { background:var(--bad); }
+  .b-out { background:var(--bad-bg); color:var(--bad); }
   /* library multi-select — bulk cleanup of rejected clips */
   .libbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; min-height:30px; }
   .libbar .lb-count { color:var(--faint); font-size:12px; margin-right:auto; }
@@ -291,6 +308,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L18.7 9.7 13.9 11.6 12 16.4 10.1 11.6 5.3 9.7 10.1 7.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Studio</button>
     <button class="nav" data-view="library">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>Clip Library</button>
+    <button class="nav" data-view="retire">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8.5 9.5l7 5M15.5 9.5l-7 5"/></svg>Retired Clips</button>
     <button class="nav" data-view="grade">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 17.1 6.75 19.6l1-5.85L3.5 9.7l5.9-.9z"/></svg>Caption Grading</button>
     <button class="nav" data-view="reels">
@@ -434,14 +453,27 @@
         </div>
       </div>
     </section>
+    <section class="view" id="view-retire">
+      <div class="head"><h2>Retired Clips</h2></div>
+      <div class="retbar" id="retbar">
+        <select id="retprofile" class="retsel"></select>
+        <span class="retfilter">
+          <button class="btn btn-ghost btn-sm on" data-rf="all">All</button><button class="btn btn-ghost btn-sm" data-rf="live">In use</button><button class="btn btn-ghost btn-sm" data-rf="retired">Retired</button>
+        </span>
+        <span class="ret-count" id="retcount"></span>
+        <button class="btn btn-soft btn-sm needret" id="retrestore">Bring back</button>
+        <button class="btn btn-danger btn-sm needret" id="retbench">Retire selected</button>
+      </div>
+      <div class="grid" id="retgrid"></div>
+    </section>
     <section class="view gradewrap" id="view-grade"><iframe id="gradeframe" data-src="/grade" title="Caption grading"></iframe></section>
     <section class="view gradewrap" id="view-reels"><iframe id="reelframe" data-src="/grade-reels" title="Reel grading"></iframe></section>
     <section class="view gradewrap" id="view-lab"><iframe id="labframe" data-src="/lab" title="The Lab"></iframe></section>
     <section class="view gradewrap" id="view-system"><iframe id="systemframe" data-src="/system" title="System Map"></iframe></section>
   </main>
 <script>
-const views = { studio:'view-studio', library:'view-library', grade:'view-grade', reels:'view-reels', lab:'view-lab', system:'view-system' };
-let libLoaded = false, gradeLoaded = false, reelsLoaded = false, labLoaded = false, systemLoaded = false;
+const views = { studio:'view-studio', library:'view-library', retire:'view-retire', grade:'view-grade', reels:'view-reels', lab:'view-lab', system:'view-system' };
+let libLoaded = false, gradeLoaded = false, reelsLoaded = false, labLoaded = false, systemLoaded = false, retireLoaded = false;
 let FOLDERS = [], selectedFolder = null;
 const IC_FOLDER = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h3.6l1.8 2h9.6A1.5 1.5 0 0121 9.5v8A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg>`;
 const IC_ALL = `<svg class="fic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>`;
@@ -486,6 +518,7 @@ function showView(v) {
   Object.values(views).forEach(id => document.getElementById(id).classList.remove('on'));
   document.getElementById(views[v]).classList.add('on');
   if (v === 'library' && !libLoaded) { libLoaded = true; loadFolders().then(() => selectFolder(null)); loadDrive(); }
+  if (v === 'retire' && !retireLoaded) { retireLoaded = true; initRetire(); }
   if (v === 'grade' && !gradeLoaded) { gradeLoaded = true; const f = document.getElementById('gradeframe'); f.src = f.dataset.src; }
   if (v === 'reels' && !reelsLoaded) { reelsLoaded = true; const f = document.getElementById('reelframe'); f.src = f.dataset.src; }
   if (v === 'lab' && !labLoaded) { labLoaded = true; const f = document.getElementById('labframe'); f.src = f.dataset.src; }
@@ -839,6 +872,106 @@ const libDrop = document.getElementById('view-library');
 libDrop.ondragover = e => { e.preventDefault(); uz.classList.add('drag'); };
 libDrop.ondragleave = e => { if (!libDrop.contains(e.relatedTarget)) uz.classList.remove('drag'); };
 libDrop.ondrop = e => { e.preventDefault(); uz.classList.remove('drag'); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+
+// ---------- retired clips (per profile; removes footage from generation for good) ----------
+let RET = { clips: [], filter: 'all' };
+const retPicked = new Set();
+
+function retCard(c) {
+  const hot = c.uses >= 20 ? ' hot' : '';
+  const badge = c.retired ? '<span class="badge b-out">retired</span>' : '';
+  const chips = [c.setting, c.time_of_day].filter(x => x && x !== 'unknown')
+    .map(t => `<span class="chip chip-meta">${t}</span>`).join('');
+  return `<div class="clip${c.retired ? ' out' : ''}" data-id="${c.id}">
+    <div class="thumb">${IC_FILM}<img class="thumb-img" src="/api/clips/${c.id}/thumb" loading="lazy" alt=""
+        onload="this.classList.add('loaded')" onerror="this.style.display='none'" />${badge}
+      <button class="cpick" data-rpick="${c.id}" aria-label="Select clip">${IC_CHECK}</button>
+      <span class="uses${hot}">${c.uses} ${c.uses === 1 ? 'use' : 'uses'}</span>
+      ${c.duration ? `<span class="dur">${c.duration}s</span>` : ''}</div>
+    <div class="clip-body"><div class="sum">${(c.summary || '').slice(0, 120)}</div>
+      ${chips ? `<div class="chips">${chips}</div>` : ''}</div>
+  </div>`;
+}
+
+function retSync() {
+  document.querySelectorAll('#retgrid .clip').forEach(el => el.classList.toggle('picked', retPicked.has(el.dataset.id)));
+  const n = retPicked.size;
+  const shown = retVisible().length;
+  document.getElementById('retcount').textContent =
+    n ? `${n} selected` : `${shown} clip${shown === 1 ? '' : 's'} · ${RET.clips.filter(c => c.retired).length} retired`;
+  document.querySelectorAll('.retbar .needret').forEach(b => b.disabled = !n);
+}
+
+function retVisible() {
+  if (RET.filter === 'retired') return RET.clips.filter(c => c.retired);
+  if (RET.filter === 'live') return RET.clips.filter(c => !c.retired);
+  return RET.clips;
+}
+
+function renderRetire() {
+  const grid = document.getElementById('retgrid');
+  const rows = retVisible();
+  grid.innerHTML = rows.length ? rows.map(retCard).join('')
+    : `<div class="empty-block" style="grid-column:1/-1"><div class="empty-title">Nothing here</div></div>`;
+  grid.querySelectorAll('.clip').forEach(el => el.onclick = () => {
+    const id = el.dataset.id;
+    retPicked.has(id) ? retPicked.delete(id) : retPicked.add(id);
+    retSync();
+  });
+  retSync();
+}
+
+function retProfileId() { return document.getElementById('retprofile').value || ''; }
+
+async function loadRetire() {
+  const grid = document.getElementById('retgrid');
+  grid.innerHTML = Array.from({ length: 8 }, () => '<div class="clip skel"></div>').join('');
+  retPicked.clear();
+  const qs = retProfileId() ? ('?profile_id=' + retProfileId()) : '';
+  try {
+    const d = await (await fetch('/api/clips/retire-view' + qs)).json();
+    RET.clips = d.clips || [];
+    renderRetire();
+  } catch (_) {
+    grid.innerHTML = '<div class="empty-block" style="grid-column:1/-1"><div class="empty-title">Could not load clips</div></div>';
+  }
+}
+
+async function retApply(add) {
+  const ids = [...retPicked];
+  if (!ids.length) return;
+  if (add) {
+    const ok = await modal({
+      title: `Retire ${ids.length} clip${ids.length > 1 ? 's' : ''}?`,
+      body: 'CopyCat stops using them — in new reels and when regenerating old ones. The clips stay in the library and can be brought back.',
+      confirmText: 'Retire', danger: true });
+    if (!ok) return;
+  }
+  const qs = retProfileId() ? ('?profile_id=' + retProfileId()) : '';
+  try {
+    const r = await fetch('/api/clips/retire' + qs, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(add ? { add: ids } : { remove: ids }) });
+    if (!r.ok) throw new Error(r.status);
+    toast(`${ids.length} clip${ids.length > 1 ? 's' : ''} ${add ? 'retired' : 'back in rotation'}`);
+  } catch (_) { toast('Could not update', 'err'); }
+  await loadRetire();
+}
+
+async function initRetire() {
+  const sel = document.getElementById('retprofile');
+  try {
+    const profs = await (await fetch('/api/profiles')).json();
+    sel.innerHTML = profs.map(p => `<option value="${p.id}"${p.active ? ' selected' : ''}>${p.name}</option>`).join('');
+  } catch (_) {}
+  sel.onchange = loadRetire;
+  document.querySelectorAll('.retfilter .btn').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.retfilter .btn').forEach(x => x.classList.toggle('on', x === b));
+    RET.filter = b.dataset.rf; renderRetire();
+  });
+  document.getElementById('retbench').onclick = () => retApply(true);
+  document.getElementById('retrestore').onclick = () => retApply(false);
+  await loadRetire();
+}
 
 // ---------- studio ----------
 let AUDIOS = [];

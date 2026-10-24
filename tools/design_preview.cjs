@@ -69,6 +69,16 @@ const API = {
   'GET /api/audios': AUDIOS,
   'GET /api/folders': [ { id: 'f1', name: 'Lock-in era', clips: 34, parent_id: null }, { id: 'f2', name: 'Night drives', clips: 18, parent_id: null }, { id: 'f3', name: 'Mirror talks', clips: 9, parent_id: 'f1' } ],
   'GET /api/clips/library': CLIPS,
+  'GET /api/clips/retire-view': {
+    profile: { id: 'p1', name: 'Austin' },
+    clips: CLIPS.filter(c => c.status === 'indexed').map((c, i) => ({
+      id: c.id, uses: [174, 150, 57, 12, 3, 1, 0, 0][i % 8], duration: c.duration,
+      summary: c.summary, setting: c.setting, time_of_day: c.time_of_day,
+      retired: i % 7 === 3,
+    })),
+    counts: { total: 8, retired: 1 },
+  },
+  'POST /api/clips/retire': { retired_count: 5, selectable_clips: 260 },
   'GET /api/drive/status': { configured: true, service_account: 'treelz-ingest@treelz.iam.gserviceaccount.com', connections: [
     { connection_id: 'd1', folder_name: 'austin drops', clips: 215, imported_files: 230, rejected: 3, failed: 1, status: 'connected', last_synced_at: '2026-07-03' },
     { connection_id: 'd2', folder_name: 'july batch', clips: 12, imported_files: 40, rejected: 0, failed: 0, status: 'syncing', last_synced_at: null },
