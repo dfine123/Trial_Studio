@@ -2340,19 +2340,36 @@ def api_reference_regen(req: RegenJob, request: Request):
             if token and chat:
                 tg._result_message(token, int(chat), res, spans, audio)
 
-        for url in req.urls:
+        def tell(text: str) -> None:
+            """Progress in the operator's Telegram — a bulk job must not run silently, and a
+            failure in it must reach him, not just a log line."""
+            if token and chat:
+                try:
+                    tg._send(token, int(chat), text)
+                except Exception:  # noqa: BLE001 — a notification never stops the batch
+                    pass
+
+        n = len(req.urls)
+        tell(f"🔁 backfill started — {n} reel{'s' if n != 1 else ''}, one at a time")
+        for i, url in enumerate(req.urls, 1):
+            tell(f"({i}/{n}) {url}")
             try:
                 out = process_reel_link(url, on_result=deliver, source="backfill",
                                         only_profile=str(req.profile_id) if req.profile_id else None)
                 if any(r.get("ok") for r in out):
                     job["ok"] += 1
                 else:
-                    job["failed"].append({"url": url, "error": (out[0].get("error") if out else "no target")})
+                    err = (out[0].get("error") if out else "no target")
+                    job["failed"].append({"url": url, "error": err})
+                    tell(f"❌ ({i}/{n}) failed — {str(err)[:200]}")
             except Exception as ex:  # noqa: BLE001 — one bad reel must not stop the batch
                 job["failed"].append({"url": url, "error": str(ex)[:200]})
                 print(f"[regen] {url} failed: {ex}", flush=True)
+                tell(f"❌ ({i}/{n}) failed — {str(ex)[:200]}")
             job["done"] += 1
             print(f"[regen] {job_id} {job['done']}/{job['total']} (ok {job['ok']})", flush=True)
+        tell(f"✅ backfill done — {job['ok']}/{n} recreated"
+             + (f", {len(job['failed'])} failed" if job["failed"] else ""))
         job["running"] = False
 
     threading.Thread(target=work, daemon=True).start()
