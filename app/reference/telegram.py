@@ -119,36 +119,46 @@ def _handle_callback(token: str, cq: dict) -> None:
 
 
 def _handle(token: str, msg: dict) -> None:
-    from app.reference.intake import find_reel_url, process_reel_link
+    from app.reference.intake import find_reel_urls, process_reel_link
     chat_id = (msg.get("chat") or {}).get("id")
     text = msg.get("text") or msg.get("caption") or ""
-    url = find_reel_url(text)
-    if not url:
+    urls = find_reel_urls(text)
+    if not urls:
         print(f"[tg] message with no reel link: {text[:80]!r}", flush=True)
         _send(token, chat_id,
               "send me an instagram reel link and i'll recreate it for every reference-active "
               "profile (same audio, recreated caption) and drop the results in each profile's "
               "Drive under references/")
         return
-    print(f"[tg] reel link received: {url}", flush=True)
-    _send(token, chat_id, "on it 🫡")
+    for u in urls:
+        print(f"[tg] reel link received: {u}", flush=True)
+    # a pasted BACKLOG (several links in one message) runs one after another, never in parallel —
+    # a burst of simultaneous downloads + renders would crowd out everything else on the box
+    _send(token, chat_id, "on it 🫡" if len(urls) == 1 else f"on it 🫡 — {len(urls)} reels, one at a time")
 
     def notify(s: str) -> None:
         print(f"[tg] {s.splitlines()[0][:120]}", flush=True)
         _send(token, chat_id, s)
 
     def work() -> None:
-        try:
-            results = process_reel_link(
-                url, notify,
-                on_result=lambda res, spans, audio: _result_message(token, chat_id, res, spans, audio))
-            ok = sum(1 for r in results if r.get("ok"))
-            if results:
-                _send(token, chat_id, f"done — {ok}/{len(results)} recreations in Drive")
-        except Exception as ex:  # noqa: BLE001
-            import traceback
-            print(f"[tg] intake failed: {ex}\n{traceback.format_exc()}", flush=True)
-            _send(token, chat_id, f"intake failed: {str(ex)[:300]}")
+        done = 0
+        for i, url in enumerate(urls, 1):
+            if len(urls) > 1:
+                _send(token, chat_id, f"({i}/{len(urls)}) {url}")
+            try:
+                results = process_reel_link(
+                    url, notify,
+                    on_result=lambda res, spans, audio: _result_message(token, chat_id, res, spans, audio))
+                ok = sum(1 for r in results if r.get("ok"))
+                done += 1 if ok else 0
+                if results and len(urls) == 1:
+                    _send(token, chat_id, f"done — {ok}/{len(results)} recreations in Drive")
+            except Exception as ex:  # noqa: BLE001 — one bad link must not stop the batch
+                import traceback
+                print(f"[tg] intake failed: {ex}\n{traceback.format_exc()}", flush=True)
+                _send(token, chat_id, f"intake failed: {str(ex)[:300]}")
+        if len(urls) > 1:
+            _send(token, chat_id, f"batch done — {done}/{len(urls)} reels recreated")
 
     threading.Thread(target=work, daemon=True).start()
 

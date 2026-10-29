@@ -1507,6 +1507,98 @@ def post_routes_bind_their_body_models():
     assert not bad, f"body model not bound (declared before the model?): {bad}"
 
 
+@test
+def ffprobe_trailing_comma_is_still_video():
+    """ffprobe prints "video," when a stream carries side data (every iPhone clip's rotation
+    matrix). The old whitespace split kept the comma and rejected good reels as unplayable."""
+    import subprocess as _sp
+    from app.reference import intake
+
+    class _R:
+        returncode = 0
+        stdout = "video,\naudio\n"
+
+    with patched(_sp, run=lambda *a, **k: _R()):
+        assert intake._streams("x.mp4") == {"video", "audio"}
+
+
+@test
+def split_streams_are_muxed_whatever_their_labels():
+    """Instagram serves trial reels as a video-only track + an audio-only track. Both arrive,
+    possibly with the labels swapped; we read what each file really holds and combine them."""
+    import subprocess
+    from app.reference import intake
+
+    with tempfile.TemporaryDirectory() as td:
+        v = os.path.join(td, "v.mp4"); a = os.path.join(td, "a.m4a")
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "testsrc=size=320x240:rate=24:duration=2", "-an", "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p", v], check=True)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "sine=frequency=440:duration=2", "-c:a", "aac", a], check=True)
+        assert intake._streams(v) == {"video"} and intake._streams(a) == {"audio"}
+
+        class _Resp:
+            def __init__(self, data): self._d = data
+            def raise_for_status(self): pass
+            def json(self): return self._d
+
+        # labels SWAPPED: Apify's "videoUrl" is the audio track, "audioUrl" is the video
+        def fake_post(*a_, **k_):
+            return _Resp([{"videoUrl": "AUDIO", "audioUrl": "VIDEO"}])
+
+        def fake_fetch(u, suffix):
+            import shutil
+            dst = os.path.join(td, f"dl_{u}{suffix}")
+            shutil.copy(a if u == "AUDIO" else v, dst)
+            return dst
+
+        import requests
+        from app.config import settings as cfg
+        with patched(requests, post=fake_post), patched(intake, _fetch=fake_fetch, _WORK=td), \
+             patched(cfg, apify_token="t"):
+            out = intake._download_via_apify("https://www.instagram.com/reel/ABC/")
+        assert out and intake._streams(out) == {"video", "audio"}, out
+
+
+@test
+def age_restricted_says_so():
+    """An age-restricted post can't be fetched logged out — say THAT, not a vague cookie hint."""
+    from app.reference import intake
+
+    class _Resp:
+        def raise_for_status(self): pass
+        def json(self):
+            return [{"error": "restricted_page",
+                     "errorDescription": "Restricted access, only partial data available. "
+                                         "Reason: The post is age-restricted."}]
+
+    import requests
+    from app.config import settings as cfg
+    with patched(requests, post=lambda *a, **k: _Resp()), patched(cfg, apify_token="t"):
+        try:
+            intake._download_via_apify("https://www.instagram.com/reel/XYZ/")
+            raise AssertionError("expected AgeRestricted")
+        except intake.AgeRestricted:
+            pass
+
+
+@test
+def run_ledger_tracks_what_is_still_owed():
+    """Failures persist on the volume; a later success clears the debt; links parse in bulk."""
+    from app.reference import intake
+    with tempfile.TemporaryDirectory() as td:
+        with patched(intake, _RUNS_PATH=os.path.join(td, "runs.jsonl")):
+            intake.log_run("https://www.instagram.com/reel/AAA/?x=1", False, "boom")
+            intake.log_run("https://www.instagram.com/reel/BBB/", False, "boom")
+            intake.log_run("https://www.instagram.com/reel/AAA/", True)      # retried, worked
+            owed = {r["code"] for r in intake.unresolved_failures()}
+            assert owed == {"BBB"}, owed
+    msg = ("old ones: https://www.instagram.com/reel/AAA/?a=1 and "
+           "https://www.instagram.com/reel/BBB/ plus AAA again https://instagram.com/reel/AAA/")
+    assert [intake.reel_code(u) for u in intake.find_reel_urls(msg)] == ["AAA", "BBB"]
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

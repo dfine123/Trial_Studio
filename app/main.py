@@ -2303,7 +2303,13 @@ def _as_profile(pid: uuid.UUID | None):
 
 class RegenJob(BaseModel):
     urls: list[str]
-    profile_id: uuid.UUID
+    profile_id: uuid.UUID | None = None      # None = every reference-active profile
+
+
+class LedgerSeed(BaseModel):
+    """Failed reels recovered from somewhere other than the ledger itself (old deploy logs)."""
+    urls: list[str]
+    error: str = "recovered from deploy logs"
 
 
 _REGEN_JOBS: dict[str, dict] = {}
@@ -2336,7 +2342,8 @@ def api_reference_regen(req: RegenJob, request: Request):
 
         for url in req.urls:
             try:
-                out = process_reel_link(url, on_result=deliver, only_profile=str(req.profile_id))
+                out = process_reel_link(url, on_result=deliver, source="backfill",
+                                        only_profile=str(req.profile_id) if req.profile_id else None)
                 if any(r.get("ok") for r in out):
                     job["ok"] += 1
                 else:
@@ -2350,6 +2357,35 @@ def api_reference_regen(req: RegenJob, request: Request):
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": job_id, **job}
+
+
+@app.get("/api/debug/reference-backfill")
+def api_reference_backfill_preview(request: Request):
+    """Every reel still owed a recreation — the latest attempt at it failed — read from the run
+    ledger. A PREVIEW: nothing runs. To run them, POST the urls to /api/debug/reference-regen."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.reference.intake import unresolved_failures
+    rows = sorted(unresolved_failures(), key=lambda r: r.get("ts") or 0)
+    return {"count": len(rows),
+            "reels": [{"code": r.get("code"), "url": r.get("url"),
+                       "error": (r.get("error") or "")[:140], "source": r.get("source")} for r in rows]}
+
+
+@app.post("/api/debug/reference-ledger/seed")
+def api_reference_ledger_seed(req: LedgerSeed, request: Request):
+    """Record failures the ledger never saw (it didn't exist yet) so the backfill can find them."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.reference.intake import log_run, reel_code, unresolved_failures
+    have = {r.get("code") for r in unresolved_failures()}
+    added = 0
+    for u in req.urls:
+        if reel_code(u) not in have:
+            log_run(u, False, req.error, source="recovered")
+            have.add(reel_code(u))
+            added += 1
+    return {"added": added, "owed_now": len(unresolved_failures())}
 
 
 @app.get("/api/debug/reference-regen/{job_id}")

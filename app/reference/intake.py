@@ -35,15 +35,127 @@ def find_reel_url(text: str) -> str | None:
     return m.group(0).rstrip(").,") if m else None
 
 
+def find_reel_urls(text: str) -> list[str]:
+    """EVERY reel link in a message, in order, de-duplicated by post — so a pasted backlog of old
+    links can be fed to the bot in one go."""
+    out, seen = [], set()
+    for m in IG_URL_RX.finditer(text or ""):
+        url = m.group(0).rstrip(").,")
+        code = reel_code(url)
+        if code not in seen:
+            seen.add(code)
+            out.append(url)
+    return out
+
+
+def reel_code(url: str) -> str:
+    m = re.search(r"/(?:reel|reels|p|tv)/([^/?#]+)", url or "")
+    return m.group(1) if m else (url or "")
+
+
+# THE RUN LEDGER (2026-10-29). Until now a failed intake existed only as a log line, and Railway
+# keeps logs per deployment for a limited time — so when the download bugs were finally fixed,
+# only 28 of the operator's 100+ lost reels could still be found. Every run now lands here,
+# on the volume, and the backfill reads it: a failure can no longer quietly disappear.
+_RUNS_PATH = os.path.join("var", "reference_runs.jsonl")
+
+
+def log_run(url: str, ok: bool, error: str | None = None, source: str = "bot") -> None:
+    import json as _json
+    import time as _time
+    try:
+        os.makedirs(os.path.dirname(_RUNS_PATH), exist_ok=True)
+        with open(_RUNS_PATH, "a", encoding="utf-8") as fh:
+            fh.write(_json.dumps({"ts": _time.time(), "url": url, "code": reel_code(url), "ok": ok,
+                                  "error": (error or "")[:300], "source": source}) + "\n")
+    except OSError:
+        pass
+
+
+def unresolved_failures() -> list[dict]:
+    """The latest record per post where the latest attempt FAILED — i.e. still owed a recreation."""
+    import json as _json
+    last: dict[str, dict] = {}
+    try:
+        with open(_RUNS_PATH, encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    rec = _json.loads(line)
+                except ValueError:
+                    continue
+                last[rec.get("code") or rec.get("url")] = rec
+    except OSError:
+        return []
+    return [r for r in last.values() if not r.get("ok")]
+
+
+class AgeRestricted(RuntimeError):
+    """Instagram serves age-restricted posts only to a logged-in session."""
+
+
+def _streams(path: str) -> set[str]:
+    """The stream kinds a file ACTUALLY contains — {"video", "audio"}.
+
+    Parsed per line, first CSV field only. ffprobe appends a trailing comma ("video,") when a
+    stream carries side data — iPhone footage always does (the display-matrix rotation) — and
+    the old whitespace split kept the comma, so `"video" in streams` came back False for a
+    perfectly good file and CopyCat rejected it as "not playable video"."""
+    p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
+                        "-of", "csv=p=0", path], capture_output=True, text=True)
+    if p.returncode != 0:
+        return set()
+    return {ln.split(",")[0].strip() for ln in (p.stdout or "").splitlines() if ln.strip()}
+
+
+def _fetch(url: str, suffix: str) -> str:
+    import requests
+    os.makedirs(_WORK, exist_ok=True)
+    path = os.path.join(_WORK, f"ref_{uuid.uuid4().hex[:10]}{suffix}")
+    with requests.get(url, stream=True, timeout=180) as dl:
+        dl.raise_for_status()
+        with open(path, "wb") as f:
+            for chunk in dl.iter_content(1 << 16):
+                f.write(chunk)
+    return path
+
+
+def _mux(video_src: str, audio_src: str) -> str:
+    """One playable mp4 from a video-only and an audio-only track. Stream copy first (instant,
+    lossless); re-encode only if the container refuses the codecs."""
+    out = os.path.join(_WORK, f"ref_{uuid.uuid4().hex[:10]}.mp4")
+    base = ["ffmpeg", "-y", "-loglevel", "error", "-i", video_src, "-i", audio_src,
+            "-map", "0:v:0", "-map", "1:a:0", "-shortest"]
+    r = subprocess.run(base + ["-c", "copy", "-movflags", "+faststart", out], capture_output=True)
+    if r.returncode != 0 or "video" not in _streams(out) or "audio" not in _streams(out):
+        r = subprocess.run(base + ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                                   "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out],
+                           capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError("couldn't combine the reel's video and audio tracks: "
+                           + (r.stderr or b"")[-200:].decode("utf-8", "replace"))
+    return out
+
+
 def _download_via_apify(url: str) -> str | None:
     """Primary path: Apify's Instagram scraper — no IG login/cookies needed. Returns the local
-    mp4 path, or None to fall through to yt-dlp (missing token, actor error, no video URL)."""
+    mp4 path, or None to fall through to yt-dlp (missing token, actor error, no media).
+
+    SPLIT STREAMS (2026-10-29). Instagram increasingly serves a reel as two DASH tracks — a
+    video-only stream and a separate audio-only stream — and Apify returns them as `videoUrl`
+    and `audioUrl`. We only ever downloaded `videoUrl`, which produced BOTH of CopyCat's
+    mystery errors: when it held the video-only track the reel arrived "without its audio
+    track", and when it held the audio-only one ffprobe found no video and it was "not playable
+    video". Trial reels hit this every time — while a reel is in its trial, no combined
+    progressive file exists yet; once it graduates Instagram makes one and the same link works.
+    So: fetch both, read what each ACTUALLY contains (the labels aren't trustworthy), and mux.
+    """
     from app.config import settings
     token = (getattr(settings, "apify_token", "") or os.environ.get("APIFY_TOKEN")
              or os.environ.get("APIFY_API_TOKEN") or "").strip()
     if not token:
         return None
     import requests
+    tmp: list[str] = []
     try:
         r = requests.post(
             "https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items",
@@ -54,26 +166,53 @@ def _download_via_apify(url: str) -> str | None:
         )
         r.raise_for_status()
         items = r.json() or []
-        video_url = next((it.get("videoUrl") for it in items if it.get("videoUrl")), None)
-        if not video_url:
-            print(f"[intake] apify returned no videoUrl for {url}", flush=True)
+        item = next((it for it in items if it.get("videoUrl") or it.get("audioUrl")), None)
+        if item is None:
+            err = next((it for it in items if it.get("error")), None)
+            if err and "age-restricted" in (err.get("errorDescription") or "").lower():
+                raise AgeRestricted(err.get("errorDescription"))
+            print(f"[intake] apify returned no media for {url}"
+                  + (f" ({err.get('error')}: {err.get('errorDescription')})" if err else ""), flush=True)
             return None
-        os.makedirs(_WORK, exist_ok=True)
-        path = os.path.join(_WORK, f"ref_{uuid.uuid4().hex[:10]}.mp4")
-        with requests.get(video_url, stream=True, timeout=180) as dl:
-            dl.raise_for_status()
-            with open(path, "wb") as f:
-                for chunk in dl.iter_content(1 << 16):
-                    f.write(chunk)
-        return path
+
+        files = []
+        for key, suffix in (("videoUrl", ".mp4"), ("audioUrl", ".m4a")):
+            if item.get(key):
+                p = _fetch(item[key], suffix)
+                tmp.append(p)
+                files.append((p, _streams(p)))
+        both = next((p for p, st in files if {"video", "audio"} <= st), None)
+        if both:
+            tmp.remove(both)
+            return both                                   # one progressive file: nothing to do
+        vid = next((p for p, st in files if "video" in st), None)
+        aud = next((p for p, st in files if "audio" in st and p != vid), None)
+        if vid and aud:
+            print(f"[intake] split streams for {url} — muxing video + audio", flush=True)
+            return _mux(vid, aud)
+        kinds = [sorted(st) for _p, st in files]
+        print(f"[intake] apify media incomplete for {url}: {kinds}", flush=True)
+        return None
+    except AgeRestricted:
+        raise
     except Exception as ex:  # noqa: BLE001 — apify is best-effort; yt-dlp is the fallback
         print(f"[intake] apify path failed ({str(ex)[:120]}) — falling back to yt-dlp", flush=True)
         return None
+    finally:
+        for p in tmp:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
 
 def download_reel(url: str) -> str:
     """Download the reel — Apify scraper first (no IG login), yt-dlp + cookies as fallback."""
-    p = _download_via_apify(url)
+    restricted = False
+    try:
+        p = _download_via_apify(url)
+    except AgeRestricted:
+        p, restricted = None, True
     if p:
         return _validated(p)
     os.makedirs(_WORK, exist_ok=True)
@@ -99,6 +238,12 @@ def download_reel(url: str) -> str:
             ydl.download([url])
     except Exception as ex:  # noqa: BLE001 — surface the real cause, hint the cookie fix
         msg = str(ex)
+        if restricted:
+            raise RuntimeError(
+                "this reel is age-restricted — Instagram only serves it to a logged-in account. "
+                "Upload your instagram.com cookies once (Generate rail → IG cookies) and resend it."
+                + (" (Cookies are uploaded but seem expired — re-export and upload fresh ones.)"
+                   if os.path.exists(cookies) else "")) from ex
         if "empty media response" in msg or "login" in msg.lower() or "cookies" in msg.lower():
             raise RuntimeError(
                 "Instagram now requires login cookies for downloads. Upload your instagram.com "
@@ -119,10 +264,8 @@ def download_reel(url: str) -> str:
 
 def _validated(path: str) -> str:
     """ffprobe the download BEFORE ffmpeg so failures are readable, not exit-code soup."""
-    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
-                            "-of", "csv=p=0", path], capture_output=True, text=True)
-    streams = set((probe.stdout or "").split())
-    if probe.returncode != 0 or "video" not in streams:
+    streams = _streams(path)
+    if "video" not in streams:
         raise RuntimeError("the downloaded file isn't playable video (Instagram likely served an "
                            "error page — check the Apify token / IG cookies)")
     if "audio" not in streams:
@@ -433,7 +576,7 @@ _REFERENCE_FONT = "altehaas_sc"   # CopyCat renders in Alte Haas Grotesk, senten
 
 
 def process_reel_link(url: str, notify=lambda s: None, on_result=None,
-                      only_profile: str | None = None) -> list[dict]:
+                      only_profile: str | None = None, source: str = "bot") -> list[dict]:
     """The full intake: download → audio + caption → recreate for every reference-active profile.
     notify(text) receives human-readable progress (the Telegram bot forwards it). Every stage
     ALSO prints to stdout — the debug endpoint's HTTP response dies at the Railway edge on long
@@ -453,9 +596,13 @@ def process_reel_link(url: str, notify=lambda s: None, on_result=None,
         notify("no profiles are toggled 'reference active' in the studio — nothing to recreate")
         return []
     notify(f"downloading the reference…")
-    video = download_reel(url)
-    audio = extract_audio(video)
-    spans = extract_caption_timeline(video, video_duration(video))
+    try:
+        video = download_reel(url)
+        audio = extract_audio(video)
+        spans = extract_caption_timeline(video, video_duration(video))
+    except Exception as ex:  # noqa: BLE001 — record it so it can be backfilled, then surface it
+        log_run(url, False, str(ex), source=source)
+        raise
     if len(spans) == 1:
         cap_desc = f'caption read off the reference:\n"{spans[0]["text"]}"'
     else:
@@ -482,4 +629,7 @@ def process_reel_link(url: str, notify=lambda s: None, on_result=None,
         os.remove(video)
     except OSError:
         pass
+    ok = any(r.get("ok") for r in results)
+    log_run(url, ok, None if ok else "; ".join(str(r.get("error") or "")[:120] for r in results),
+            source=source)
     return results
