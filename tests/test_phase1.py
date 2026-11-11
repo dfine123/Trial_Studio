@@ -1696,6 +1696,19 @@ def stacked_reference_captions_size_like_the_reference():
     assert ci._sentence_case("first beat\n\nsecond beat") == "First beat\n\nSecond beat"
 
 
+@test
+def caption_layout_survives_one_flat_reading():
+    """The same caption is read on many frames. If the FIRST read dropped the line breaks, the
+    stacked layout used to be lost; the reading that keeps the most of the layout wins."""
+    from app.reference import intake
+    stack = "you cant\ncompete with\nme, i want\nyou to win\ntoo."
+    flat = "you cant compete with me, i want you to win too."
+    with patched(intake, _transcribe_frames=lambda v, times: [flat] + [stack] * (len(times) - 1),
+                 _refine_boundary=lambda *a, **k: None):
+        spans = intake.extract_caption_timeline("x.mp4", 6.0)
+    assert len(spans) == 1 and spans[0]["text"] == stack, spans
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

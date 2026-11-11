@@ -334,8 +334,10 @@ def _transcribe_frames(video_path: str, times: list[float]) -> list[str]:
                     f"These {len(kept)} frames are consecutive time samples from ONE short-form "
                     "reel whose text caption is overlaid on the video and may CHANGE partway "
                     "through. For EACH frame, in order, transcribe the overlay caption text "
-                    "EXACTLY as written — same casing, same punctuation, same emoji, line breaks "
-                    'as \\n; use "" when a frame has no overlay caption. The same on-screen text '
+                    "EXACTLY as written — same casing, same punctuation, same emoji — and keep its "
+                    "LAYOUT: every visual line of the caption on screen is its own line, joined "
+                    "with \\n, exactly where the line ends on screen (never reflow several lines "
+                    'into one sentence); use "" when a frame has no overlay caption. The same on-screen text '
                     "must be transcribed IDENTICALLY on every frame it appears in. Ignore "
                     "usernames, watermarks, UI elements, and subtitles of spoken audio. Return "
                     'ONLY JSON: {"captions": ["frame 1 text", "frame 2 text", ...]} with exactly '
@@ -421,10 +423,19 @@ def extract_caption_timeline(video_path: str, duration: float) -> list[dict]:
             continue
         if spans and _norm_cap(spans[-1]["text"]) == _norm_cap(c):
             spans[-1]["_last_t"] = t0
+            spans[-1]["_reads"].append(c.strip())
             continue
-        spans.append({"text": c.strip(), "_first_t": t0, "_last_t": t0})
+        spans.append({"text": c.strip(), "_first_t": t0, "_last_t": t0, "_reads": [c.strip()]})
     if not spans:
         raise RuntimeError("no caption text found on the reference frames")
+    # LAYOUT VOTE (2026-11-11): the same caption is read on many frames, and a reading that
+    # drops the line breaks is far likelier than one that invents them. The span used to keep
+    # the FIRST frame's reading, so one flat read turned a five-line stack into a single
+    # sentence. Keep the reading that preserves the most of the on-screen layout; ties go to
+    # the reading most frames agreed on.
+    for sp in spans:
+        reads = sp.pop("_reads")
+        sp["text"] = max(reads, key=lambda r: (r.count("\n"), reads.count(r)))
 
     # timing: a span starts at the midpoint between it and the previous DIFFERENT sample
     for i, sp in enumerate(spans):
