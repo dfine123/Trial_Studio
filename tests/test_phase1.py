@@ -1663,6 +1663,39 @@ def fresh_clip_window_counts_down_and_switches_off():
             assert intake._consume_window("brandon") is None
 
 
+@test
+def stacked_reference_captions_size_like_the_reference():
+    """A reference that stacks its caption over short lines ("you cant / compete with / me, i
+    want / you to win / too.") used to shrink to the floor — the fit loop counted the typed breaks
+    as overflow it could never remove — and capitalised every line. Now it sizes UP like the
+    reference, keeps one sentence's case, and a plain one-liner is untouched."""
+    import re as _re
+    from app.render import caption_image as ci
+
+    sizes = {}
+    real = ci._load_font
+
+    def spy(size, weight=800, style="base"):
+        sizes["last"] = size
+        return real(size, weight, style)
+
+    stack = "you cant\ncompete with\nme, i want\nyou to win\ntoo."
+    with tempfile.TemporaryDirectory() as td, patched(ci, _load_font=spy):
+        ci.render_caption_png(stack, os.path.join(td, "a.png"), width=1080, height=1920,
+                              font_style="jakarta_sc")
+        stacked = sizes["last"]
+        ci.render_caption_png("those late nights will pay off bro", os.path.join(td, "b.png"),
+                              width=1080, height=1920, font_style="jakarta_sc")
+        single = sizes["last"]
+    normal = int(56 * ci._FONT_STYLES["jakarta_sc"]["size_mult"])
+    assert single == normal, (single, normal)                # one-liners unchanged
+    assert stacked > normal, (stacked, normal)               # the stack scales UP, never to the floor
+
+    assert ci._sentence_case(stack) == "You cant\ncompete with\nme, I want\nyou to win\ntoo."
+    # a blank line (the engine's stanza break) still opens a sentence
+    assert ci._sentence_case("first beat\n\nsecond beat") == "First beat\n\nSecond beat"
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

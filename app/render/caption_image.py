@@ -151,7 +151,8 @@ _FONT_STYLES: dict[str, dict] = {
     # ExtraBold — a step bolder and ~15% larger than Alte Haas, same stroke/shadow/spacing.
     # size_mult is the x-height match to Alte Haas x 1.15, i.e. exactly what was approved.
     "jakarta_sc": {"path": "fonts/PlusJakartaSans.ttf", "var": "ExtraBold", "size_mult": 0.8481,
-                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
+                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence",
+                   "stack_fit": 0.40, "stack_spacing": 0.12},   # a reference's own line-stack sizes up to match it
     "altehaas_sc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.78,
                    "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
     "altehaas_lc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.80,
@@ -223,7 +224,11 @@ def _sentence_case(text: str) -> str:
     the voice's own styling) is left alone; only sentence openings and bare "i" are touched.
     """
     import re as _re
-    out = _re.sub(r"(^|[.!?]\s+|\n\s*)([a-z])",
+    # A sentence opens at the start, after . ! ?, or after a BLANK line (the engine's stanza
+    # break). A single line break is LAYOUT — references stack one sentence over several short
+    # lines ("you cant / compete with / me, i want…"), and treating each break as a new sentence
+    # capitalised every line ("Compete with / Me, I want / You to win / Too").
+    out = _re.sub(r"(^|[.!?]\s+|\n[ \t]*\n\s*)([a-z])",
                   lambda m: m.group(1) + m.group(2).upper(), text)
     return _re.sub(r"\bi\b", "I", out)
 
@@ -279,6 +284,12 @@ def _load_font(size: int, weight: int = 800, style: str = "base") -> ImageFont.F
     return font
 
 
+def _block_h(size: int, weight: int, font_style: str, spec: dict, n_lines: int) -> float:
+    """Height of an n-line caption block at this size (same metrics the layout uses)."""
+    ascent, descent = _load_font(size, weight, font_style).getmetrics()
+    return n_lines * (ascent + descent) + max(0, n_lines - 1) * int(size * spec["spacing"])
+
+
 def _wrap(paras: list[str], font, max_w: float, draw: ImageDraw.ImageDraw, tpx: int = 0) -> list[str]:
     """Word-wrap each paragraph to max_w; keep blank lines as stanza gaps (the engine's \\n\\n)."""
     out: list[str] = []
@@ -320,23 +331,50 @@ def render_caption_png(
     width = width or settings.reel_width
     height = height or settings.reel_height
     max_w = width * margin_frac
-    paras = [_style_line(p, spec) if p.strip() else p for p in text.split("\n")]
+    paras = _style_line(text, spec).split("\n")
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
 
     font_size = int(font_size * spec["size_mult"])
     min_font = int(min_font * spec["size_mult"])
     size = font_size
-    while size > min_font:
-        lines = _wrap(paras, _load_font(size, weight, font_style), max_w, probe, _track_px(size, spec))
-        if sum(1 for ln in lines if ln) <= max_lines:
-            break
-        size -= 3
+    stacked = [p for p in paras if p.strip()]
+    if spec.get("stack_fit") and len(stacked) >= 2:
+        # STACKED CAPTIONS (CopyCat, 2026-11-11). When the reference breaks its caption over
+        # several short lines, those breaks are the LAYOUT — and the old loop below, built to
+        # shrink WRAPPED text until it fit in four lines, can't remove a break that was typed:
+        # a five-line stack shrank to the floor every time ("you cant compete with me" came out
+        # the smallest caption in the batch). So a stack is sized like the reference sizes it:
+        # the longest line spans ~STACK_FIT of the frame, never below the normal size, capped so
+        # the block can't swallow the shot.
+        def longest_at(sz: int) -> float:
+            f = _load_font(sz, weight, font_style)
+            return max(_line_w(ln, f, probe, _track_px(sz, spec)) for ln in stacked)
+        target = width * float(spec.get("stack_fit") or 0.40)
+        size = int(font_size * target / max(1.0, longest_at(font_size)))
+        size = max(font_size, min(size, int(font_size * 1.7)))
+        while size > font_size:                              # keep every line on its own line
+            if longest_at(size) <= max_w and \
+                    _block_h(size, weight, font_style, {**spec, "spacing": spec.get("stack_spacing",
+                             spec["spacing"])}, len(paras)) <= height * 0.42:
+                break
+            size -= 2
+    else:
+        while size > min_font:
+            lines = _wrap(paras, _load_font(size, weight, font_style), max_w, probe, _track_px(size, spec))
+            if sum(1 for ln in lines if ln) <= max_lines:
+                break
+            size -= 3
 
     font = _load_font(size, weight, font_style)
     tpx = _track_px(size, spec)
     lines = _wrap(paras, font, max_w, probe, tpx)
     stroke = max(2, round(size * (spec.get("stroke_frac") or stroke_frac))) if spec["stroke"] else 0
-    spacing = int(size * spec["spacing"])
+    # a stack reads as ONE block in the references (tight leading); the normal gap was tuned for
+    # one or two lines at the smaller size and turns a five-line stack into a loose ladder
+    # only once the stack has actually been scaled UP — a stack that stays at the normal size
+    # keeps the normal look exactly
+    is_stack = bool(spec.get("stack_fit")) and len(stacked) >= 2 and size > font_size
+    spacing = int(size * (spec.get("stack_spacing", spec["spacing"]) if is_stack else spec["spacing"]))
 
     # Lay the lines out MANUALLY and render each as a SINGLE Pilmoji call — Pilmoji's own multiline
     # rendering botches the stroke on every line past the first, so we stack the lines ourselves
