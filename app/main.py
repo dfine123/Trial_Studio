@@ -2354,8 +2354,10 @@ def api_reference_regen(req: RegenJob, request: Request):
         for i, url in enumerate(req.urls, 1):
             tell(f"({i}/{n}) {url}")
             try:
-                out = process_reel_link(url, on_result=deliver, source="backfill",
-                                        only_profile=str(req.profile_id) if req.profile_id else None)
+                from app.reference.intake import RUN_LOCK
+                with RUN_LOCK:             # waits its turn behind any CopyCat job in flight
+                    out = process_reel_link(url, on_result=deliver, source="backfill",
+                                            only_profile=str(req.profile_id) if req.profile_id else None)
                 if any(r.get("ok") for r in out):
                     job["ok"] += 1
                 else:
@@ -2413,6 +2415,60 @@ def api_reference_regen_status(job_id: str, request: Request):
     if job is None:
         raise HTTPException(status_code=404, detail="no such job (a deploy clears them)")
     return job
+
+
+class CopycatWindow(BaseModel):
+    count: int = 20                       # how many CopyCat videos it lasts
+    since: float | None = None            # epoch seconds; default = start of today, New York
+    off: bool = False
+
+
+def _today_start_ny() -> float:
+    import datetime as _dt
+    from zoneinfo import ZoneInfo
+    now = _dt.datetime.now(ZoneInfo("America/New_York"))
+    return now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def _window_report(pid: uuid.UUID, since: float) -> dict:
+    """What 'today's clips' means right now: how many arrived since `since`, by indexing state,
+    and how many of them CopyCat can actually use."""
+    from app.reference.intake import get_window, window_clip_ids
+    with SessionLocal() as s:
+        import datetime as _dt
+        rows = s.execute(select(Clip.status).where(
+            Clip.user_id == pid,
+            Clip.created_at >= _dt.datetime.fromtimestamp(since, tz=_dt.timezone.utc))).all()
+    by: dict[str, int] = {}
+    for (st,) in rows:
+        by[st] = by.get(st, 0) + 1
+    return {"since": since, "arrived": sum(by.values()), "by_status": by,
+            "still_indexing": by.get("uploaded", 0) + by.get("indexing", 0),
+            "usable_by_copycat": len(window_clip_ids(pid, since)),
+            "window": get_window(pid)}
+
+
+@app.get("/api/debug/copycat-window")
+def api_copycat_window_get(request: Request, profile_id: uuid.UUID):
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.reference.intake import get_window
+    w = get_window(profile_id)
+    return _window_report(profile_id, (w or {}).get("since") or _today_start_ny())
+
+
+@app.post("/api/debug/copycat-window")
+def api_copycat_window_set(req: CopycatWindow, request: Request, profile_id: uuid.UUID):
+    """Arm (or disarm) 'the next N CopyCat videos only use clips uploaded since X' for a profile."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="operator only")
+    from app.reference.intake import clear_window, set_window
+    since = req.since or _today_start_ny()
+    if req.off:
+        clear_window(profile_id)
+    else:
+        set_window(profile_id, since, req.count)
+    return _window_report(profile_id, since)
 
 
 @app.get("/api/clips/retire-view")

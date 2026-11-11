@@ -1599,6 +1599,70 @@ def run_ledger_tracks_what_is_still_owed():
     assert [intake.reel_code(u) for u in intake.find_reel_urls(msg)] == ["AAA", "BBB"]
 
 
+@test
+def copycat_queue_runs_one_at_a_time_in_order():
+    """Reels sent back to back used to render simultaneously and error. They now line up: one
+    worker, FIFO, never two at once — and each sender is told their place in line."""
+    import threading as _th
+    import time as _t
+    from app.reference import telegram as tg
+
+    ran, live, peak = [], [0], [0]
+
+    def fake_link(token, job):
+        live[0] += 1; peak[0] = max(peak[0], live[0])
+        _t.sleep(0.05)
+        ran.append(job["url"]); live[0] -= 1
+
+    sent = []
+    with tempfile.TemporaryDirectory() as td:
+        with patched(tg, _Q=tg._queue.Queue(), _QUEUE_PATH=os.path.join(td, "q.json"),
+                     _run_link=fake_link, _send=lambda *a, **k: sent.append(a[2]),
+                     _BUSY={"job": None}, _PENDING=[]):
+            _th.Thread(target=tg._worker, args=("tok",), daemon=True).start()
+            for code in ("AAA", "BBB", "CCC"):
+                tg._handle("tok", {"chat": {"id": 1},
+                                   "text": f"https://www.instagram.com/reel/{code}/"})
+            tg._Q.join()
+            assert ran == [f"https://www.instagram.com/reel/{c}/" for c in ("AAA", "BBB", "CCC")], ran
+            assert peak[0] == 1, f"{peak[0]} ran at once"
+            assert any("in line" in m for m in sent), sent          # later ones told their place
+            assert tg._PENDING == []                                 # finished jobs leave the file
+
+
+@test
+def copycat_queue_survives_a_restart():
+    """Link jobs waiting when the app restarts are picked back up, not lost."""
+    import json as _j
+    from app.reference import telegram as tg
+    with tempfile.TemporaryDirectory() as td:
+        qp = os.path.join(td, "q.json")
+        with open(qp, "w") as fh:
+            _j.dump([{"id": "x1", "kind": "link", "url": "https://www.instagram.com/reel/ZZZ/",
+                      "chat_id": 7}], fh)
+        with patched(tg, _Q=tg._queue.Queue(), _QUEUE_PATH=qp, _send=lambda *a, **k: None,
+                     _BUSY={"job": None}, _PENDING=[]):
+            tg._resume("tok")
+            job = tg._Q.get_nowait()
+            assert job["url"].endswith("/ZZZ/") and job["chat_id"] == 7
+
+
+@test
+def fresh_clip_window_counts_down_and_switches_off():
+    """'Next N videos use only today's clips' — each video spends one, and at zero the profile is
+    back on its full library without anyone remembering to turn it off."""
+    from app.reference import intake
+    with tempfile.TemporaryDirectory() as td:
+        with patched(intake, _WINDOW_PATH=os.path.join(td, "w.json")):
+            intake.set_window("brandon", 1000.0, 2)
+            assert intake.get_window("brandon")["remaining"] == 2
+            assert intake.get_window("shafar") is None              # per profile
+            assert intake._consume_window("brandon") == 1
+            assert intake._consume_window("brandon") == 0
+            assert intake.get_window("brandon") is None              # turned itself off
+            assert intake._consume_window("brandon") is None
+
+
 if __name__ == "__main__":
     failed = 0
     for fn in _RESULTS:

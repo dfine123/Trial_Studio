@@ -29,6 +29,12 @@ IG_URL_RX = re.compile(r"https?://(?:www\.)?instagram\.com/(?:reel|reels|p|share
 
 _WORK = os.path.join("tmp", "reference")
 
+# ONE CopyCat render at a time, across every caller — the bot's queue worker and the operator
+# backfill both take this, so they line up instead of overlapping (overlap was the source of
+# the errors when a second reel arrived while one was still rendering).
+import threading as _threading
+RUN_LOCK = _threading.RLock()
+
 
 def find_reel_url(text: str) -> str | None:
     m = IG_URL_RX.search(text or "")
@@ -542,6 +548,16 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
             segs0, *_ = _load_segments()
             rest = sorted({s0["clip_id"] for s0 in segs0} - set(exclude_clip_ids))
             allowed = rest if len(rest) >= 3 else None
+        window = None if only_clip_ids else get_window(pid)
+        if window:
+            fresh = window_clip_ids(pid, window["since"])
+            if not fresh:
+                raise RuntimeError("today's-clips mode is on for this profile, but none of "
+                                   "today's clips are indexed yet — give it a few minutes")
+            # a reroll moves to today's OTHER clips; once those run out it may reuse today's,
+            # but it never falls back to older footage while the window is on
+            left = [c for c in fresh if c not in set(exclude_clip_ids or [])]
+            allowed = left if len(left) >= 3 else fresh
         out_path = os.path.join(_WORK, f"recreation_{uuid.uuid4().hex[:10]}.mp4")
         parts = personalize_caption_parts([sp["text"] for sp in spans], pid)
         if len(spans) == 1:
@@ -565,14 +581,87 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
             final_caption = "  /  ".join(parts)
         stem = "ref_" + time.strftime("%Y%m%d_%H%M%S")
         up = drive_export.upload_reference(pid, out_path, stem)
+        window_left = _consume_window(pid) if window else None
         return {"ok": True, "caption": final_caption, "link": up.get("link"),
                 "duration": res.get("duration"), "clips": res.get("clips"),
-                "spans": res.get("spans")}
+                "spans": res.get("spans"), "window_left": window_left}
     finally:
         profiles.reset_request_uid(token)
 
 
 _REFERENCE_FONT = "altehaas_sc"   # CopyCat renders in Alte Haas Grotesk, sentence case (operator)
+
+
+# ── FRESH-CLIP WINDOW (2026-11-10) ───────────────────────────────────────────────────────────
+# Operator: "the next 20 CopyCat videos should only use the clips uploaded today." A per-profile
+# switch with a COUNT, so it turns itself off after N videos instead of quietly lingering. It
+# touches CopyCat only — Studio reels are unaffected — and the bench still applies inside it.
+_WINDOW_PATH = os.path.join("var", "copycat_window.json")   # {pid: {since, remaining, total}}
+_WINDOW_LOCK = _threading.Lock()
+
+
+def _windows() -> dict:
+    try:
+        with open(_WINDOW_PATH, encoding="utf-8") as fh:
+            return json.load(fh) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_windows(data: dict) -> None:
+    os.makedirs(os.path.dirname(_WINDOW_PATH), exist_ok=True)
+    tmp = _WINDOW_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh)
+    os.replace(tmp, _WINDOW_PATH)
+
+
+def get_window(pid) -> dict | None:
+    w = _windows().get(str(pid))
+    return w if w and int(w.get("remaining") or 0) > 0 else None
+
+
+def set_window(pid, since: float, count: int) -> dict:
+    with _WINDOW_LOCK:
+        data = _windows()
+        data[str(pid)] = {"since": float(since), "remaining": int(count), "total": int(count)}
+        _save_windows(data)
+        return data[str(pid)]
+
+
+def clear_window(pid) -> None:
+    with _WINDOW_LOCK:
+        data = _windows()
+        data.pop(str(pid), None)
+        _save_windows(data)
+
+
+def _consume_window(pid) -> int | None:
+    """One CopyCat video used the window; returns what's left (None = no window). At zero the
+    window removes itself and the profile is back on its whole library."""
+    with _WINDOW_LOCK:
+        data = _windows()
+        w = data.get(str(pid))
+        if not w:
+            return None
+        w["remaining"] = max(0, int(w.get("remaining") or 0) - 1)
+        if w["remaining"] == 0:
+            data.pop(str(pid), None)
+            print(f"[ref] fresh-clip window for {pid} used up — back to the full library", flush=True)
+        _save_windows(data)
+        return w["remaining"]
+
+
+def window_clip_ids(pid, since: float) -> list[str]:
+    """This profile's selectable clips (bench already applied) uploaded at/after `since`."""
+    from app import profiles
+    from app.generate.generator import _load_segments
+    token = profiles.set_request_uid(pid)
+    try:
+        _segs, _dur, meta, _emb = _load_segments()
+    finally:
+        profiles.reset_request_uid(token)
+    return sorted(cid for cid, m in meta.items() if float(m.get("created_ts") or 0) >= since)
 
 
 def process_reel_link(url: str, notify=lambda s: None, on_result=None,
