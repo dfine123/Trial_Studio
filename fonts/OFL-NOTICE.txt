@@ -13,3 +13,4 @@ Bundled caption fonts — all licensed under the SIL Open Font License 1.1
 Fontshare (Indian Type Foundry) — ITF Free Font Licence, free for personal and commercial use:
   ClashDisplay, CabinetGrotesk, Switzer, Supreme, Satoshi, GeneralSans — https://www.fontshare.com
 - Boldonse, HostGrotesk, SchibstedGrotesk, FunnelDisplay, InstrumentSans, Anybody — SIL OFL 1.1 via google/fonts
+- PlusJakartaSans.ttf — Copyright 2020 The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans)

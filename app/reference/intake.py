@@ -589,7 +589,8 @@ def recreate_for_profile(pid, spans: list[dict], audio_path: str,
         profiles.reset_request_uid(token)
 
 
-_REFERENCE_FONT = "altehaas_sc"   # CopyCat renders in Alte Haas Grotesk, sentence case (operator)
+_REFERENCE_FONT = "jakarta_sc"    # CopyCat renders in Plus Jakarta Sans ExtraBold, sentence case
+                                  # (operator, 2026-11-10; was Alte Haas Grotesk)
 
 
 # ── FRESH-CLIP WINDOW (2026-11-10) ───────────────────────────────────────────────────────────

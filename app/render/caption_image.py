@@ -147,6 +147,11 @@ _FONT_STYLES: dict[str, dict] = {
     # operator-supplied face, under evaluation for the CopyCat caption (2026-07-22)
     "altehaas": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.72,
                    "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.64, "tracking": 1, "case": "upper"},
+    # CopyCat's font since 2026-11-10 (operator pick from 18 options): Plus Jakarta Sans
+    # ExtraBold — a step bolder and ~15% larger than Alte Haas, same stroke/shadow/spacing.
+    # size_mult is the x-height match to Alte Haas x 1.15, i.e. exactly what was approved.
+    "jakarta_sc": {"path": "fonts/PlusJakartaSans.ttf", "var": "ExtraBold", "size_mult": 0.8481,
+                   "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
     "altehaas_sc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.78,
                    "stroke": True, "stroke_frac": 0.045, "shadow": True, "spacing": 0.50, "tracking": 0, "case": "sentence"},
     "altehaas_lc": {"path": "fonts/AlteHaasGrotesk.ttf", "var": None, "size_mult": 0.80,
